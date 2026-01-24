@@ -114,41 +114,26 @@ void JointStateConverter::callAll( const std::vector<message_actions::MessageAct
 //  std::transform( msg_joint_states_.name.begin(), msg_joint_states_.name.end(), msg_joint_states_.position.begin(),
 //                  std::inserter( joint_state_map, joint_state_map.end() ),
 //                  std::make_pair);
-  // Build joint_state_map first
-std::vector<double>::const_iterator itPos = msg_joint_states_.position.begin();
-for(std::vector<std::string>::const_iterator itName = msg_joint_states_.name.begin();
-    itName != msg_joint_states_.name.end();
-    ++itName, ++itPos)
-{
-  joint_state_map[*itName] = *itPos;
-}
+  std::vector<double>::const_iterator itPos = msg_joint_states_.position.begin();
+  for(std::vector<std::string>::const_iterator itName = msg_joint_states_.name.begin();
+      itName != msg_joint_states_.name.end();
+      ++itName, ++itPos)
+  {
+    joint_state_map[*itName] = *itPos;
 
-  // Batch fetch velocity and torque - single network call
-  std::vector<std::string> all_keys;
-  all_keys.reserve(msg_joint_states_.name.size() * 2);
-  for (const auto& name : msg_joint_states_.name) {
-    all_keys.push_back("Motion/Velocity/Sensor/" + name);
-    all_keys.push_back("Motion/Torque/Sensor/" + name);
-  }
+    try {
+      al_joint_velocities.push_back(p_memory_.call<double>(
+        "getData",
+        "Motion/Velocity/Sensor/" + (*itName)));
 
-  try {
-    std::vector<qi::AnyValue> all_values = p_memory_.call<std::vector<qi::AnyValue>>("getListData", all_keys);
-    
-    // Unpack: even indices = velocity, odd indices = torque
-    for (size_t i = 0; i < msg_joint_states_.name.size(); ++i) {
-      try {
-        al_joint_velocities.push_back(all_values[i * 2].toDouble());
-        al_joint_torques.push_back(all_values[i * 2 + 1].toDouble());
-      } catch (...) {
+      al_joint_torques.push_back(p_memory_.call<double>(
+        "getData",
+        "Motion/Torque/Sensor/" + (*itName)));
+
+    } catch (qi::FutureUserException e) {
+        // Sets the velocity and torques field to nan if no info is provided
         al_joint_velocities.push_back(std::numeric_limits<double>::quiet_NaN());
         al_joint_torques.push_back(std::numeric_limits<double>::quiet_NaN());
-      }
-    }
-  } catch (qi::FutureUserException& e) {
-    // Fallback: fill with NaN if batch call fails
-    for (size_t i = 0; i < msg_joint_states_.name.size(); ++i) {
-      al_joint_velocities.push_back(std::numeric_limits<double>::quiet_NaN());
-      al_joint_torques.push_back(std::numeric_limits<double>::quiet_NaN());
     }
   }
 
@@ -173,7 +158,7 @@ for(std::vector<std::string>::const_iterator itName = msg_joint_states_.name.beg
    * ODOMETRY
    */
   const rclcpp::Time &odom_stamp = stamp;
-  const float& odomX  =  al_odometry_data[0];
+  const float &odomX = al_odometry_data[0];
   const float& odomY  =  al_odometry_data[1];
   const float& odomZ  =  al_odometry_data[2];
   const float& odomWX =  al_odometry_data[3];

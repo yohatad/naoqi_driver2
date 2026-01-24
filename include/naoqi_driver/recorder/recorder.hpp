@@ -22,7 +22,7 @@
 
 #include <boost/make_shared.hpp>
 #include <boost/shared_ptr.hpp>
-# include <boost/thread/mutex.hpp>
+#include <boost/thread/mutex.hpp>
 
 #include <rclcpp/rclcpp.hpp>
 // #include <rosbag/bag.h>

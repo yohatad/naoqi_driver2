@@ -239,7 +239,7 @@ namespace
   }
 }
 
-rclcpp_action::Server<Listen>::SharedPtr
+rclcpp_action::Server<Listen>::SharedPtr 
 createListenServer(rclcpp::Node* node, qi::SessionPtr session)
 {
   namespace ph = std::placeholders;

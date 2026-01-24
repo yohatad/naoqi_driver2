@@ -24,9 +24,9 @@
 */
 #include <qi/os.hpp>
 
-#include <stdlib.h>
-
-#include <boost/algorithm/string.hpp>
+#include <string>
+#include <map>
+#include <vector>
 
 namespace naoqi
 {
@@ -36,37 +36,13 @@ namespace ros_env
 /** Queries NAOqi to get the IP
  * @param network_interface the name of the network interface to use. "eth0" by default. If you put your NAO in
  * tethering mode, you will need to put "tether"
+ * @throws std::runtime_error if the network interface is not found
  */
-static std::string getROSIP(std::string network_interface)
-{
-  if (network_interface.empty())
-    network_interface = "eth0";
+std::string getROSIP(std::string network_interface);
 
-  typedef std::map< std::string, std::vector<std::string> > Map_IP;
-  Map_IP map_ip = static_cast<Map_IP>(qi::os::hostIPAddrs());
-  if ( map_ip.find(network_interface) == map_ip.end() ) {
-    std::cerr << "Could not find network interface named " << network_interface << ", possible interfaces are ... ";
-    for (Map_IP::iterator it=map_ip.begin(); it!=map_ip.end(); ++it) std::cerr << it->first <<  " ";
-    std::cerr << std::endl;
-    exit(1);
-  }
+void setPrefix(std::string s);
 
-  static const std::string ip = map_ip[network_interface][0];
-  return ip;
-}
-
-static std::string prefix = "";
-
-static void setPrefix( std::string s )
-{
-  prefix = s;
-  std::cout << "set prefix successfully to " << prefix << std::endl;
-}
-
-static std::string getPrefix()
-{
-  return prefix;
-}
+std::string getPrefix();
 
 
 } // ros_env

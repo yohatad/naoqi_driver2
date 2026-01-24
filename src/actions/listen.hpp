@@ -7,7 +7,7 @@ namespace naoqi
 namespace action {
 
 rclcpp_action::Server<naoqi_bridge_msgs::action::Listen>::SharedPtr
-createListenServer(rclcpp::Node* node, qi::SessionPtr sesssion);
+createListenServer(rclcpp::Node* node, qi::SessionPtr session);
 
 } // ends namespace action
 } // ends namespace naoqi

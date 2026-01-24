@@ -21,12 +21,13 @@
 
 #include <vector>
 #include <queue>
+#include <mutex>
+#include <atomic>
 
 /*
 * BOOST
 */
 #include <boost/property_tree/ptree.hpp>
-#include <boost/thread/mutex.hpp>
 
 /*
 * ALDEB
@@ -242,7 +243,7 @@ private:
   bool publish_enabled_;
   bool record_enabled_;
   bool log_enabled_;
-  bool keep_looping;
+  std::atomic<bool> keep_looping;
   bool has_stereo;
 
   const size_t freq_;
@@ -271,8 +272,8 @@ private:
 
   void rosIteration();
 
-  boost::mutex mutex_conv_queue_;
-  boost::mutex mutex_record_;
+  std::mutex mutex_conv_queue_;
+  std::mutex mutex_record_;
 
   std::vector< converter::Converter > converters_;
   std::map< std::string, publisher::Publisher > pub_map_;

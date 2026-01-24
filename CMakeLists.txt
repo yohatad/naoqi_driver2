@@ -3,6 +3,7 @@ project(naoqi_driver)
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(diagnostic_msgs REQUIRED)
@@ -71,6 +72,7 @@ set(
 set(
   ACTIONS_SRC
   src/actions/listen.cpp
+  src/actions/led.cpp
 )
 
 set(
@@ -92,6 +94,7 @@ set(
   src/event/basic.hpp
   src/event/audio.cpp
   src/event/touch.cpp
+  src/ros_env.cpp
 )
 
 add_definitions(-DLIBQI_VERSION=${naoqi_libqi_VERSION_MAJOR}${naoqi_libqi_VERSION_MINOR})

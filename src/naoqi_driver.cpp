@@ -152,13 +152,8 @@ void Driver::run()
   // A single iteration will propagate registrations, etc...
   rosIteration();
 
-  std::cout << BOLDYELLOW
-            << "naoqi_driver initialized"
-            << RESETCOLOR
-            << std::endl;
-
   {
-    boost::mutex::scoped_lock lock( mutex_conv_queue_ );
+    std::lock_guard<std::mutex> lock( mutex_conv_queue_ );
 
     if(converters_.empty())
     {
@@ -243,7 +238,7 @@ void Driver::rosIteration() {
   std::vector<message_actions::MessageAction> actions;
 
   {
-    boost::mutex::scoped_lock lock( mutex_conv_queue_ );
+    std::lock_guard<std::mutex> lock( mutex_conv_queue_ );
     if (!conv_queue_.empty())
     {
       // Wait for the next Publisher to be ready
@@ -267,7 +262,7 @@ void Driver::rosIteration() {
       // 3. has to be subscribed (configured to be recorded)
       RecConstIter rec_it = rec_map_.find( conv.name() );
       {
-        boost::mutex::scoped_lock lock_record( mutex_record_, boost::try_to_lock );
+        std::unique_lock<std::mutex> lock_record( mutex_record_, std::try_to_lock );
         if ( lock_record && record_enabled_ && rec_it != rec_map_.end() && rec_it->second.isSubscribed() )
         {
           actions.push_back(message_actions::RECORD);
@@ -350,7 +345,7 @@ std::string Driver::minidump(const std::string& prefix)
   rclcpp::Time time = this->now();
 
   // START A NEW ROSBAG
-  boost::mutex::scoped_lock lock_record( mutex_record_ );
+  std::lock_guard<std::mutex> lock_record( mutex_record_ );
   recorder_->startRecord(prefix);
 
   // WRITE ALL BUFFER INTO THE ROSBAG
@@ -409,7 +404,7 @@ std::string Driver::minidumpConverters(const std::string& prefix, const std::vec
   rclcpp::Time time = this->now();
 
   // WRITE CHOOSEN BUFFER INTO THE ROSBAG
-  boost::mutex::scoped_lock lock_record( mutex_record_ );
+  std::lock_guard<std::mutex> lock_record( mutex_record_ );
 
   bool is_started = false;
   for( const std::string& name: names)
@@ -477,7 +472,7 @@ float Driver::getBufferDuration()
 
 void Driver::registerConverter( converter::Converter& conv )
 {
-  boost::mutex::scoped_lock lock( mutex_conv_queue_ );
+  std::lock_guard<std::mutex> lock( mutex_conv_queue_ );
   int conv_index = converters_.size();
   converters_.push_back( conv );
   conv.reset();
@@ -993,7 +988,7 @@ void Driver::registerDefaultSubscriber()
 {
   if (!subscribers_.empty())
     return;
-  registerSubscriber( boost::make_shared<naoqi::subscriber::TeleopSubscriber>("teleop", "/cmd_vel", "/joint_angles", sessionPtr_) );
+  registerSubscriber( boost::make_shared<naoqi::subscriber::TeleopSubscriber>("teleop", "/cmd_vel", "/joint_angles",  "/joint_angle_trajectory", sessionPtr_) );
   registerSubscriber( boost::make_shared<naoqi::subscriber::MovetoSubscriber>("moveto", "/move_base_simple/goal", sessionPtr_, tf2_buffer_) );
   registerSubscriber( boost::make_shared<naoqi::subscriber::SpeechSubscriber>("speech", "/speech", sessionPtr_) );
 }
@@ -1062,7 +1057,7 @@ std::vector<std::string> Driver::getSubscribedPublishers() const
 
 void Driver::startRecording()
 {
-  boost::mutex::scoped_lock lock_record( mutex_record_ );
+  std::lock_guard<std::mutex> lock_record( mutex_record_ );
   recorder_->startRecord();
   for( converter::Converter& conv: converters_ )
   {
@@ -1087,7 +1082,7 @@ void Driver::startRecording()
 
 void Driver::startRecordingConverters(const std::vector<std::string>& names)
 {
-  boost::mutex::scoped_lock lock_record( mutex_record_ );
+  std::lock_guard<std::mutex> lock_record( mutex_record_ );
 
   bool is_started = false;
   for( const std::string& name: names)
@@ -1141,7 +1136,7 @@ void Driver::startRecordingConverters(const std::vector<std::string>& names)
 
 std::string Driver::stopRecording()
 {
-  boost::mutex::scoped_lock lock_record( mutex_record_ );
+  std::lock_guard<std::mutex> lock_record( mutex_record_ );
   record_enabled_ = false;
   for( converter::Converter& conv: converters_ )
   {

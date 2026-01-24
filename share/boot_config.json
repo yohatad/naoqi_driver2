@@ -5,15 +5,15 @@
     "front_camera":
     {
       "enabled"       : false,
-      "resolution"    : 0,
-      "fps"           : 15,
+      "resolution"    : 1,
+      "fps"           : 10,
       "recorder_fps"  : 5
     },
     "bottom_camera":
     {
       "enabled"       : false,
       "resolution"    : 1,
-      "fps"           : 15,
+      "fps"           : 10,
       "recorder_fps"  : 5
     },
     "depth_camera":
@@ -40,7 +40,7 @@
     },
     "info":
     {
-      "enabled"       : false,
+      "enabled"       : true,
       "frequency"     : 1
     },
     "logs":
@@ -50,18 +50,18 @@
     },
     "diag":
     {
-      "enabled"       : false,
+      "enabled"       : true,
       "frequency"     : 1
     },
     "imu_torso":
     {
       "enabled"       : false,
-      "frequency"     : 100
+      "frequency"     : 10
     },
     "imu_base":
     {
-      "enabled"       : true,
-      "frequency"     : 100
+      "enabled"       : false,
+      "frequency"     : 10
     },
     "joint_states":
     {
@@ -82,7 +82,7 @@
     },
     "audio":
     {
-      "enabled"       : true
+      "enabled"       : false
     },
     "bumper":
     {
@@ -99,7 +99,7 @@
     "odom":
     {
       "enabled"       : true,
-      "frequency"     : 50
+      "frequency"     : 15
     }
   }
 }

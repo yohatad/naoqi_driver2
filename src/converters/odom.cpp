@@ -86,13 +86,6 @@ void OdomConverter::callAll( const std::vector<message_actions::MessageAction>& 
   msg_odom.twist.twist.angular.y = 0;
   msg_odom.twist.twist.angular.z = dWZ;
 
-  msg_odom.pose.covariance[0] = 0.01;
-  msg_odom.pose.covariance[7] = 0.01;
-  msg_odom.pose.covariance[35] = 0.1;
-  msg_odom.twist.covariance[0] = 0.01;
-  msg_odom.twist.covariance[7] = 0.01;
-  msg_odom.twist.covariance[35] = 0.1;
-
   for( message_actions::MessageAction action: actions )
   {
     callbacks_[action](msg_odom);
@@ -102,6 +95,7 @@ void OdomConverter::callAll( const std::vector<message_actions::MessageAction>& 
 
 void OdomConverter::reset( )
 {
+  
 }
 
 } //converter
