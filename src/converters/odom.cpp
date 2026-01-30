@@ -29,6 +29,14 @@ namespace naoqi
 namespace converter
 {
 
+// Initialize static offset variables
+float OdomConverter::position_offset_x_ = 0.0f;
+float OdomConverter::position_offset_y_ = 0.0f;
+float OdomConverter::position_offset_z_ = 0.0f;
+float OdomConverter::orientation_offset_wx_ = 0.0f;
+float OdomConverter::orientation_offset_wy_ = 0.0f;
+float OdomConverter::orientation_offset_wz_ = 0.0f;
+
 OdomConverter::OdomConverter( const std::string& name, const float& frequency, const qi::SessionPtr& session ):
   BaseConverter( name, frequency, session ),
   p_motion_( session->service("ALMotion").value() )
@@ -52,12 +60,13 @@ void OdomConverter::callAll( const std::vector<message_actions::MessageAction>& 
   const rclcpp::Time& odom_stamp = helpers::Time::now();
   std::vector<float> al_speed_data = p_motion_.call<std::vector<float> >( "getRobotVelocity" );
 
-  const float& odomX  =  al_odometry_data[0];
-  const float& odomY  =  al_odometry_data[1];
-  const float& odomZ  =  al_odometry_data[2];
-  const float& odomWX =  al_odometry_data[3];
-  const float& odomWY =  al_odometry_data[4];
-  const float& odomWZ =  al_odometry_data[5];
+  // Apply offsets to raw sensor data
+  const float& odomX  =  al_odometry_data[0] - position_offset_x_;
+  const float& odomY  =  al_odometry_data[1] - position_offset_y_;
+  const float& odomZ  =  al_odometry_data[2] - position_offset_z_;
+  const float& odomWX =  al_odometry_data[3] - orientation_offset_wx_;
+  const float& odomWY =  al_odometry_data[4] - orientation_offset_wy_;
+  const float& odomWZ =  al_odometry_data[5] - orientation_offset_wz_;
 
   const float& dX = al_speed_data[0];
   const float& dY = al_speed_data[1];
@@ -102,7 +111,56 @@ void OdomConverter::callAll( const std::vector<message_actions::MessageAction>& 
 
 void OdomConverter::reset( )
 {
+  // Call the static reset method
+  resetOdometry();
+}
+
+void OdomConverter::resetOdometry()
+{
+  try {
+    // Get current position to set as offset
+    std::vector<float> current_pos = p_motion_.call<std::vector<float> >( "getPosition", "Torso", 1, true );
+    
+    // Set offsets to current position, so future readings will be relative to this point
+    position_offset_x_ = current_pos[0];
+    position_offset_y_ = current_pos[1];
+    position_offset_z_ = current_pos[2];
+    orientation_offset_wx_ = current_pos[3];
+    orientation_offset_wy_ = current_pos[4];
+    orientation_offset_wz_ = current_pos[5];
+    
+    std::cout << "Odometry reset using software offset" << std::endl;
+    std::cout << "New offsets - X: " << position_offset_x_ 
+              << " Y: " << position_offset_y_ 
+              << " Z: " << position_offset_z_ << std::endl;
+  }
+  catch (const std::exception& e) {
+    std::cerr << "Failed to reset odometry: " << e.what() << std::endl;
+  }
+}
+
+void OdomConverter::getOffsets(float& x, float& y, float& z, float& wx, float& wy, float& wz)
+{
+  x = position_offset_x_;
+  y = position_offset_y_;
+  z = position_offset_z_;
+  wx = orientation_offset_wx_;
+  wy = orientation_offset_wy_;
+  wz = orientation_offset_wz_;
+}
+
+void OdomConverter::setOffsets(float x, float y, float z, float wx, float wy, float wz)
+{
+  position_offset_x_ = x;
+  position_offset_y_ = y;
+  position_offset_z_ = z;
+  orientation_offset_wx_ = wx;
+  orientation_offset_wy_ = wy;
+  orientation_offset_wz_ = wz;
   
+  std::cout << "Odometry offsets set to - X: " << position_offset_x_ 
+            << " Y: " << position_offset_y_ 
+            << " Z: " << position_offset_z_ << std::endl;
 }
 
 } //converter

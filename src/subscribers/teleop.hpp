@@ -28,7 +28,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include <geometry_msgs/msg/twist.hpp>
 #include <naoqi_bridge_msgs/msg/joint_angles_with_speed.hpp>
-#include <naoqi_bridge_msgs/msg/joint_angle_trajectory.hpp>
+#include <naoqi_bridge_msgs/msg/joint_angles_trajectory.hpp>
 
 namespace naoqi
 {
@@ -48,7 +48,7 @@ public:
   void reset(rclcpp::Node* node);
   void cmd_vel_callback(const geometry_msgs::msg::Twist::SharedPtr twist_msg);
   void joint_angles_callback(const naoqi_bridge_msgs::msg::JointAnglesWithSpeed::SharedPtr js_msg);
-  void joint_angle_traj_callback(const naoqi_bridge_msgs::msg::JointAngleTrajectory::SharedPtr traj_msg);
+  void joint_angle_traj_callback(const naoqi_bridge_msgs::msg::JointAnglesTrajectory::SharedPtr traj_msg);
 
 private:
   // Helper methods for trajectory execution
@@ -69,7 +69,7 @@ private:
   qi::AnyObject p_motion_;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr sub_cmd_vel_;
   rclcpp::Subscription<naoqi_bridge_msgs::msg::JointAnglesWithSpeed>::SharedPtr sub_joint_angles_;
-  rclcpp::Subscription<naoqi_bridge_msgs::msg::JointAngleTrajectory>::SharedPtr sub_joint_angle_traj_;
+  rclcpp::Subscription<naoqi_bridge_msgs::msg::JointAnglesTrajectory>::SharedPtr sub_joint_angle_traj_;
 };
 
 } // namespace subscriber

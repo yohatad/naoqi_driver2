@@ -47,7 +47,7 @@ void TeleopSubscriber::reset(rclcpp::Node* node)
       joint_angles_topic_, 10,
       std::bind(&TeleopSubscriber::joint_angles_callback, this, std::placeholders::_1));
 
-  sub_joint_angle_traj_ = node->create_subscription<naoqi_bridge_msgs::msg::JointAngleTrajectory>(
+  sub_joint_angle_traj_ = node->create_subscription<naoqi_bridge_msgs::msg::JointAnglesTrajectory>(
       joint_angle_traj_topic_, 10,
       std::bind(&TeleopSubscriber::joint_angle_traj_callback, this, std::placeholders::_1));
 
@@ -78,7 +78,7 @@ void TeleopSubscriber::joint_angles_callback(
 }
 
 void TeleopSubscriber::joint_angle_traj_callback(
-    const naoqi_bridge_msgs::msg::JointAngleTrajectory::SharedPtr traj_msg)
+    const naoqi_bridge_msgs::msg::JointAnglesTrajectory::SharedPtr traj_msg)
 {
   // Basic validation
   const auto& names  = traj_msg->joint_names;
@@ -88,7 +88,7 @@ void TeleopSubscriber::joint_angle_traj_callback(
   if (names.empty() || angles.empty() || times.empty())
   {
     RCLCPP_WARN(rclcpp::get_logger("TeleopSubscriber"),
-                "JointAngleTrajectory: empty fields (names:%zu angles:%zu times:%zu)",
+                "JointAnglesTrajectory: empty fields (names:%zu angles:%zu times:%zu)",
                 names.size(), angles.size(), times.size());
     return;
   }
@@ -96,7 +96,7 @@ void TeleopSubscriber::joint_angle_traj_callback(
   if (angles.size() != times.size())
   {
     RCLCPP_WARN(rclcpp::get_logger("TeleopSubscriber"),
-                "JointAngleTrajectory: angles.size() (%zu) != times.size() (%zu)",
+                "JointAnglesTrajectory: angles.size() (%zu) != times.size() (%zu)",
                 angles.size(), times.size());
     return;
   }
@@ -153,7 +153,7 @@ void TeleopSubscriber::execute_angle_interpolation(
   else
   {
     RCLCPP_WARN(rclcpp::get_logger("TeleopSubscriber"),
-                "JointAngleTrajectory: unsupported combination: names:%zu angles:%zu times:%zu",
+                "JointAnglesTrajectory: unsupported combination: names:%zu angles:%zu times:%zu",
                 names.size(), angles.size(), times.size());
   }
 }

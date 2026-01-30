@@ -82,6 +82,7 @@
 #include "services/robot_config.hpp"
 #include "services/set_language.hpp"
 #include "services/get_language.hpp"
+#include "services/odom_reset.hpp"
 
 /*
  * RECORDERS
@@ -988,7 +989,7 @@ void Driver::registerDefaultSubscriber()
 {
   if (!subscribers_.empty())
     return;
-  registerSubscriber( boost::make_shared<naoqi::subscriber::TeleopSubscriber>("teleop", "/cmd_vel", "/joint_angles",  "/joint_angle_trajectory", sessionPtr_) );
+  registerSubscriber( boost::make_shared<naoqi::subscriber::TeleopSubscriber>("teleop", "/cmd_vel", "/joint_angles",  "/joint_angles_trajectory", sessionPtr_) );
   registerSubscriber( boost::make_shared<naoqi::subscriber::MovetoSubscriber>("moveto", "/move_base_simple/goal", sessionPtr_, tf2_buffer_) );
   registerSubscriber( boost::make_shared<naoqi::subscriber::SpeechSubscriber>("speech", "/speech", sessionPtr_) );
 }
@@ -1004,6 +1005,7 @@ void Driver::registerDefaultServices()
   registerService( boost::make_shared<service::RobotConfigService>("get_robot_config", "/naoqi_driver/get_robot_config", sessionPtr_) );
   registerService( boost::make_shared<service::SetLanguageService>("set_language", "/naoqi_driver/set_language", sessionPtr_) );
   registerService( boost::make_shared<service::GetLanguageService>("get_language", "/naoqi_driver/get_language", sessionPtr_) );
+  registerService( boost::make_shared<service::OdomResetService>("reset_odometry", "/naoqi_driver/reset_odometry", sessionPtr_) );
 }
 
 std::vector<std::string> Driver::getAvailableConverters()

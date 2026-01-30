@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.5)
 project(naoqi_driver)
 
+# Limit parallel compilation to prevent system freeze
+if(NOT DEFINED CMAKE_BUILD_PARALLEL_LEVEL)
+  set(CMAKE_BUILD_PARALLEL_LEVEL 4)
+endif()
+
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
@@ -19,6 +24,7 @@ find_package(sensor_msgs REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(tf2_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
+find_package(std_srvs REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(Boost QUIET COMPONENTS chrono filesystem program_options regex system thread random)
 
@@ -67,6 +73,7 @@ set(
   src/services/robot_config.cpp
   src/services/set_language.cpp
   src/services/get_language.cpp
+  src/services/odom_reset.cpp
   )
 
 set(
@@ -138,6 +145,7 @@ ament_target_dependencies(naoqi_driver
   tf2_geometry_msgs
   tf2_msgs
   tf2_ros
+  std_srvs
   OpenCV
   Boost
 

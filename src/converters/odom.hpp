@@ -49,6 +49,15 @@ public:
 
   void reset( );
 
+  // Method to reset odometry offset (uses instance's motion proxy)
+  void resetOdometry();
+  
+  // Static method to get current offsets (for debugging)
+  static void getOffsets(float& x, float& y, float& z, float& wx, float& wy, float& wz);
+  
+  // Static method to set offsets directly (used by service)
+  static void setOffsets(float x, float y, float z, float wx, float wy, float wz);
+
 private:
 
   /** Motion Proxy **/
@@ -56,6 +65,14 @@ private:
 
   std::map<message_actions::MessageAction, Callback_t> callbacks_;
   nav_msgs::msg::Odometry msg_;
+
+  // Static offset variables for software-based odometry reset
+  static float position_offset_x_;
+  static float position_offset_y_;
+  static float position_offset_z_;
+  static float orientation_offset_wx_;
+  static float orientation_offset_wy_;
+  static float orientation_offset_wz_;
 }; // class
 
 } //publisher

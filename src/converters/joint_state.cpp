@@ -20,6 +20,7 @@
 */
 #include "joint_state.hpp"
 #include "nao_footprint.hpp"
+#include "odom.hpp"
 
 /*
 * ROS includes
@@ -173,12 +174,18 @@ for(std::vector<std::string>::const_iterator itName = msg_joint_states_.name.beg
    * ODOMETRY
    */
   const rclcpp::Time &odom_stamp = stamp;
-  const float& odomX  =  al_odometry_data[0];
-  const float& odomY  =  al_odometry_data[1];
-  const float& odomZ  =  al_odometry_data[2];
-  const float& odomWX =  al_odometry_data[3];
-  const float& odomWY =  al_odometry_data[4];
-  const float& odomWZ =  al_odometry_data[5];
+  
+  // Get the current offsets from OdomConverter
+  float offset_x, offset_y, offset_z, offset_wx, offset_wy, offset_wz;
+  naoqi::converter::OdomConverter::getOffsets(offset_x, offset_y, offset_z, offset_wx, offset_wy, offset_wz);
+  
+  // Apply offsets to raw sensor data
+  const float& odomX  =  al_odometry_data[0] - offset_x;
+  const float& odomY  =  al_odometry_data[1] - offset_y;
+  const float& odomZ  =  al_odometry_data[2] - offset_z;
+  const float& odomWX =  al_odometry_data[3] - offset_wx;
+  const float& odomWY =  al_odometry_data[4] - offset_wy;
+  const float& odomWZ =  al_odometry_data[5] - offset_wz;
   //since all odometry is 6DOF we'll need a quaternion created from yaw
   tf2::Quaternion tf_quat;
   tf_quat.setRPY( odomWX, odomWY, odomWZ );
