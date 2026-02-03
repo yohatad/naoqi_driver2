@@ -116,13 +116,13 @@ void JointStateConverter::callAll( const std::vector<message_actions::MessageAct
 //                  std::inserter( joint_state_map, joint_state_map.end() ),
 //                  std::make_pair);
   // Build joint_state_map first
-std::vector<double>::const_iterator itPos = msg_joint_states_.position.begin();
-for(std::vector<std::string>::const_iterator itName = msg_joint_states_.name.begin();
-    itName != msg_joint_states_.name.end();
-    ++itName, ++itPos)
-{
-  joint_state_map[*itName] = *itPos;
-}
+  std::vector<double>::const_iterator itPos = msg_joint_states_.position.begin();
+  for(std::vector<std::string>::const_iterator itName = msg_joint_states_.name.begin();
+      itName != msg_joint_states_.name.end();
+      ++itName, ++itPos)
+  {
+    joint_state_map[*itName] = *itPos;
+  }
 
   // Batch fetch velocity and torque - single network call
   std::vector<std::string> all_keys;
@@ -179,14 +179,33 @@ for(std::vector<std::string>::const_iterator itName = msg_joint_states_.name.beg
   float offset_x, offset_y, offset_z, offset_wx, offset_wy, offset_wz;
   naoqi::converter::OdomConverter::getOffsets(offset_x, offset_y, offset_z, offset_wx, offset_wy, offset_wz);
   
-  // Apply offsets to raw sensor data
-  const float& odomX  =  al_odometry_data[0] - offset_x;
-  const float& odomY  =  al_odometry_data[1] - offset_y;
-  const float& odomZ  =  al_odometry_data[2] - offset_z;
-  const float& odomWX =  al_odometry_data[3] - offset_wx;
-  const float& odomWY =  al_odometry_data[4] - offset_wy;
-  const float& odomWZ =  al_odometry_data[5] - offset_wz;
-  //since all odometry is 6DOF we'll need a quaternion created from yaw
+  // Get raw odometry data
+  float raw_x = al_odometry_data[0];
+  float raw_y = al_odometry_data[1];
+  float raw_z = al_odometry_data[2];
+  float raw_wx = al_odometry_data[3];
+  float raw_wy = al_odometry_data[4];
+  float raw_wz = al_odometry_data[5];
+
+  // Transform position to robot's initial frame
+  // This accounts for the robot's initial orientation
+  float cos_offset = std::cos(-offset_wz);
+  float sin_offset = std::sin(-offset_wz);
+  
+  float dx = raw_x - offset_x;
+  float dy = raw_y - offset_y;
+  
+  // Rotate by inverse of initial orientation
+  const float odomX = dx * cos_offset - dy * sin_offset;
+  const float odomY = dx * sin_offset + dy * cos_offset;
+  const float odomZ = raw_z;
+  
+  // Apply orientation offsets
+  const float odomWX = raw_wx - offset_wx;
+  const float odomWY = raw_wy - offset_wy;
+  const float odomWZ = raw_wz - offset_wz;
+
+  // Create quaternion from RPY
   tf2::Quaternion tf_quat;
   tf_quat.setRPY( odomWX, odomWY, odomWZ );
   geometry_msgs::msg::Quaternion odom_quat = tf2::toMsg( tf_quat );
