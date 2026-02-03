@@ -1,10 +1,15 @@
 cmake_minimum_required(VERSION 3.5)
 project(naoqi_driver)
 
-# Limit parallel compilation to prevent system freeze
-if(NOT DEFINED CMAKE_BUILD_PARALLEL_LEVEL)
-  set(CMAKE_BUILD_PARALLEL_LEVEL 4)
+# Limit parallel compilation to prevent OOM
+if(CMAKE_GENERATOR MATCHES "Ninja")
+  set_property(GLOBAL PROPERTY JOB_POOLS single_job=1)
+  set(CMAKE_JOB_POOL_COMPILE single_job)
+  set(CMAKE_JOB_POOL_LINK single_job)
 endif()
+
+# For any generator: limit build parallelism via build tool mode
+set(CMAKE_BUILD_PARALLEL_LEVEL 1 CACHE STRING "Limit parallel build jobs")
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)

@@ -50,9 +50,6 @@ private:
 
   qi::AnyObject p_tts_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr sub_speech_;
-
-
-
 }; // class Speech
 
 } // subscriber
