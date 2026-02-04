@@ -85,6 +85,7 @@ set(
   ACTIONS_SRC
   src/actions/listen.cpp
   src/actions/led.cpp
+  src/actions/speech.cpp
 )
 
 set(
