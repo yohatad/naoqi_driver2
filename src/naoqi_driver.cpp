@@ -151,6 +151,7 @@ void Driver::run()
 
   // Setting up action servers.
   auto listen_server = action::createListenServer(this, sessionPtr_);
+  auto speech_server = action::createSpeechWithFeedbackServer(this, sessionPtr_);
 
   // A single iteration will propagate registrations, etc...
   rosIteration();
