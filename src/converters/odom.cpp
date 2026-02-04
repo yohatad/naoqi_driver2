@@ -51,30 +51,43 @@ void OdomConverter::registerCallback( message_actions::MessageAction action, Cal
 
 void OdomConverter::callAll( const std::vector<message_actions::MessageAction>& actions )
 {
-
-  int FRAME_WORLD = 1;
   bool use_sensor = true;
-  // documentation of getPosition available here: http://doc.aldebaran.com/2-1/naoqi/motion/control-cartesian.html
-  std::vector<float> al_odometry_data = p_motion_.call<std::vector<float> >( "getPosition", "Torso", FRAME_WORLD, use_sensor );
-
+  
+  // Get robot base position in world frame (X, Y, Theta)
+  std::vector<float> al_position_data = p_motion_.call<std::vector<float> >( "getRobotPosition", use_sensor );
+  
   const rclcpp::Time& odom_stamp = helpers::Time::now();
   std::vector<float> al_speed_data = p_motion_.call<std::vector<float> >( "getRobotVelocity" );
 
-  // Apply offsets to raw sensor data
-  const float& odomX  =  al_odometry_data[0] - position_offset_x_;
-  const float& odomY  =  al_odometry_data[1] - position_offset_y_;
-  const float& odomZ  =  al_odometry_data[2] - position_offset_z_;
-  const float& odomWX =  al_odometry_data[3] - orientation_offset_wx_;
-  const float& odomWY =  al_odometry_data[4] - orientation_offset_wy_;
-  const float& odomWZ =  al_odometry_data[5] - orientation_offset_wz_;
+  // Raw data from NAOqi
+  float raw_x = al_position_data[0];      // X position in world frame
+  float raw_y = al_position_data[1];      // Y position in world frame  
+  float raw_theta = al_position_data[2];  // Yaw angle in world frame [-pi, pi]
 
+  // Transform position to robot's initial frame
+  // This makes the starting position (0, 0) and starting orientation 0
+  float cos_offset = std::cos(-orientation_offset_wz_);
+  float sin_offset = std::sin(-orientation_offset_wz_);
+  
+  float dx = raw_x - position_offset_x_;
+  float dy = raw_y - position_offset_y_;
+  
+  // Rotate delta by inverse of initial orientation
+  const float odomX = dx * cos_offset - dy * sin_offset;
+  const float odomY = dx * sin_offset + dy * cos_offset;
+  const float odomZ = 0.0f;  // 2D navigation - keep at 0
+  
+  // Normalize theta to robot's initial orientation
+  const float odomTheta = raw_theta - orientation_offset_wz_;
+
+  // Velocity is already in FRAME_ROBOT (base_link) - perfect for odometry
   const float& dX = al_speed_data[0];
   const float& dY = al_speed_data[1];
   const float& dWZ = al_speed_data[2];
 
-  //since all odometry is 6DOF we'll need a quaternion created from yaw
+  // Create quaternion from yaw angle
   tf2::Quaternion tf_quat;
-  tf_quat.setRPY( odomWX, odomWY, odomWZ );
+  tf_quat.setRPY(0.0, 0.0, odomTheta);
   geometry_msgs::msg::Quaternion odom_quat = tf2::toMsg( tf_quat );
 
   static nav_msgs::msg::Odometry msg_odom;
@@ -105,7 +118,6 @@ void OdomConverter::callAll( const std::vector<message_actions::MessageAction>& 
   for( message_actions::MessageAction action: actions )
   {
     callbacks_[action](msg_odom);
-
   }
 }
 
