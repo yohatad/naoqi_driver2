@@ -26,7 +26,7 @@ namespace
     
     std::mutex mutex;
     std::shared_ptr<SpeechGoalHandle> current_goal;
-    qi::AnyObject tts_service;
+    qi::AnyObject animated_speech_service;
     std::atomic<bool> cancel_requested{false};
   };
 
@@ -62,8 +62,8 @@ namespace
     state->cancel_requested = true;
     
     try {
-      if (state->tts_service) {
-        state->tts_service.call<void>("stopAll");
+      if (state->animated_speech_service) {
+        state->animated_speech_service.call<void>("stopAll");
       }
     } catch (const std::exception& e) {
       RCLCPP_WARN(state->logger, "Failed to stop speech: %s", e.what());
@@ -83,9 +83,9 @@ namespace
     std::thread([state, goal_handle, goal_id]() {
       try
       {
-        // Initialize TTS service if needed
-        if (!state->tts_service) {
-          state->tts_service = state->session->service("ALTextToSpeech").value();
+        // Initialize ALAnimatedSpeech service if needed
+        if (!state->animated_speech_service) {
+          state->animated_speech_service = state->session->service("ALAnimatedSpeech").value();
         }
 
         {
@@ -96,7 +96,8 @@ namespace
 
         const auto& goal = goal_handle->get_goal();
         std::string text_to_say = goal->say;
-        RCLCPP_INFO(state->logger, "Saying: %s", text_to_say.c_str());
+        std::string mode = goal->body_language_mode.empty() ? "contextual" : goal->body_language_mode;
+        RCLCPP_INFO(state->logger, "Saying: \"%s\" (body_language_mode: %s)", text_to_say.c_str(), mode.c_str());
 
         // Publish feedback that speech is starting
         if (goal_handle->is_executing() && !goal_handle->is_canceling()) {
@@ -104,8 +105,9 @@ namespace
           goal_handle->publish_feedback(feedback);
         }
 
-        // Blocking call - waits until speech completes
-        state->tts_service.call<void>("say", text_to_say);
+        // Build configuration map and call ALAnimatedSpeech
+        std::map<std::string, std::string> config{{"bodyLanguageMode", mode}};
+        state->animated_speech_service.call<void>("say", text_to_say, config);
 
         // Check result
         auto result = std::make_shared<SpeechWithFeedback::Result>();
