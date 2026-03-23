@@ -83,12 +83,10 @@ void JointStateConverter::registerCallback( const message_actions::MessageAction
 void JointStateConverter::callAll( const std::vector<message_actions::MessageAction>& actions )
 {
   /*
-   * get torso position for odometry at the same time as joint states
-   * can be called via getRobotPosture
-   * but this would require a proper URDF
-   * with a base_link and base_footprint in the base
+   * get robot position for odometry at the same time as joint states
+   * Using getRobotPosition for 2D base odometry (same as OdomConverter)
    */
-  auto getting_odometry_data = p_motion_.async<std::vector<float> >( "getPosition", "Torso", 1, true );
+  auto getting_odometry_data = p_motion_.async<std::vector<float> >( "getRobotPosition", true );
 
   // get joint state values
   std::vector<double> al_joint_angles = p_motion_.call<std::vector<double> >("getAngles", "Body", true );
@@ -170,49 +168,44 @@ void JointStateConverter::callAll( const std::vector<message_actions::MessageAct
   setTransforms(joint_state_map, stamp, jt_tf_prefix);
   setFixedTransforms(jt_tf_prefix, stamp);
 
-  /**
-   * ODOMETRY
-   */
+ /**
+ * ODOMETRY
+ */
   const rclcpp::Time &odom_stamp = stamp;
-  
+
   // Get the current offsets from OdomConverter
   float offset_x, offset_y, offset_z, offset_wx, offset_wy, offset_wz;
   naoqi::converter::OdomConverter::getOffsets(offset_x, offset_y, offset_z, offset_wx, offset_wy, offset_wz);
-  
-  // Get raw odometry data
-  float raw_x = al_odometry_data[0];
-  float raw_y = al_odometry_data[1];
-  float raw_z = al_odometry_data[2];
-  float raw_wx = al_odometry_data[3];
-  float raw_wy = al_odometry_data[4];
-  float raw_wz = al_odometry_data[5];
+
+  // Extract 2D position data
+  float raw_x = al_odometry_data[0];      // X position in world frame
+  float raw_y = al_odometry_data[1];      // Y position in world frame  
+  float raw_theta = al_odometry_data[2];  // Yaw angle in world frame [-pi, pi]
 
   // Transform position to robot's initial frame
-  // This accounts for the robot's initial orientation
   float cos_offset = std::cos(-offset_wz);
   float sin_offset = std::sin(-offset_wz);
-  
+
   float dx = raw_x - offset_x;
   float dy = raw_y - offset_y;
-  
+
   // Rotate by inverse of initial orientation
   const float odomX = dx * cos_offset - dy * sin_offset;
   const float odomY = dx * sin_offset + dy * cos_offset;
-  const float odomZ = raw_z;
-  
-  // Apply orientation offsets
-  const float odomWX = raw_wx - offset_wx;
-  const float odomWY = raw_wy - offset_wy;
-  const float odomWZ = raw_wz - offset_wz;
+  const float odomZ = 0.0f;  // Ground level
 
-  // Create quaternion from RPY
+  // Normalize theta to robot's initial orientation
+  const float odomTheta = raw_theta - offset_wz;
+
+  // Create quaternion from yaw angle (2D rotation)
   tf2::Quaternion tf_quat;
-  tf_quat.setRPY( odomWX, odomWY, odomWZ );
+  tf_quat.setRPY(0.0, 0.0, odomTheta);
   geometry_msgs::msg::Quaternion odom_quat = tf2::toMsg( tf_quat );
 
+  // Publish odom → base_footprint (ground level)
   static geometry_msgs::msg::TransformStamped msg_tf_odom;
   msg_tf_odom.header.frame_id = "odom";
-  msg_tf_odom.child_frame_id = "base_link";
+  msg_tf_odom.child_frame_id = "base_footprint";
   msg_tf_odom.header.stamp = odom_stamp;
 
   msg_tf_odom.transform.translation.x = odomX;
@@ -223,15 +216,29 @@ void JointStateConverter::callAll( const std::vector<message_actions::MessageAct
   tf_transforms_.push_back( msg_tf_odom );
   tf2_buffer_->setTransform( msg_tf_odom, "naoqiconverter", false);
 
+  // Connect base_footprint to base_link (bridges odometry to robot body)
+  static geometry_msgs::msg::TransformStamped msg_tf_base;
+  msg_tf_base.header.frame_id = "base_footprint";
+  msg_tf_base.child_frame_id = "base_link";
+  msg_tf_base.header.stamp = odom_stamp;
+
+  // Height calculated from URDF: 0.334 + 0.268 + 0.079 + 0.139 = 0.82m
+  msg_tf_base.transform.translation.x = 0.0;
+  msg_tf_base.transform.translation.y = 0.0;
+  msg_tf_base.transform.translation.z = 0.82;
+
+  // No rotation between footprint and base_link
+  msg_tf_base.transform.rotation.x = 0.0;
+  msg_tf_base.transform.rotation.y = 0.0;
+  msg_tf_base.transform.rotation.z = 0.0;
+  msg_tf_base.transform.rotation.w = 1.0;
+
+  tf_transforms_.push_back( msg_tf_base );
+  tf2_buffer_->setTransform( msg_tf_base, "naoqiconverter", true);
+
   if (robot_ == robot::NAO )
   {
     nao::addBaseFootprint( tf2_buffer_, tf_transforms_, odom_stamp - tf2::durationFromSec(0.1) );
-  }
-
-  // If nobody uses that buffer, do not fill it next time
-  if (( tf2_buffer_ ) && ( tf2_buffer_.use_count() == 1 ))
-  {
-    tf2_buffer_.reset();
   }
 
   for( message_actions::MessageAction action: actions )
@@ -281,6 +288,12 @@ void JointStateConverter::setFixedTransforms(const std::string& tf_prefix, const
 
   // loop over all fixed segments
   for (std::map<std::string, robot_state_publisher::SegmentPair>::const_iterator seg=segments_fixed_.begin(); seg != segments_fixed_.end(); seg++){
+    // Skip Tibia → base_footprint joint to avoid TF loop
+    // We publish odom → base_footprint → base_link manually
+    if (seg->second.root == "Tibia" && seg->second.tip == "base_footprint") {
+      continue;
+    }
+
     seg->second.segment.pose(0).M.GetQuaternion(tf_transform.transform.rotation.x,
                                                 tf_transform.transform.rotation.y,
                                                 tf_transform.transform.rotation.z,

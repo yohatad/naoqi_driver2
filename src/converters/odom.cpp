@@ -52,31 +52,39 @@ void OdomConverter::registerCallback( message_actions::MessageAction action, Cal
 void OdomConverter::callAll( const std::vector<message_actions::MessageAction>& actions )
 {
   bool use_sensor = true;
-  
+
   // Get robot base position in world frame (X, Y, Theta)
   std::vector<float> al_position_data = p_motion_.call<std::vector<float> >( "getRobotPosition", use_sensor );
-  
+
   const rclcpp::Time& odom_stamp = helpers::Time::now();
   std::vector<float> al_speed_data = p_motion_.call<std::vector<float> >( "getRobotVelocity" );
 
   // Raw data from NAOqi
   float raw_x = al_position_data[0];      // X position in world frame
-  float raw_y = al_position_data[1];      // Y position in world frame  
+  float raw_y = al_position_data[1];      // Y position in world frame
   float raw_theta = al_position_data[2];  // Yaw angle in world frame [-pi, pi]
+
+  // DEBUG: Print raw values and offsets every 50 cycles (about once per second at 50Hz)
+  static int debug_counter = 0;
+  if (++debug_counter >= 50) {
+    std::cout << "[ODOM DEBUG] Raw: X=" << raw_x << " Y=" << raw_y << " Theta=" << raw_theta << std::endl;
+    std::cout << "[ODOM DEBUG] Offsets: X=" << position_offset_x_ << " Y=" << position_offset_y_ << " Theta=" << orientation_offset_wz_ << std::endl;
+    debug_counter = 0;
+  }
 
   // Transform position to robot's initial frame
   // This makes the starting position (0, 0) and starting orientation 0
   float cos_offset = std::cos(-orientation_offset_wz_);
   float sin_offset = std::sin(-orientation_offset_wz_);
-  
+
   float dx = raw_x - position_offset_x_;
   float dy = raw_y - position_offset_y_;
-  
+
   // Rotate delta by inverse of initial orientation
   const float odomX = dx * cos_offset - dy * sin_offset;
   const float odomY = dx * sin_offset + dy * cos_offset;
   const float odomZ = 0.0f;  // 2D navigation - keep at 0
-  
+
   // Normalize theta to robot's initial orientation
   const float odomTheta = raw_theta - orientation_offset_wz_;
 
@@ -92,7 +100,7 @@ void OdomConverter::callAll( const std::vector<message_actions::MessageAction>& 
 
   static nav_msgs::msg::Odometry msg_odom;
   msg_odom.header.frame_id = "odom";
-  msg_odom.child_frame_id = "base_link";
+  msg_odom.child_frame_id = "base_footprint";  // Changed to match JointStateConverter TF
   msg_odom.header.stamp = odom_stamp;
 
   msg_odom.pose.pose.orientation = odom_quat;
@@ -130,21 +138,22 @@ void OdomConverter::reset( )
 void OdomConverter::resetOdometry()
 {
   try {
-    // Get current position to set as offset
-    std::vector<float> current_pos = p_motion_.call<std::vector<float> >( "getPosition", "Torso", 1, true );
-    
-    // Set offsets to current position, so future readings will be relative to this point
+    // Get current position using same API as odometry measurement
+    bool use_sensor = true;
+    std::vector<float> current_pos = p_motion_.call<std::vector<float> >( "getRobotPosition", use_sensor );
+
+    // getRobotPosition returns 3 values: [X, Y, Theta]
     position_offset_x_ = current_pos[0];
     position_offset_y_ = current_pos[1];
-    position_offset_z_ = current_pos[2];
-    orientation_offset_wx_ = current_pos[3];
-    orientation_offset_wy_ = current_pos[4];
-    orientation_offset_wz_ = current_pos[5];
-    
+    position_offset_z_ = 0.0f;  // 2D navigation - always 0
+    orientation_offset_wx_ = 0.0f;  // 2D - no roll
+    orientation_offset_wy_ = 0.0f;  // 2D - no pitch
+    orientation_offset_wz_ = current_pos[2];  // Yaw/Theta
+
     std::cout << "Odometry reset using software offset" << std::endl;
-    std::cout << "New offsets - X: " << position_offset_x_ 
-              << " Y: " << position_offset_y_ 
-              << " Z: " << position_offset_z_ << std::endl;
+    std::cout << "New offsets - X: " << position_offset_x_
+              << " Y: " << position_offset_y_
+              << " Theta: " << orientation_offset_wz_ << std::endl;
   }
   catch (const std::exception& e) {
     std::cerr << "Failed to reset odometry: " << e.what() << std::endl;
