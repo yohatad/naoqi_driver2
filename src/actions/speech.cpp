@@ -96,8 +96,7 @@ namespace
 
         const auto& goal = goal_handle->get_goal();
         std::string text_to_say = goal->say;
-        std::string mode = goal->body_language_mode.empty() ? "contextual" : goal->body_language_mode;
-        RCLCPP_INFO(state->logger, "Saying: \"%s\" (body_language_mode: %s)", text_to_say.c_str(), mode.c_str());
+        RCLCPP_INFO(state->logger, "Saying: \"%s\"", text_to_say.c_str());
 
         // Publish feedback that speech is starting
         if (goal_handle->is_executing() && !goal_handle->is_canceling()) {
@@ -106,7 +105,7 @@ namespace
         }
 
         // Build configuration map and call ALAnimatedSpeech
-        std::map<std::string, std::string> config{{"bodyLanguageMode", mode}};
+        std::map<std::string, std::string> config{{"bodyLanguageMode", "contextual"}};
         state->animated_speech_service.call<void>("say", text_to_say, config);
 
         // Check result

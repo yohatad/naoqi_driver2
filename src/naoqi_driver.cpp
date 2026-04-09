@@ -107,6 +107,7 @@
 #include "actions/listen.hpp"
 #include "actions/speech.hpp"
 #include "actions/led.hpp"
+#include "actions/audio_player.hpp"
 
 /*
  * STATIC FUNCTIONS INCLUDE
@@ -150,8 +151,9 @@ void Driver::run()
   registerDefaultServices();
 
   // Setting up action servers.
-  auto listen_server = action::createListenServer(this, sessionPtr_);
-  auto speech_server = action::createSpeechWithFeedbackServer(this, sessionPtr_);
+  auto listen_server       = action::createListenServer(this, sessionPtr_);
+  auto speech_server       = action::createSpeechWithFeedbackServer(this, sessionPtr_);
+  auto audio_player_servers = action::createAudioPlayerServers(this, sessionPtr_);
 
   // A single iteration will propagate registrations, etc...
   rosIteration();

@@ -206,6 +206,54 @@ angular:
   z: 0.0"
 ```
 
+### Audio Playback
+
+The driver provides several services and an action for audio playback:
+
+#### Load and Play Audio File
+
+Load an audio file and play it:
+
+```sh
+# Load audio file from robot's filesystem
+ros2 service call /load_audio_file naoqi_bridge_msgs/srv/LoadAudioFile "{remote_path: '/home/nao/audio.wav'}"
+
+# Or load from raw audio data (WAV/OGG bytes)
+ros2 service call /load_audio_file naoqi_bridge_msgs/srv/LoadAudioFile "{audio_data: [0,0,0,0,...]}"
+
+# Play the loaded audio (file_id from load response)
+ros2 action send_goal /play_audio naoqi_bridge_msgs/action/PlayAudio "{file_id: 0, volume: 0.8, pan: 0.0, loop: false}"
+```
+
+#### Audio Control Services
+
+```sh
+# Set volume (0.0-1.0)
+ros2 service call /set_audio_volume naoqi_bridge_msgs/srv/SetAudioVolume "{file_id: 0, volume: 0.8}"
+
+# Set master volume
+ros2 service call /set_audio_volume naoqi_bridge_msgs/srv/SetAudioVolume "{file_id: -1, volume: 0.8}"
+
+# Stop all playback
+ros2 service call /stop_audio naoqi_bridge_msgs/srv/StopAudio "{}"
+
+# Pause current playback
+ros2 service call /pause_audio naoqi_bridge_msgs/srv/SetAudioVolume "{}"
+
+# Resume paused playback
+ros2 service call /resume_audio naoqi_bridge_msgs/srv/SetAudioVolume "{}"
+```
+
+#### Stream Raw Audio Buffer
+
+Send raw audio directly to speakers (max 16384 frames):
+
+```sh
+ros2 service call /send_audio_buffer naoqi_bridge_msgs/srv/SendAudioBuffer "{audio_data: [0,0,0,0,...]}"
+```
+
+> **Note**: Audio data must be 16-bit stereo interleaved PCM.
+
 
 ## Development
 

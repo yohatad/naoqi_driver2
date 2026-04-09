@@ -86,6 +86,7 @@ set(
   src/actions/listen.cpp
   src/actions/led.cpp
   src/actions/speech.cpp
+  src/actions/audio_player.cpp
 )
 
 set(
