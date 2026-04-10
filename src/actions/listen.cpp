@@ -245,7 +245,7 @@ createListenServer(rclcpp::Node* node, qi::SessionPtr session)
   namespace ph = std::placeholders;
   auto task = std::make_shared<ListenState>(node, std::move(session));
   return rclcpp_action::create_server<Listen>(
-    node, "listen",
+    node, "naoqi_driver/listen",
     std::bind(handle_goal, task, ph::_1, ph::_2),
     std::bind(handle_cancel, task, ph::_1),
     std::bind(handle_accepted, task, ph::_1)
