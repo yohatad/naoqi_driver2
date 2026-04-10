@@ -147,8 +147,8 @@ createSpeechWithFeedbackServer(rclcpp::Node* node, qi::SessionPtr session)
   auto state = std::make_shared<SpeechState>(node, std::move(session));
   
   return rclcpp_action::create_server<SpeechWithFeedback>(
-    node, 
-    "speech_with_feedback",
+    node,
+    "naoqi_driver/speech_with_feedback",
     std::bind(handle_goal, state, std::placeholders::_1, std::placeholders::_2),
     std::bind(handle_cancel, state, std::placeholders::_1),
     std::bind(handle_accepted, state, std::placeholders::_1)
