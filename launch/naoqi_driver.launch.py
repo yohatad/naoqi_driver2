@@ -9,7 +9,7 @@ def generate_launch_description():
         launch.actions.DeclareLaunchArgument(
             'nao_ip',
             default_value="127.0.0.1",
-            description='Ip address of the robot'),
+            description='IP address of the robot'),
         launch.actions.DeclareLaunchArgument(
             'nao_port',
             default_value="9559",
@@ -17,7 +17,7 @@ def generate_launch_description():
         launch.actions.DeclareLaunchArgument(
             'username',
             default_value="nao",
-            description='Username for the connection'),
+            description='Username for the robot SSH connection'),
         launch.actions.DeclareLaunchArgument(
             'password',
             default_value="no_password",
@@ -44,5 +44,5 @@ def generate_launch_description():
                 'network_interface': launch.substitutions.LaunchConfiguration('network_interface'),
                 'qi_listen_url': launch.substitutions.LaunchConfiguration('qi_listen_url'),
             }],
-            output="screen")
+            output="screen"),
     ])

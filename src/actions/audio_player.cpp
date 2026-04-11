@@ -2,7 +2,10 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <map>
 #include <mutex>
 #include <thread>
 #include <random>
@@ -38,11 +41,17 @@ struct AudioPlayerState
 {
   AudioPlayerState(rclcpp::Node* node, qi::SessionPtr session)
   : node(node), session(std::move(session)), logger(node->get_logger())
-  {}
+  {
+    robot_ip   = node->get_parameter("nao_ip").as_string();
+    robot_user = node->get_parameter("user").as_string();
+  }
 
   rclcpp::Node*  node;
   qi::SessionPtr session;
   rclcpp::Logger logger;
+
+  std::string robot_ip;
+  std::string robot_user;
 
   std::mutex                           mutex;
   std::shared_ptr<PlayGoalHandle>      current_goal;
@@ -51,6 +60,10 @@ struct AudioPlayerState
   std::atomic<bool>                    is_paused{false};
   qi::AnyObject                        audio_player;
   qi::AnyObject                        audio_device;
+
+  // Tracks remote temp files that need deletion: file_id → remote_path
+  std::map<int32_t, std::string>       remote_temp_files;
+
 };
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -87,10 +100,10 @@ std::string generateUniqueTempPath()
   return oss.str();
 }
 
-// NAOqi ALAudioPlayer.setVolume / setMasterVolume expect 0-100 (int)
-int toNaoqiVolume(float v)
+// Clamp volume to [0..1] as expected by ALAudioPlayer.setVolume / setMasterVolume
+float clampVolume(float v)
 {
-  return static_cast<int>(std::clamp(v, 0.0f, 1.0f) * 100.0f);
+  return std::clamp(v, 0.0f, 1.0f);
 }
 
 // ── action: handle_goal ───────────────────────────────────────────────────────
@@ -171,7 +184,7 @@ void handle_accepted(
       auto player = getAudioPlayer(state);
 
       // Apply volume and pan before starting
-      player.call<void>("setVolume",   goal->file_id, toNaoqiVolume(goal->volume));
+      player.call<void>("setVolume",   goal->file_id, clampVolume(goal->volume));
       player.call<void>("setPanorama", goal->pan);
 
       // Start playback — async so we can poll for cancel without blocking
@@ -282,25 +295,58 @@ void handleLoadFile(
 
   try {
     if (!req->audio_data.empty()) {
-      // Build a qi buffer from the raw bytes
-      qi::Buffer buf;
-      void* raw = buf.reserve(req->audio_data.size());
-      std::memcpy(raw, req->audio_data.data(), req->audio_data.size());
+      if (state->robot_ip.empty()) {
+        throw std::runtime_error(
+          "nao_ip parameter is not set — cannot SCP audio to robot");
+      }
 
-      // Use unique temp file path to prevent conflicts
-      const std::string tmp_path = generateUniqueTempPath();
-      auto file_manager = state->session->service("ALFileManager").value();
-      file_manager.call<void>("saveFile", tmp_path, buf);
+      // Write bytes to a local temp file
+      const std::string local_path = generateUniqueTempPath();
+      {
+        std::ofstream out(local_path, std::ios::binary);
+        out.write(reinterpret_cast<const char*>(req->audio_data.data()),
+                  req->audio_data.size());
+        if (!out) {
+          throw std::runtime_error("Failed to write local temp file: " + local_path);
+        }
+      }
 
-      load_path = tmp_path;
-      RCLCPP_INFO(state->logger, "Wrote %zu bytes to robot:%s",
-                  req->audio_data.size(), tmp_path.c_str());
+      // Derive the remote path (same filename, /tmp on robot)
+      const std::string filename    = local_path.substr(local_path.rfind('/') + 1);
+      const std::string remote_path = "/tmp/" + filename;
+      const std::string scp_cmd =
+        "scp " + local_path + " " +
+        state->robot_user + "@" + state->robot_ip + ":" + remote_path;
+
+      RCLCPP_INFO(state->logger, "SCPing %zu bytes → %s@%s:%s",
+                  req->audio_data.size(),
+                  state->robot_user.c_str(), state->robot_ip.c_str(),
+                  remote_path.c_str());
+
+      int ret = std::system(scp_cmd.c_str());
+      std::remove(local_path.c_str());  // always clean up local file
+
+      if (ret != 0) {
+        throw std::runtime_error(
+          "SCP failed (exit=" + std::to_string(ret) + "). "
+          "Ensure passwordless SSH is set up: ssh-copy-id " +
+          state->robot_user + "@" + state->robot_ip);
+      }
+
+      load_path = remote_path;
+      RCLCPP_INFO(state->logger, "Uploaded to robot:%s", remote_path.c_str());
     }
 
     const int32_t id = getAudioPlayer(state).call<int>("loadFile", load_path);
     res->success = true;
     res->file_id = id;
     RCLCPP_INFO(state->logger, "Loaded '%s' → file_id=%d", load_path.c_str(), id);
+
+    // Track remote temp files so they can be deleted on unload
+    if (!req->audio_data.empty()) {
+      std::lock_guard<std::mutex> lock(state->mutex);
+      state->remote_temp_files[id] = load_path;
+    }
   } catch (const std::exception& e) {
     res->success = false;
     res->message = e.what();
@@ -322,6 +368,28 @@ void handleUnloadFile(
     res->message = e.what();
     RCLCPP_ERROR(state->logger, "unloadFile failed: %s", e.what());
   }
+
+  // Delete the remote temp file on the robot (if it was uploaded via SCP)
+  std::string remote_path;
+  {
+    std::lock_guard<std::mutex> lock(state->mutex);
+    auto it = state->remote_temp_files.find(req->file_id);
+    if (it != state->remote_temp_files.end()) {
+      remote_path = it->second;
+      state->remote_temp_files.erase(it);
+    }
+  }
+
+  if (!remote_path.empty()) {
+    const std::string rm_cmd =
+      "ssh " + state->robot_user + "@" + state->robot_ip +
+      " rm -f " + remote_path;
+    if (std::system(rm_cmd.c_str()) == 0) {
+      RCLCPP_INFO(state->logger, "Deleted robot:%s", remote_path.c_str());
+    } else {
+      RCLCPP_WARN(state->logger, "Failed to delete robot:%s", remote_path.c_str());
+    }
+  }
 }
 
 void handleSetVolume(
@@ -330,13 +398,13 @@ void handleSetVolume(
   std::shared_ptr<SetAudioVolume::Response> res)
 {
   try {
-    const int vol = toNaoqiVolume(req->volume);
+    const float vol = clampVolume(req->volume);
     if (req->file_id < 0) {
       getAudioPlayer(state).call<void>("setMasterVolume", vol);
-      RCLCPP_INFO(state->logger, "Master volume → %d%%", vol);
+      RCLCPP_INFO(state->logger, "Master volume → %.2f", vol);
     } else {
       getAudioPlayer(state).call<void>("setVolume", req->file_id, vol);
-      RCLCPP_INFO(state->logger, "Volume file_id=%d → %d%%", req->file_id, vol);
+      RCLCPP_INFO(state->logger, "Volume file_id=%d → %.2f", req->file_id, vol);
     }
     res->success = true;
   } catch (const std::exception& e) {
@@ -408,27 +476,29 @@ void handleSendBuffer(
 {
   try {
     auto audio_device = getAudioDevice(state);
-    
-    // Calculate number of stereo frames
-    // Audio data is 16-bit stereo, so frames = bytes / (2 channels * 2 bytes per sample)
-    int nb_of_frames = static_cast<int>(req->audio_data.size() / 4);
-    
+
+    // Audio data is 16-bit stereo interleaved: frames = bytes / (2ch × 2B)
+    const int nb_of_frames = static_cast<int>(req->audio_data.size() / 4);
     if (nb_of_frames == 0 || nb_of_frames > 16384) {
-      throw std::runtime_error("Invalid buffer size: must be > 0 and <= 16384 frames");
+      throw std::runtime_error(
+        "Invalid buffer size: got " + std::to_string(nb_of_frames) +
+        " frames, must be in (0, 16384]");
     }
-    
-    // Send the buffer directly to output
+
+    // ALAudioDevice.sendRemoteBufferToOutput expects the buffer as an ALValue
+    // converted to binary (raw bytes). Wrap the int16 PCM data in a qi::Buffer.
+    qi::Buffer buf;
+    void* raw = buf.reserve(req->audio_data.size());
+    std::memcpy(raw, req->audio_data.data(), req->audio_data.size());
+
     bool success = audio_device.call<bool>(
-      "sendRemoteBufferToOutput",
-      nb_of_frames,
-      req->audio_data
-    );
-    
+      "sendRemoteBufferToOutput", nb_of_frames, buf);
+
     res->success = success;
     if (success) {
-      RCLCPP_INFO(state->logger, "Sent %d frames to audio output", nb_of_frames);
+      RCLCPP_DEBUG(state->logger, "Sent %d frames to audio output", nb_of_frames);
     } else {
-      RCLCPP_WARN(state->logger, "Failed to send buffer to output");
+      RCLCPP_WARN(state->logger, "sendRemoteBufferToOutput returned false");
     }
   } catch (const std::exception& e) {
     res->success = false;
