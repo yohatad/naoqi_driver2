@@ -151,9 +151,10 @@ void Driver::run()
   registerDefaultServices();
 
   // Setting up action servers.
-  auto listen_server       = action::createListenServer(this, sessionPtr_);
-  auto speech_server       = action::createSpeechWithFeedbackServer(this, sessionPtr_);
+  auto listen_server        = action::createListenServer(this, sessionPtr_);
+  auto speech_server        = action::createSpeechWithFeedbackServer(this, sessionPtr_);
   auto audio_player_servers = action::createAudioPlayerServers(this, sessionPtr_);
+  auto led_server           = action::createRunLedServer(this, sessionPtr_);
 
   // A single iteration will propagate registrations, etc...
   rosIteration();
@@ -881,7 +882,7 @@ void Driver::registerDefaultConverter()
     if (keep_looping) {
       try
       {
-        event_map_.find("audio")->second.startProcess();
+        event_map_.at("audio").startProcess();
       }
       catch(const std::exception& e)
       {
@@ -891,7 +892,7 @@ void Driver::registerDefaultConverter()
       }
     }
     if (publish_enabled_) {
-      event_map_.find("audio")->second.isPublishing(true);
+      event_map_.at("audio").isPublishing(true);
     }
   }
 
@@ -909,10 +910,10 @@ void Driver::registerDefaultConverter()
       boost::make_shared<BumperEventRegister>( "bumper", bumper_events, 0, sessionPtr_ );
     insertEventConverter("bumper", event_register);
     if (keep_looping) {
-      event_map_.find("bumper")->second.startProcess();
+      event_map_.at("bumper").startProcess();
     }
     if (publish_enabled_) {
-      event_map_.find("bumper")->second.isPublishing(true);
+      event_map_.at("bumper").isPublishing(true);
     }
   }
 
@@ -929,10 +930,10 @@ void Driver::registerDefaultConverter()
       boost::make_shared<HandTouchEventRegister>( "hand_touch", hand_touch_events, 0, sessionPtr_ );
     insertEventConverter("hand_touch", event_register);
     if (keep_looping) {
-      event_map_.find("hand_touch")->second.startProcess();
+      event_map_.at("hand_touch").startProcess();
     }
     if (publish_enabled_) {
-      event_map_.find("hand_touch")->second.isPublishing(true);
+      event_map_.at("hand_touch").isPublishing(true);
     }
   }
 
@@ -946,10 +947,10 @@ void Driver::registerDefaultConverter()
       boost::make_shared<HeadTouchEventRegister>( "head_touch", head_touch_events, 0, sessionPtr_ );
     insertEventConverter("head_touch", event_register);
     if (keep_looping) {
-      event_map_.find("head_touch")->second.startProcess();
+      event_map_.at("head_touch").startProcess();
     }
     if (publish_enabled_) {
-      event_map_.find("head_touch")->second.isPublishing(true);
+      event_map_.at("head_touch").isPublishing(true);
     }
   }
 
@@ -1178,9 +1179,12 @@ void Driver::stop()
     iterator->second.stopProcess();
   }
 
-  converters_.clear();
-  subscribers_.clear();
-  event_map_.clear();
+  {
+    std::lock_guard<std::mutex> lock( mutex_conv_queue_ );
+    converters_.clear();
+    subscribers_.clear();
+    event_map_.clear();
+  }
   rclcpp::spin_some(this->get_node_base_interface());
 }
 
@@ -1188,7 +1192,9 @@ void Driver::parseJsonFile(std::string filepath, boost::property_tree::ptree &pt
   // Open json file and parse it
   std::ifstream json_file;
   json_file.open(filepath.c_str(), std::ios_base::in);
-
+  if (!json_file.is_open()) {
+    throw std::runtime_error("Failed to open JSON file: " + filepath);
+  }
   boost::property_tree::json_parser::read_json(json_file, pt);
   json_file.close();
 }
@@ -1330,10 +1336,10 @@ bool Driver::registerEventConverter(const std::string& key, const dataType::Data
   }
 
   if (keep_looping) {
-    event_map_.find(key)->second.startProcess();
+    event_map_.at(key).startProcess();
   }
   if (publish_enabled_) {
-    event_map_.find(key)->second.isPublishing(true);
+    event_map_.at(key).isPublishing(true);
   }
 
   return true;

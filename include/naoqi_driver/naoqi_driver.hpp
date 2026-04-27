@@ -240,9 +240,9 @@ private:
   qi::SessionPtr sessionPtr_;
   robot::Robot robot_;
 
-  bool publish_enabled_;
-  bool record_enabled_;
-  bool log_enabled_;
+  std::atomic<bool> publish_enabled_;
+  std::atomic<bool> record_enabled_;
+  std::atomic<bool> log_enabled_;
   std::atomic<bool> keep_looping;
   bool has_stereo;
 

@@ -38,7 +38,11 @@ namespace
       {"zh", "Chinese"}
     };
 
-    return iso_to_qichat.at(iso_language);
+    auto it = iso_to_qichat.find(iso_language);
+    if (it == iso_to_qichat.end()) {
+      throw std::runtime_error("Unsupported language code: " + iso_language);
+    }
+    return it->second;
   }
 
   struct ListenState {

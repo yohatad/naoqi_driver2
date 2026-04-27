@@ -15,9 +15,9 @@ def generate_launch_description():
             default_value="9559",
             description='Port to be used for the connection'),
         launch.actions.DeclareLaunchArgument(
-            'username',
+            'user',
             default_value="nao",
-            description='Username for the robot SSH connection'),
+            description='Username for the connection'),
         launch.actions.DeclareLaunchArgument(
             'password',
             default_value="no_password",
@@ -37,9 +37,11 @@ def generate_launch_description():
         launch_ros.actions.Node(
             package='naoqi_driver',
             executable='naoqi_driver_node',
+            namespace=launch.substitutions.LaunchConfiguration('namespace'),
             parameters=[{
                 'nao_ip': launch.substitutions.LaunchConfiguration('nao_ip'),
                 'nao_port': launch.substitutions.LaunchConfiguration('nao_port'),
+                'user': launch.substitutions.LaunchConfiguration('user'),
                 'password': launch.substitutions.LaunchConfiguration('password'),
                 'network_interface': launch.substitutions.LaunchConfiguration('network_interface'),
                 'qi_listen_url': launch.substitutions.LaunchConfiguration('qi_listen_url'),
