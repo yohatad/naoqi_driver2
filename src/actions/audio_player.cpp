@@ -519,39 +519,38 @@ AudioPlayerServers createAudioPlayerServers(rclcpp::Node* node, qi::SessionPtr s
   AudioPlayerServers servers;
 
   servers.play_audio = rclcpp_action::create_server<PlayAudio>(
-    node, "naoqi_driver/play_audio",
+    node, "/naoqi_driver/play_audio",
     std::bind(handle_goal,     state, ph::_1, ph::_2),
     std::bind(handle_cancel,   state, ph::_1),
     std::bind(handle_accepted, state, ph::_1)
   );
 
   servers.load_file = node->create_service<LoadAudioFile>(
-    "naoqi_driver/load_audio_file",
+    "/naoqi_driver/load_audio_file",
     std::bind(handleLoadFile, state, ph::_1, ph::_2));
 
   servers.unload_file = node->create_service<UnloadAudioFile>(
-    "naoqi_driver/unload_audio_file",
+    "/naoqi_driver/unload_audio_file",
     std::bind(handleUnloadFile, state, ph::_1, ph::_2));
 
   servers.set_volume = node->create_service<SetAudioVolume>(
-    "naoqi_driver/set_audio_volume",
+    "/naoqi_driver/set_audio_volume",
     std::bind(handleSetVolume, state, ph::_1, ph::_2));
 
   servers.stop_audio = node->create_service<StopAudio>(
-    "naoqi_driver/stop_audio",
+    "/naoqi_driver/stop_audio",
     std::bind(handleStopAudio, state, ph::_1, ph::_2));
 
-  // Register new services
   servers.send_buffer = node->create_service<SendAudioBuffer>(
-    "naoqi_driver/send_audio_buffer",
+    "/naoqi_driver/send_audio_buffer",
     std::bind(handleSendBuffer, state, ph::_1, ph::_2));
 
   servers.pause_audio = node->create_service<PauseAudio>(
-    "naoqi_driver/pause_audio",
+    "/naoqi_driver/pause_audio",
     std::bind(handlePauseAudio, state, ph::_1, ph::_2));
 
   servers.resume_audio = node->create_service<ResumeAudio>(
-    "naoqi_driver/resume_audio",
+    "/naoqi_driver/resume_audio",
     std::bind(handleResumeAudio, state, ph::_1, ph::_2));
 
   return servers;

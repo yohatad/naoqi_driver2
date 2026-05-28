@@ -32,7 +32,7 @@ def generate_launch_description():
             description='Endpoint to listen for incoming NAOqi connections (for audio)'),
         launch.actions.DeclareLaunchArgument(
             'namespace',
-            default_value="naoqi_driver",
+            default_value="",
             description='Name of the namespace to be used'),
         launch_ros.actions.Node(
             package='naoqi_driver',
