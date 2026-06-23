@@ -34,6 +34,11 @@ def generate_launch_description():
             'namespace',
             default_value="",
             description='Name of the namespace to be used'),
+        launch.actions.DeclareLaunchArgument(
+            'publish_wheel_odom_tf',
+            default_value="false",
+            description='Publish odom -> base_footprint from wheel odometry. '
+                         'Disable when an external localization source (e.g. FAST-LIO) owns this edge.'),
         launch_ros.actions.Node(
             package='naoqi_driver',
             executable='naoqi_driver_node',
@@ -45,6 +50,7 @@ def generate_launch_description():
                 'password': launch.substitutions.LaunchConfiguration('password'),
                 'network_interface': launch.substitutions.LaunchConfiguration('network_interface'),
                 'qi_listen_url': launch.substitutions.LaunchConfiguration('qi_listen_url'),
+                'publish_wheel_odom_tf': launch.substitutions.LaunchConfiguration('publish_wheel_odom_tf'),
             }],
             output="screen"),
     ])

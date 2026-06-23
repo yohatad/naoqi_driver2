@@ -64,6 +64,32 @@ void JointStateConverter::reset()
 
   addChildren( tree.getRootSegment() );
 
+  // store the static Tibia -> base_footprint offset from the URDF, so that
+  // base_footprint -> base_link can be derived from the current leg kinematics
+  tibia_to_footprint_offset_.setIdentity();
+  std::map<std::string, robot_state_publisher::SegmentPair>::const_iterator footprint_seg = segments_fixed_.find("base_footprint_joint");
+  if ( footprint_seg != segments_fixed_.end() )
+  {
+    KDL::Frame frame = footprint_seg->second.segment.pose(0);
+    double qx, qy, qz, qw;
+    frame.M.GetQuaternion(qx, qy, qz, qw);
+    tibia_to_footprint_offset_.setOrigin( tf2::Vector3(frame.p.x(), frame.p.y(), frame.p.z()) );
+    tibia_to_footprint_offset_.setRotation( tf2::Quaternion(qx, qy, qz, qw) );
+  }
+  else
+  {
+    RCLCPP_ERROR(helpers::Node::get_logger(), "base_footprint_joint not found in URDF, base_footprint -> base_link will be identity");
+  }
+
+  // whether to also publish odom -> base_footprint from wheel odometry
+  // (off by default: an external localization source such as FAST-LIO owns this edge)
+  const auto& node = helpers::Node::get_node();
+  if ( !node->has_parameter("publish_wheel_odom_tf") )
+  {
+    node->declare_parameter<bool>("publish_wheel_odom_tf", false);
+  }
+  node->get_parameter("publish_wheel_odom_tf", publish_wheel_odom_tf_);
+
   // set mimic joint list
   mimic_.clear();
   for(std::map< std::string, urdf::JointSharedPtr >::iterator i = model.joints_.begin(); i != model.joints_.end(); i++){
@@ -82,18 +108,11 @@ void JointStateConverter::registerCallback( const message_actions::MessageAction
 
 void JointStateConverter::callAll( const std::vector<message_actions::MessageAction>& actions )
 {
-  /*
-   * get robot position for odometry at the same time as joint states
-   * Using getRobotPosition for 2D base odometry (same as OdomConverter)
-   */
-  auto getting_odometry_data = p_motion_.async<std::vector<float> >( "getRobotPosition", true );
-
   // get joint state values
   std::vector<double> al_joint_angles = p_motion_.call<std::vector<double> >("getAngles", "Body", true );
   std::vector<double> al_joint_velocities;
   std::vector<double> al_joint_torques;
 
-  std::vector<float> al_odometry_data = getting_odometry_data.value();
   const rclcpp::Time& stamp = helpers::Time::now();
 
   /**
@@ -168,70 +187,82 @@ void JointStateConverter::callAll( const std::vector<message_actions::MessageAct
   setTransforms(joint_state_map, stamp, jt_tf_prefix);
   setFixedTransforms(jt_tf_prefix, stamp);
 
- /**
- * ODOMETRY
- */
   const rclcpp::Time &odom_stamp = stamp;
 
-  // Get the current offsets from OdomConverter
-  float offset_x, offset_y, offset_z, offset_wx, offset_wy, offset_wz;
-  naoqi::converter::OdomConverter::getOffsets(offset_x, offset_y, offset_z, offset_wx, offset_wy, offset_wz);
+  // Optionally publish odom -> base_footprint from wheel odometry. Leave disabled
+  // when an external localization source (e.g. FAST-LIO) owns this edge.
+  if ( publish_wheel_odom_tf_ )
+  {
+    std::vector<float> al_odometry_data = p_motion_.call<std::vector<float> >( "getRobotPosition", true );
 
-  // Extract 2D position data
-  float raw_x = al_odometry_data[0];      // X position in world frame
-  float raw_y = al_odometry_data[1];      // Y position in world frame  
-  float raw_theta = al_odometry_data[2];  // Yaw angle in world frame [-pi, pi]
+    // Get the current offsets from OdomConverter
+    float offset_x, offset_y, offset_z, offset_wx, offset_wy, offset_wz;
+    naoqi::converter::OdomConverter::getOffsets(offset_x, offset_y, offset_z, offset_wx, offset_wy, offset_wz);
 
-  // Transform position to robot's initial frame
-  float cos_offset = std::cos(-offset_wz);
-  float sin_offset = std::sin(-offset_wz);
+    // Extract 2D position data
+    float raw_x = al_odometry_data[0];      // X position in world frame
+    float raw_y = al_odometry_data[1];      // Y position in world frame
+    float raw_theta = al_odometry_data[2];  // Yaw angle in world frame [-pi, pi]
 
-  float dx = raw_x - offset_x;
-  float dy = raw_y - offset_y;
+    // Transform position to robot's initial frame
+    float cos_offset = std::cos(-offset_wz);
+    float sin_offset = std::sin(-offset_wz);
 
-  // Rotate by inverse of initial orientation
-  const float odomX = dx * cos_offset - dy * sin_offset;
-  const float odomY = dx * sin_offset + dy * cos_offset;
-  const float odomZ = 0.0f;  // Ground level
+    float dx = raw_x - offset_x;
+    float dy = raw_y - offset_y;
 
-  // Normalize theta to robot's initial orientation
-  const float odomTheta = raw_theta - offset_wz;
+    // Rotate by inverse of initial orientation
+    const float odomX = dx * cos_offset - dy * sin_offset;
+    const float odomY = dx * sin_offset + dy * cos_offset;
+    const float odomZ = 0.0f;  // Ground level
 
-  // Create quaternion from yaw angle (2D rotation)
-  tf2::Quaternion tf_quat;
-  tf_quat.setRPY(0.0, 0.0, odomTheta);
-  geometry_msgs::msg::Quaternion odom_quat = tf2::toMsg( tf_quat );
+    // Normalize theta to robot's initial orientation
+    const float odomTheta = raw_theta - offset_wz;
 
-  // Publish odom → base_footprint (ground level)
-  static geometry_msgs::msg::TransformStamped msg_tf_odom;
-  msg_tf_odom.header.frame_id = "odom";
-  msg_tf_odom.child_frame_id = "base_footprint";
-  msg_tf_odom.header.stamp = odom_stamp;
+    // Create quaternion from yaw angle (2D rotation)
+    tf2::Quaternion tf_quat;
+    tf_quat.setRPY(0.0, 0.0, odomTheta);
+    geometry_msgs::msg::Quaternion odom_quat = tf2::toMsg( tf_quat );
 
-  msg_tf_odom.transform.translation.x = odomX;
-  msg_tf_odom.transform.translation.y = odomY;
-  msg_tf_odom.transform.translation.z = odomZ;
-  msg_tf_odom.transform.rotation = odom_quat;
+    // Publish odom → base_footprint (ground level)
+    geometry_msgs::msg::TransformStamped msg_tf_odom;
+    msg_tf_odom.header.frame_id = "pepper_odom";
+    msg_tf_odom.child_frame_id = "base_footprint";
+    msg_tf_odom.header.stamp = odom_stamp;
 
-  tf_transforms_.push_back( msg_tf_odom );
-  tf2_buffer_->setTransform( msg_tf_odom, "naoqiconverter", false);
+    msg_tf_odom.transform.translation.x = odomX;
+    msg_tf_odom.transform.translation.y = odomY;
+    msg_tf_odom.transform.translation.z = odomZ;
+    msg_tf_odom.transform.rotation = odom_quat;
 
-  // Connect base_footprint to base_link (bridges odometry to robot body)
+    tf_transforms_.push_back( msg_tf_odom );
+    tf2_buffer_->setTransform( msg_tf_odom, "naoqiconverter", false);
+  }
+
+  // Connect base_footprint to base_link (bridges the external odometry frame to the robot body)
+  // Derived from the current leg kinematics (HipRoll/HipPitch/KneePitch), via the
+  // base_link -> Tibia transform computed by setTransforms() above, combined with
+  // the static Tibia -> base_footprint offset from the URDF. This keeps the
+  // odom -> base_footprint -> base_link chain consistent as the legs move,
+  // instead of assuming a fixed default-pose height.
   static geometry_msgs::msg::TransformStamped msg_tf_base;
   msg_tf_base.header.frame_id = "base_footprint";
   msg_tf_base.child_frame_id = "base_link";
   msg_tf_base.header.stamp = odom_stamp;
 
-  // Height calculated from URDF: 0.334 + 0.268 + 0.079 + 0.139 = 0.82m
-  msg_tf_base.transform.translation.x = 0.0;
-  msg_tf_base.transform.translation.y = 0.0;
-  msg_tf_base.transform.translation.z = 0.82;
+  try {
+    geometry_msgs::msg::TransformStamped tf_base_link_to_tibia =
+        tf2_buffer_->lookupTransform("base_link", "Tibia", tf2::TimePointZero);
 
-  // No rotation between footprint and base_link
-  msg_tf_base.transform.rotation.x = 0.0;
-  msg_tf_base.transform.rotation.y = 0.0;
-  msg_tf_base.transform.rotation.z = 0.0;
-  msg_tf_base.transform.rotation.w = 1.0;
+    tf2::Transform t_base_link_to_tibia;
+    tf2::fromMsg(tf_base_link_to_tibia.transform, t_base_link_to_tibia);
+
+    tf2::Transform t_base_link_to_footprint = t_base_link_to_tibia * tibia_to_footprint_offset_;
+    msg_tf_base.transform = tf2::toMsg(t_base_link_to_footprint.inverse());
+  } catch (const tf2::TransformException& ex) {
+    RCLCPP_ERROR(helpers::Node::get_logger(), "Could not compute base_footprint -> base_link: %s", ex.what());
+    msg_tf_base.transform.rotation.w = 1.0;
+  }
 
   tf_transforms_.push_back( msg_tf_base );
   tf2_buffer_->setTransform( msg_tf_base, "naoqiconverter", true);

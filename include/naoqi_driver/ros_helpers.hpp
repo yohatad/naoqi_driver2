@@ -51,11 +51,20 @@ public:
 
   /**
    * @brief Get the number of subscribers for a publisher on a specific topic
-   * 
-   * @return int 
+   *
+   * @return int
    */
   static size_t count_subscribers(const std::string& topic_name) {
     return Node::node_ptr_->count_subscribers(topic_name);
+  }
+
+  /**
+   * @brief Get the underlying driver rclcpp::Node, e.g. to declare/read parameters
+   *
+   * @return boost::shared_ptr<rclcpp::Node>
+   */
+  static const boost::shared_ptr<rclcpp::Node>& get_node() {
+    return Node::node_ptr_;
   }
 
 protected:

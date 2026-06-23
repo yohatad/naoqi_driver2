@@ -60,7 +60,7 @@
     },
     "imu_base":
     {
-      "enabled"       : true,
+      "enabled"       : false,
       "frequency"     : 100
     },
     "joint_states":
@@ -98,7 +98,7 @@
     },
     "odom":
     {
-      "enabled"       : true,
+      "enabled"       : false,
       "frequency"     : 50
     }
   }

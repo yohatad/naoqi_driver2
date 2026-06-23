@@ -88,6 +88,17 @@ public:
   void setQiSession(const qi::SessionPtr& session_ptr);
 
   void stop();
+
+  /**
+   * @brief Async-signal-safe request to break out of the run() loop.
+   * Call this from a signal handler; call stop() afterwards from
+   * normal (non-signal) context to perform the actual cleanup.
+   */
+  void requestStop()
+  {
+    keep_looping = false;
+  }
+
   /**
    * @brief Write a ROSbag with the last bufferized data (10s by default)
    */

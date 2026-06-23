@@ -35,8 +35,11 @@ boost::weak_ptr<naoqi::Driver> driver_weak;
 
 void sigint_handler(int sig)
 {
+  // Only async-signal-safe work here: just flag the run() loop to stop.
+  // The actual cleanup (driver->stop()) happens afterwards in main(),
+  // since it locks mutexes and isn't safe to call from a signal handler.
   if (auto driver = driver_weak.lock()) {
-    driver->stop();
+    driver->requestStop();
   }
 }
 
@@ -119,6 +122,7 @@ int main(int argc, char** argv)
   driver_weak = bs;
   signal(SIGINT, sigint_handler);
   bs->run();
+  bs->stop();
   driver_weak.reset();
 
   // Close the qi::Session and shutdown ROS.

@@ -32,6 +32,7 @@
 #include <urdf/model.h>
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <tf2_ros/buffer.h>
+#include <tf2/LinearMath/Transform.h>
 #include <robot_state_publisher/robot_state_publisher.hpp>
 
 namespace naoqi
@@ -85,6 +86,15 @@ private:
 
   /** Transform Messages **/
   std::vector<geometry_msgs::msg::TransformStamped> tf_transforms_;
+
+  /** Static Tibia -> base_footprint offset from the URDF, used to derive
+   *  base_footprint -> base_link from the current leg kinematics **/
+  tf2::Transform tibia_to_footprint_offset_;
+
+  /** Whether to publish odom -> base_footprint from wheel odometry.
+   *  Disable when an external localization source (e.g. FAST-LIO) owns
+   *  this edge; enable to fuse wheel odometry (e.g. via robot_localization). **/
+  bool publish_wheel_odom_tf_;
 
 }; // class
 

@@ -99,7 +99,7 @@ void OdomConverter::callAll( const std::vector<message_actions::MessageAction>& 
   geometry_msgs::msg::Quaternion odom_quat = tf2::toMsg( tf_quat );
 
   static nav_msgs::msg::Odometry msg_odom;
-  msg_odom.header.frame_id = "odom";
+  msg_odom.header.frame_id = "pepper_odom";
   msg_odom.child_frame_id = "base_footprint";  // Changed to match JointStateConverter TF
   msg_odom.header.stamp = odom_stamp;
 
