@@ -35,7 +35,7 @@ namespace
   {
     (void)goal;
     std::string goal_id = rclcpp_action::to_string(uuid);
-    RCLCPP_INFO(state->logger, "Received RunLed goal request %s", goal_id.c_str());
+    RCLCPP_DEBUG(state->logger, "Received RunLed goal request %s", goal_id.c_str());
     return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
   }
 
@@ -82,7 +82,7 @@ namespace
           state->current_target = target;
         }
 
-        RCLCPP_INFO(state->logger, "RunLed: target=%s, mode=%d, duration=%.2f",
+        RCLCPP_DEBUG(state->logger, "RunLed: target=%s, mode=%d, duration=%.2f",
                     target.c_str(), goal->mode, duration);
 
         switch (goal->mode) {
@@ -142,7 +142,7 @@ namespace
           result->success = true;
           result->message = "OK";
           goal_handle->succeed(result);
-          RCLCPP_INFO(state->logger, "RunLed %s completed", goal_id.c_str());
+          RCLCPP_DEBUG(state->logger, "RunLed %s completed", goal_id.c_str());
         }
       }
       catch (const std::exception& e)
@@ -165,7 +165,7 @@ createRunLedServer(rclcpp::Node* node, qi::SessionPtr session)
   namespace ph = std::placeholders;
   auto state = std::make_shared<LedState>(node, std::move(session));
   return rclcpp_action::create_server<RunLed>(
-    node, "run_led",
+    node, "naoqi_driver/run_led",
     std::bind(handle_goal, state, ph::_1, ph::_2),
     std::bind(handle_cancel, state, ph::_1),
     std::bind(handle_accepted, state, ph::_1)

@@ -64,13 +64,6 @@ void OdomConverter::callAll( const std::vector<message_actions::MessageAction>& 
   float raw_y = al_position_data[1];      // Y position in world frame
   float raw_theta = al_position_data[2];  // Yaw angle in world frame [-pi, pi]
 
-  // DEBUG: Print raw values and offsets every 50 cycles (about once per second at 50Hz)
-  static int debug_counter = 0;
-  if (++debug_counter >= 50) {
-    std::cout << "[ODOM DEBUG] Raw: X=" << raw_x << " Y=" << raw_y << " Theta=" << raw_theta << std::endl;
-    std::cout << "[ODOM DEBUG] Offsets: X=" << position_offset_x_ << " Y=" << position_offset_y_ << " Theta=" << orientation_offset_wz_ << std::endl;
-    debug_counter = 0;
-  }
 
   // Transform position to robot's initial frame
   // This makes the starting position (0, 0) and starting orientation 0

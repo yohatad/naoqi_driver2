@@ -36,7 +36,7 @@ def generate_launch_description():
             description='Name of the namespace to be used'),
         launch.actions.DeclareLaunchArgument(
             'publish_wheel_odom_tf',
-            default_value="false",
+            default_value="true",
             description='Publish odom -> base_footprint from wheel odometry. '
                          'Disable when an external localization source (e.g. FAST-LIO) owns this edge.'),
         launch_ros.actions.Node(

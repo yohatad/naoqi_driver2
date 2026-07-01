@@ -957,9 +957,9 @@ void Driver::registerDefaultConverter()
   /** Odom */
   if ( odom_enabled )
   {
-    boost::shared_ptr<publisher::BasicPublisher<nav_msgs::msg::Odometry> > lp = boost::make_shared<publisher::BasicPublisher<nav_msgs::msg::Odometry> >( "wheel_odom" );
-    boost::shared_ptr<recorder::BasicRecorder<nav_msgs::msg::Odometry> > lr = boost::make_shared<recorder::BasicRecorder<nav_msgs::msg::Odometry> >( "wheel_odom" );
-    boost::shared_ptr<converter::OdomConverter> lc = boost::make_shared<converter::OdomConverter>( "wheel_odom", odom_frequency, sessionPtr_ );
+    boost::shared_ptr<publisher::BasicPublisher<nav_msgs::msg::Odometry> > lp = boost::make_shared<publisher::BasicPublisher<nav_msgs::msg::Odometry> >( "pepper_odom" );
+    boost::shared_ptr<recorder::BasicRecorder<nav_msgs::msg::Odometry> > lr = boost::make_shared<recorder::BasicRecorder<nav_msgs::msg::Odometry> >( "pepper_odom" );
+    boost::shared_ptr<converter::OdomConverter> lc = boost::make_shared<converter::OdomConverter>( "pepper_odom", odom_frequency, sessionPtr_ );
     lc->registerCallback( message_actions::PUBLISH, boost::bind(&publisher::BasicPublisher<nav_msgs::msg::Odometry>::publish, lp, ph::_1) );
     lc->registerCallback( message_actions::RECORD, boost::bind(&recorder::BasicRecorder<nav_msgs::msg::Odometry>::write, lr, ph::_1) );
     lc->registerCallback( message_actions::LOG, boost::bind(&recorder::BasicRecorder<nav_msgs::msg::Odometry>::bufferize, lr, ph::_1) );

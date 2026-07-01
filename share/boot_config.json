@@ -98,7 +98,7 @@
     },
     "odom":
     {
-      "enabled"       : false,
+      "enabled"       : true,
       "frequency"     : 50
     }
   }
