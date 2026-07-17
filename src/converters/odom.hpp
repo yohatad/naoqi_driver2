@@ -30,6 +30,8 @@
 */
 #include <nav_msgs/msg/odometry.hpp>
 
+#include <mutex>
+
 namespace naoqi
 {
 namespace converter
@@ -66,7 +68,10 @@ private:
   std::map<message_actions::MessageAction, Callback_t> callbacks_;
   nav_msgs::msg::Odometry msg_;
 
-  // Static offset variables for software-based odometry reset
+  // Static offset variables for software-based odometry reset.
+  // Written from the /reset_odom service thread and read on the publish
+  // thread, so every access must hold offsets_mutex_.
+  static std::mutex offsets_mutex_;
   static float position_offset_x_;
   static float position_offset_y_;
   static float position_offset_z_;

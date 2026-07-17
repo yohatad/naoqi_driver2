@@ -36,6 +36,16 @@ namespace
     (void)goal;
     std::string goal_id = rclcpp_action::to_string(uuid);
     RCLCPP_DEBUG(state->logger, "Received RunLed goal request %s", goal_id.c_str());
+
+    std::lock_guard<std::mutex> lock(state->mutex);
+    if (state->current_goal) {
+      RCLCPP_INFO(
+        state->logger,
+        "Rejected RunLed request %s: request %s is still running",
+        goal_id.c_str(),
+        rclcpp_action::to_string(state->current_goal->get_goal_id()).c_str());
+      return rclcpp_action::GoalResponse::REJECT;
+    }
     return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
   }
 

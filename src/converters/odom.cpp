@@ -30,6 +30,7 @@ namespace converter
 {
 
 // Initialize static offset variables
+std::mutex OdomConverter::offsets_mutex_;
 float OdomConverter::position_offset_x_ = 0.0f;
 float OdomConverter::position_offset_y_ = 0.0f;
 float OdomConverter::position_offset_z_ = 0.0f;
@@ -65,13 +66,22 @@ void OdomConverter::callAll( const std::vector<message_actions::MessageAction>& 
   float raw_theta = al_position_data[2];  // Yaw angle in world frame [-pi, pi]
 
 
+  // Copy the offsets under lock; they can be rewritten by /reset_odom
+  float offset_x, offset_y, offset_wz;
+  {
+    std::lock_guard<std::mutex> lock(offsets_mutex_);
+    offset_x = position_offset_x_;
+    offset_y = position_offset_y_;
+    offset_wz = orientation_offset_wz_;
+  }
+
   // Transform position to robot's initial frame
   // This makes the starting position (0, 0) and starting orientation 0
-  float cos_offset = std::cos(-orientation_offset_wz_);
-  float sin_offset = std::sin(-orientation_offset_wz_);
+  float cos_offset = std::cos(-offset_wz);
+  float sin_offset = std::sin(-offset_wz);
 
-  float dx = raw_x - position_offset_x_;
-  float dy = raw_y - position_offset_y_;
+  float dx = raw_x - offset_x;
+  float dy = raw_y - offset_y;
 
   // Rotate delta by inverse of initial orientation
   const float odomX = dx * cos_offset - dy * sin_offset;
@@ -79,7 +89,7 @@ void OdomConverter::callAll( const std::vector<message_actions::MessageAction>& 
   const float odomZ = 0.0f;  // 2D navigation - keep at 0
 
   // Normalize theta to robot's initial orientation
-  const float odomTheta = raw_theta - orientation_offset_wz_;
+  const float odomTheta = raw_theta - offset_wz;
 
   // Velocity is already in FRAME_ROBOT (base_link) - perfect for odometry
   const float& dX = al_speed_data[0];
@@ -136,17 +146,20 @@ void OdomConverter::resetOdometry()
     std::vector<float> current_pos = p_motion_.call<std::vector<float> >( "getRobotPosition", use_sensor );
 
     // getRobotPosition returns 3 values: [X, Y, Theta]
-    position_offset_x_ = current_pos[0];
-    position_offset_y_ = current_pos[1];
-    position_offset_z_ = 0.0f;  // 2D navigation - always 0
-    orientation_offset_wx_ = 0.0f;  // 2D - no roll
-    orientation_offset_wy_ = 0.0f;  // 2D - no pitch
-    orientation_offset_wz_ = current_pos[2];  // Yaw/Theta
+    {
+      std::lock_guard<std::mutex> lock(offsets_mutex_);
+      position_offset_x_ = current_pos[0];
+      position_offset_y_ = current_pos[1];
+      position_offset_z_ = 0.0f;  // 2D navigation - always 0
+      orientation_offset_wx_ = 0.0f;  // 2D - no roll
+      orientation_offset_wy_ = 0.0f;  // 2D - no pitch
+      orientation_offset_wz_ = current_pos[2];  // Yaw/Theta
+    }
 
     std::cout << "Odometry reset using software offset" << std::endl;
-    std::cout << "New offsets - X: " << position_offset_x_
-              << " Y: " << position_offset_y_
-              << " Theta: " << orientation_offset_wz_ << std::endl;
+    std::cout << "New offsets - X: " << current_pos[0]
+              << " Y: " << current_pos[1]
+              << " Theta: " << current_pos[2] << std::endl;
   }
   catch (const std::exception& e) {
     std::cerr << "Failed to reset odometry: " << e.what() << std::endl;
@@ -155,6 +168,7 @@ void OdomConverter::resetOdometry()
 
 void OdomConverter::getOffsets(float& x, float& y, float& z, float& wx, float& wy, float& wz)
 {
+  std::lock_guard<std::mutex> lock(offsets_mutex_);
   x = position_offset_x_;
   y = position_offset_y_;
   z = position_offset_z_;
@@ -165,16 +179,19 @@ void OdomConverter::getOffsets(float& x, float& y, float& z, float& wx, float& w
 
 void OdomConverter::setOffsets(float x, float y, float z, float wx, float wy, float wz)
 {
-  position_offset_x_ = x;
-  position_offset_y_ = y;
-  position_offset_z_ = z;
-  orientation_offset_wx_ = wx;
-  orientation_offset_wy_ = wy;
-  orientation_offset_wz_ = wz;
-  
-  std::cout << "Odometry offsets set to - X: " << position_offset_x_ 
-            << " Y: " << position_offset_y_ 
-            << " Z: " << position_offset_z_ << std::endl;
+  {
+    std::lock_guard<std::mutex> lock(offsets_mutex_);
+    position_offset_x_ = x;
+    position_offset_y_ = y;
+    position_offset_z_ = z;
+    orientation_offset_wx_ = wx;
+    orientation_offset_wy_ = wy;
+    orientation_offset_wz_ = wz;
+  }
+
+  std::cout << "Odometry offsets set to - X: " << x
+            << " Y: " << y
+            << " Theta: " << wz << std::endl;
 }
 
 } //converter

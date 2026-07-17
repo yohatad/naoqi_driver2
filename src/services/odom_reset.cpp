@@ -46,25 +46,27 @@ void OdomResetService::callback( const std::shared_ptr<std_srvs::srv::Trigger::R
     // Get the motion service
     qi::AnyObject p_motion = session_->service("ALMotion").value();
     
-    // Get current position to set as offset
-    std::vector<float> current_pos = p_motion.call<std::vector<float> >( "getPosition", "Torso", 1, true );
-    
+    // Get current ground pose to set as offset. Must be the same API and
+    // frame as OdomConverter::callAll: getRobotPosition returns [X, Y, Theta].
+    bool use_sensor = true;
+    std::vector<float> current_pos = p_motion.call<std::vector<float> >( "getRobotPosition", use_sensor );
+
     // Set offsets to current position, so future readings will be relative to this point
     naoqi::converter::OdomConverter::setOffsets(
       current_pos[0],
-      current_pos[1], 
-      current_pos[2],
-      current_pos[3],
-      current_pos[4],
-      current_pos[5]
+      current_pos[1],
+      0.0f,
+      0.0f,
+      0.0f,
+      current_pos[2]
     );
-    
+
     resp->success = true;
     resp->message = "Odometry reset successfully using software offset";
     std::cout << "Odometry reset successfully" << std::endl;
-    std::cout << "New offsets - X: " << current_pos[0] 
-              << " Y: " << current_pos[1] 
-              << " Z: " << current_pos[2] << std::endl;
+    std::cout << "New offsets - X: " << current_pos[0]
+              << " Y: " << current_pos[1]
+              << " Theta: " << current_pos[2] << std::endl;
   } 
   catch (const std::exception& e) {
     resp->success = false;

@@ -60,10 +60,17 @@ namespace
     RCLCPP_INFO(state->logger, "Received cancel request for %s", goal_id.c_str());
     
     state->cancel_requested = true;
-    
+
+    // Copy the service handle under the lock, but call NAOqi without it.
+    qi::AnyObject animated_speech_service;
+    {
+      std::lock_guard<std::mutex> lock(state->mutex);
+      animated_speech_service = state->animated_speech_service;
+    }
+
     try {
-      if (state->animated_speech_service) {
-        state->animated_speech_service.call<void>("stopAll");
+      if (animated_speech_service) {
+        animated_speech_service.call<void>("stopAll");
       }
     } catch (const std::exception& e) {
       RCLCPP_WARN(state->logger, "Failed to stop speech: %s", e.what());
@@ -84,12 +91,18 @@ namespace
       try
       {
         // Initialize ALAnimatedSpeech service if needed
-        if (!state->animated_speech_service) {
-          state->animated_speech_service = state->session->service("ALAnimatedSpeech").value();
+        qi::AnyObject animated_speech_service;
+        {
+          std::lock_guard<std::mutex> lock(state->mutex);
+          animated_speech_service = state->animated_speech_service;
+        }
+        if (!animated_speech_service) {
+          animated_speech_service = state->session->service("ALAnimatedSpeech").value();
         }
 
         {
           std::lock_guard<std::mutex> lock(state->mutex);
+          state->animated_speech_service = animated_speech_service;
           state->current_goal = goal_handle;
           state->cancel_requested = false;
         }
@@ -107,7 +120,7 @@ namespace
 
         // Build configuration map and call ALAnimatedSpeech
         std::map<std::string, std::string> config{{"bodyLanguageMode", mode}};
-        state->animated_speech_service.call<void>("say", text_to_say, config);
+        animated_speech_service.call<void>("say", text_to_say, config);
 
         // Check result
         auto result = std::make_shared<SpeechWithFeedback::Result>();
