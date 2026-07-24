@@ -141,6 +141,32 @@ you can omit the options:
 ros2 launch naoqi_driver naoqi_driver.launch.py
 ```
 
+### With the front camera (gscam2)
+
+The `pepper_bringup.launch.py` launch file starts the driver together with the
+[`gscam2`](../gscam2) node that consumes Pepper's front-camera GStreamer stream
+and publishes it into the driver's TF tree (frame `CameraTop_optical_frame`,
+topics `/pepper/front/image_raw` and `/pepper/front/camera_info`).
+
+Start the camera stream on the robot first, then launch:
+
+```sh
+ssh nao@<robot_host> '~/start_camera.sh'
+ros2 launch naoqi_driver pepper_bringup.launch.py nao_ip:=<robot_host>
+```
+
+The camera is controlled by the `use_camera` argument (default `true`). To run
+the driver on its own, disable it:
+
+```sh
+ros2 launch naoqi_driver pepper_bringup.launch.py nao_ip:=<robot_host> use_camera:=false
+```
+
+> `pepper_bringup.launch.py` accepts all the `naoqi_driver.launch.py` arguments
+> (`nao_ip`, `nao_port`, `user`, `password`, `network_interface`,
+> `qi_listen_url`, `namespace`, `publish_wheel_odom_tf`) and forwards them.
+> Remember to stop the stream afterwards with `ssh nao@<robot_host> '~/stop_camera.sh'`.
+
 ## Check that the node is running correctly
 
 Check that the driver is connected:
