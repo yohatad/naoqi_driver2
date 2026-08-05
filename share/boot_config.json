@@ -70,14 +70,14 @@
     },
     "laser":
     {
-      "enabled"       : false,
+      "enabled"       : true,
       "frequency"     : 10,
       "range_min"     : 0.1,
       "range_max"     : 3.0
     },
     "sonar":
     {
-      "enabled"       : false,
+      "enabled"       : true,
       "frequency"     : 10
     },
     "audio":

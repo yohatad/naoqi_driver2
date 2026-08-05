@@ -145,6 +145,17 @@ void LaserConverter::callAll( const std::vector<message_actions::MessageAction>&
     std::cerr << "Exception caught in LaserConverter: " << e.what() << std::endl;
     return;
   }
+
+  // The loops below index up to 88, so bail out rather than read out of bounds
+  // if the robot returned a short list (e.g. an unknown memory key).
+  if ( result_value.size() < laser_keys_value.size() )
+  {
+    std::cerr << "LaserConverter: expected " << laser_keys_value.size()
+              << " values from ALMemory, got " << result_value.size()
+              << std::endl;
+    return;
+  }
+
   msg_.header.stamp = helpers::Time::now();
   //  prepare the right sensor frame
   size_t pos = 0;
