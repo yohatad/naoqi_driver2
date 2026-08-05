@@ -31,6 +31,12 @@ def generate_launch_description():
         get_package_share_directory('gscam2'),
         'launch', 'pepper_camera_launch.py')
 
+    # publish_wheel_odom_tf is deliberately NOT declared or forwarded here.
+    # naoqi_driver.launch.py is the single place that defines it (default false,
+    # matching the node's C++ default). Re-declaring it at each layer is what
+    # let this default silently drift to true before. Includes share the launch
+    # context, so `publish_wheel_odom_tf:=true` on the command line still
+    # reaches the node through this file.
     return LaunchDescription([
         # Re-declare the naoqi args here so they can be set on the bringup command
         # line and forwarded to the included naoqi launch file.
@@ -48,8 +54,6 @@ def generate_launch_description():
                               description='Endpoint to listen for incoming NAOqi connections'),
         DeclareLaunchArgument('namespace', default_value='',
                               description='Name of the namespace to be used'),
-        DeclareLaunchArgument('publish_wheel_odom_tf', default_value='true',
-                              description='Publish odom -> base_footprint from wheel odometry.'),
         DeclareLaunchArgument('use_camera', default_value='true',
                               description='Start the gscam2 Pepper front camera alongside the driver.'),
 
@@ -63,7 +67,6 @@ def generate_launch_description():
                 'network_interface': LaunchConfiguration('network_interface'),
                 'qi_listen_url': LaunchConfiguration('qi_listen_url'),
                 'namespace': LaunchConfiguration('namespace'),
-                'publish_wheel_odom_tf': LaunchConfiguration('publish_wheel_odom_tf'),
             }.items(),
         ),
 

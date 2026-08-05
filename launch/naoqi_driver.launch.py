@@ -34,11 +34,18 @@ def generate_launch_description():
             'namespace',
             default_value="",
             description='Name of the namespace to be used'),
+        # FALSE by default, matching naoqi_driver_node's own C++ default.
+        # Publishing this edge while a LIO/SLAM also owns odom -> base_footprint
+        # gives that frame two parents and splits the TF tree; the flag is
+        # latched in JointStateConverter's constructor with no parameter
+        # callback, so it cannot be corrected at runtime. Wheel odometry is
+        # still available as a TOPIC (/pepper_odom) either way.
         launch.actions.DeclareLaunchArgument(
             'publish_wheel_odom_tf',
-            default_value="true",
+            default_value="false",
             description='Publish odom -> base_footprint from wheel odometry. '
-                         'Disable when an external localization source (e.g. FAST-LIO) owns this edge.'),
+                         'Leave FALSE when an external localization source '
+                         '(e.g. FAST-LIO) owns this edge, or the TF tree splits.'),
         launch_ros.actions.Node(
             package='naoqi_driver',
             executable='naoqi_driver_node',
