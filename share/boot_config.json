@@ -60,7 +60,7 @@
     },
     "imu_base":
     {
-      "enabled"       : false,
+      "enabled"       : true,
       "frequency"     : 100
     },
     "joint_states":
@@ -70,14 +70,14 @@
     },
     "laser":
     {
-      "enabled"       : true,
+      "enabled"       : false,
       "frequency"     : 10,
       "range_min"     : 0.1,
       "range_max"     : 3.0
     },
     "sonar":
     {
-      "enabled"       : true,
+      "enabled"       : false,
       "frequency"     : 10
     },
     "audio":
