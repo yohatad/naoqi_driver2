@@ -30,10 +30,26 @@
 */
 #include <sensor_msgs/msg/laser_scan.hpp>
 
+/*
+* STANDARD includes
+*/
+#include <cstddef>
+
 namespace naoqi
 {
 namespace converter
 {
+
+/** Number of Seg XY values read per scan (3 banks x 15 segments x 2 axes). */
+static const size_t kScanValueCount = 90;
+
+/** Right, Front, Left -- the order they appear in laserMemoryKeys. */
+static const size_t kBankCount = 3;
+
+/** A laser board frames at 6.66 Hz (~150 ms). One second is a little over six
+ *  frame periods: long enough that a converter polling faster than the boards
+ *  does not flicker, short enough to catch a stall quickly. */
+static const double kFrameStaleSeconds = 1.0;
 
 class LaserConverter : public BaseConverter<LaserConverter>
 {
@@ -53,9 +69,57 @@ public:
 
 private:
 
+  /** Advance-based liveness for one laser board.
+   *
+   * The boards stop sampling entirely whenever the robot is at rest, and a
+   * stalled board keeps returning its last values forever -- a value stream
+   * indistinguishable from an empty room. So a scan being *readable* proves
+   * nothing; only a frame counter observed to ADVANCE proves the bank is live.
+   *
+   * Starts UNPROVEN on purpose. A counter that has never been seen to change
+   * is absence of evidence, not evidence of life, so a board that was already
+   * stalled when the driver started is caught rather than inherited as
+   * healthy. Costs one frame period at startup.
+   */
+  struct BankLiveness
+  {
+    float  last_count;
+    double last_change_s;
+    bool   seen;
+    bool   proven;
+
+    BankLiveness() : last_count(0.0f), last_change_s(0.0), seen(false), proven(false) {}
+
+    bool update(float count, double now_s)
+    {
+      if (!seen)
+      {
+        seen = true;
+        last_count = count;
+        last_change_s = now_s;
+        return false;
+      }
+      if (count != last_count)
+      {
+        last_count = count;
+        last_change_s = now_s;
+        proven = true;
+        return true;
+      }
+      if (!proven)
+      {
+        return false;
+      }
+      return (now_s - last_change_s) < kFrameStaleSeconds;
+    }
+  };
+
   qi::AnyObject p_memory_;
   float range_min_;
   float range_max_;
+
+  BankLiveness liveness_[kBankCount];
+  double last_warn_s_;
 
   std::map<message_actions::MessageAction, Callback_t> callbacks_;
   sensor_msgs::msg::LaserScan msg_;

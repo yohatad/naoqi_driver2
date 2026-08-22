@@ -21,6 +21,14 @@
 #include "laser.hpp"
 #include "../tools/from_any_value.hpp"
 
+/*
+* STANDARD includes
+*/
+#include <cmath>
+#include <limits>
+#include <string>
+#include <vector>
+
 namespace naoqi
 {
 namespace converter
@@ -122,9 +130,57 @@ static const char* laserMemoryKeys[] = {
   "Device/SubDeviceList/Platform/LaserSensor/Left/Horizontal/Seg15/Y/Sensor/Value",
 };
 
+/** Per-board frame counters, in the same bank order as laserMemoryKeys.
+ *
+ * These are the liveness witnesses. Reg/FrameCount increments once per frame
+ * regardless of what the scene contains, so it distinguishes "nothing there"
+ * from "board stopped sampling" -- which the range values themselves cannot.
+ *
+ * Deliberately NOT using LaserSensor*Platform/HorizDataTimeStamp as an age:
+ * that clock is not in the DCM/Time epoch (measured on this hardware:
+ * DCM/Time=25582030 against HorizDataTimeStamp=59448), so its absolute value
+ * is meaningless. Only advance is meaningful, and FrameCount says the same
+ * thing more directly.
+ */
+static const char* laserLivenessKeys[] = {
+  "Device/SubDeviceList/Platform/LaserSensor/Right/Reg/FrameCount/Sensor/Value",
+  "Device/SubDeviceList/Platform/LaserSensor/Front/Reg/FrameCount/Sensor/Value",
+  "Device/SubDeviceList/Platform/LaserSensor/Left/Reg/FrameCount/Sensor/Value",
+};
+
+namespace {
+
+/** Scan values and liveness counters in a single getListData round trip. */
+std::vector<std::string> buildQueryKeys()
+{
+  std::vector<std::string> keys(laserMemoryKeys, laserMemoryKeys + kScanValueCount);
+  keys.insert(keys.end(), laserLivenessKeys, laserLivenessKeys + kBankCount);
+  return keys;
+}
+
+/** sensor_msgs/LaserScan convention: +inf means "live, but nothing within
+ *  range", NaN means "no usable measurement". Publishing the raw saturation
+ *  sentinel instead (~5.40 m on this hardware, and the right bank has been
+ *  seen to emit 7.09) leaves a phantom return sitting in the message that is
+ *  only harmless while range_max happens to be below it.
+ */
+inline float encodeRange(float dist, float range_min, float range_max)
+{
+  if (dist > range_max) return std::numeric_limits<float>::infinity();
+  if (dist < range_min) return std::numeric_limits<float>::quiet_NaN();
+  return dist;
+}
+
+const float kUnknownRange = std::numeric_limits<float>::quiet_NaN();
+
+}  // namespace
+
 LaserConverter::LaserConverter( const std::string& name, const float& frequency, const qi::SessionPtr& session ):
   BaseConverter( name, frequency, session ),
-  p_memory_(session->service("ALMemory").value())
+  p_memory_(session->service("ALMemory").value()),
+  range_min_(0.1f),
+  range_max_(3.0f),
+  last_warn_s_(0.0)
 {
 }
 
@@ -135,7 +191,7 @@ void LaserConverter::registerCallback( message_actions::MessageAction action, Ca
 
 void LaserConverter::callAll( const std::vector<message_actions::MessageAction>& actions )
 {
-  static const std::vector<std::string> laser_keys_value(laserMemoryKeys, laserMemoryKeys+90);
+  static const std::vector<std::string> laser_keys_value = buildQueryKeys();
 
   std::vector<float> result_value;
   try {
@@ -146,13 +202,43 @@ void LaserConverter::callAll( const std::vector<message_actions::MessageAction>&
     return;
   }
 
-  // The loops below index up to 88, so bail out rather than read out of bounds
-  // if the robot returned a short list (e.g. an unknown memory key).
+  // The loops below index up to 88 and the liveness counters sit at 90-92, so
+  // bail out rather than read out of bounds if the robot returned a short list
+  // (e.g. an unknown memory key).
   if ( result_value.size() < laser_keys_value.size() )
   {
     std::cerr << "LaserConverter: expected " << laser_keys_value.size()
               << " values from ALMemory, got " << result_value.size()
               << std::endl;
+    return;
+  }
+
+  const double now_s = helpers::Time::now().seconds();
+
+  bool live[kBankCount];
+  bool any_live = false;
+  for ( size_t b = 0; b < kBankCount; ++b )
+  {
+    live[b] = liveness_[b].update( result_value[kScanValueCount + b], now_s );
+    any_live = any_live || live[b];
+  }
+
+  // Nothing is sampling. Publishing here would stamp values that may be hours
+  // old with the current wall clock, which no downstream consumer can detect:
+  // the topic keeps its rate, the stamps stay fresh, and every staleness guard
+  // in the stack passes. A gap in the topic is the one failure mode consumers
+  // can actually see, so produce that instead.
+  if ( !any_live )
+  {
+    if ( now_s - last_warn_s_ > 5.0 )
+    {
+      last_warn_s_ = now_s;
+      std::cerr << "LaserConverter: no laser board has advanced its frame "
+                << "counter in " << kFrameStaleSeconds << " s -- not "
+                << "publishing. The boards stop sampling while the robot is "
+                << "at rest, so this is expected unless it is awake."
+                << std::endl;
+    }
     return;
   }
 
@@ -175,9 +261,8 @@ void LaserConverter::callAll( const std::vector<message_actions::MessageAction>&
     float bx = lx*std::cos(-1.757) - ly*std::sin(-1.757) - 0.018;
     float by = lx*std::sin(-1.757) + ly*std::cos(-1.757) - 0.090;
     float dist = std::sqrt( std::pow(bx,2) + std::pow(by,2) );
-    //float dist = std::sqrt( std::pow(lx,2) + std::pow(ly,2) );
-    //std::cout << "got a distance at "<< pos << " with "  << dist << std::endl;
-    msg_.ranges[pos] = dist;
+    msg_.ranges[pos] = live[0] ? encodeRange(dist, range_min_, range_max_)
+                               : kUnknownRange;
   }
 
   pos = pos+8; // leave out 8 blanks ==> pos = 15+8
@@ -190,9 +275,8 @@ void LaserConverter::callAll( const std::vector<message_actions::MessageAction>&
     float bx = lx + 0.056 ;
     float by = ly;
     float dist = std::sqrt( std::pow(bx,2) + std::pow(by,2) );
-    //float dist = std::sqrt( std::pow(lx,2) + std::pow(ly,2) );
-    //std::cout << "got a distance at "<< pos << " with "  << dist << std::endl;
-    msg_.ranges[pos] = dist;
+    msg_.ranges[pos] = live[1] ? encodeRange(dist, range_min_, range_max_)
+                               : kUnknownRange;
   }
 
   pos = pos+8; // leave out again 8 blanks ==> pos = 15+8+15+8
@@ -204,9 +288,8 @@ void LaserConverter::callAll( const std::vector<message_actions::MessageAction>&
     float bx = lx*std::cos(1.757) - ly*std::sin(1.757) - 0.018;
     float by = lx*std::sin(1.757) + ly*std::cos(1.757) + 0.090;
     float dist = std::sqrt( std::pow(bx,2) + std::pow(by,2) );
-    //float dist = std::sqrt( std::pow(lx,2) + std::pow(ly,2) );
-    //std::cout << "got a distance at "<< pos << " with "  << dist << std::endl;
-    msg_.ranges[pos] = dist;
+    msg_.ranges[pos] = live[2] ? encodeRange(dist, range_min_, range_max_)
+                               : kUnknownRange;
   }
 
   for( message_actions::MessageAction action: actions )
