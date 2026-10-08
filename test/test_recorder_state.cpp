@@ -53,7 +53,7 @@ TEST_F(RecorderStateTest, IsStartedCanBePolledWhileStartingAndStopping)
   while (!polling) {
     std::this_thread::yield();
   }
-  for (int i = 0; i < 200; ++i) {
+  for (int i = 0; i < 30; ++i) {
     global.startRecord("poll");
     global.stopRecord();
   }

@@ -19,12 +19,13 @@
 #define FILESYSTEM_HELPERS_HPP
 
 #include <naoqi_driver/ros_helpers.hpp>
-#include <iostream>
 #include <qi/session.hpp>
 
+#include <algorithm>
+#include <cstdint>
 #include <filesystem>
-
-#include "string_helpers.hpp"
+#include <system_error>
+#include <vector>
 
 #ifdef AMENT_BUILD
 #include <ament_index_cpp/get_package_share_directory.hpp>
@@ -37,61 +38,66 @@ namespace helpers
 namespace filesystem
 {
 
-static const long folderMaximumSize = 2000000000;
+/** Above this total size of bags in the working directory, minidump refuses (2 GB). */
+static const std::uintmax_t folderMaximumSize = 2000000000;
 
-inline void getFoldersize(std::string rootFolder, long & file_size)
+/** Total size of the files under path, recursively; 0 if it does not exist. */
+inline std::uintmax_t getSize(const std::filesystem::path & path)
 {
-  helpers::string::replaceAll(rootFolder, "\\\\", "\\");
-  std::filesystem::path folderPath(rootFolder);
-  if (std::filesystem::exists(folderPath)) {
-    std::filesystem::directory_iterator end_itr;
-
-    for (std::filesystem::directory_iterator dirIte(rootFolder); dirIte != end_itr; ++dirIte) {
-      std::filesystem::path filePath(dirIte->path());
-      try {
-        if (!std::filesystem::is_directory(dirIte->status()) ) {
-          file_size = file_size + std::filesystem::file_size(filePath);
-        } else {
-          getFoldersize(filePath.string(), file_size);
-        }
-      } catch (std::exception & e) {
-        RCLCPP_WARN_STREAM(naoqi::helpers::Node::get_logger(), e.what());
-      }
+  std::error_code ec;
+  if (std::filesystem::is_regular_file(path, ec)) {
+    const std::uintmax_t size = std::filesystem::file_size(path, ec);
+    return ec ? 0 : size;
+  }
+  std::uintmax_t total = 0;
+  for (std::filesystem::recursive_directory_iterator it(path, ec), end; !ec && it != end;
+    it.increment(ec))
+  {
+    if (it->is_regular_file(ec)) {
+      const std::uintmax_t size = it->file_size(ec);
+      total += ec ? 0 : size;
+      ec.clear();
     }
   }
+  return total;
 }
 
-inline void getFiles(
-  const std::filesystem::path & root, const std::string & ext,
-  std::vector<std::filesystem::path> & ret)
+/** The rosbag2 bags directly in folder: subfolders with a metadata.yaml or a .db3 file. */
+inline std::vector<std::filesystem::path> getBags(const std::filesystem::path & folder)
 {
-  if (!std::filesystem::exists(root) || !std::filesystem::is_directory(root)) {return;}
-
-  std::filesystem::recursive_directory_iterator it(root);
-  std::filesystem::recursive_directory_iterator endit;
-
-  while (it != endit) {
-    if (std::filesystem::is_regular_file(*it) && it->path().extension() == ext) {
-      ret.push_back(it->path().filename());
+  std::vector<std::filesystem::path> bags;
+  std::error_code ec;
+  for (std::filesystem::directory_iterator it(folder, ec), end; !ec && it != end;
+    it.increment(ec))
+  {
+    if (!it->is_directory(ec)) {
+      continue;
     }
-    ++it;
-  }
-}
-
-inline void getFilesSize(const std::filesystem::path & root, long & file_size)
-{
-  std::vector<std::filesystem::path> files_path;
-  getFiles(root, ".bag", files_path);
-  for (const auto & path : files_path) {
-    try {
-      file_size = file_size + std::filesystem::file_size(path);
-    } catch (std::exception & e) {
-      RCLCPP_WARN_STREAM(naoqi::helpers::Node::get_logger(), e.what());
+    bool is_bag = std::filesystem::exists(it->path() / "metadata.yaml", ec);
+    std::error_code ec_files;
+    for (std::filesystem::directory_iterator file(it->path(), ec_files), files_end;
+      !is_bag && !ec_files && file != files_end; file.increment(ec_files))
+    {
+      is_bag = file->path().extension() == ".db3";
+    }
+    if (is_bag) {
+      bags.push_back(it->path());
     }
   }
+  std::sort(bags.begin(), bags.end());
+  return bags;
 }
 
-/** Boot config loader */
+/** Total size of the bags directly in folder. */
+inline std::uintmax_t getBagsSize(const std::filesystem::path & folder)
+{
+  std::uintmax_t total = 0;
+  for (const auto & bag : getBags(folder)) {
+    total += getSize(bag);
+  }
+  return total;
+}
+
 static const std::string boot_config_file_name = "boot_config.json";
 inline std::string & getBootConfigFile()
 {

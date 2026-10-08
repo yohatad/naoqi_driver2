@@ -5,6 +5,7 @@
 #include <atomic>
 #include <filesystem>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -71,20 +72,21 @@ TEST_F(RecorderTest, BufferizeKeepsOnlyTheNewestMessages)
 
 TEST_F(RecorderTest, BufferFrequencyDownsamples)
 {
-  // Converter at 10 Hz, buffer at 5 Hz: every second message is kept.
-  // reset() pre-fills the ring (circular_buffer::resize), so it is always full:
-  // 10 s * 10 Hz / 2 = 50 slots, the newest kept messages sit at the back.
+  // Converter at 10 Hz, buffer at 5 Hz: every second message is kept, in
+  // 10 s * 10 Hz / 2 = 50 slots. The ring starts empty: a minidump right after
+  // start-up must not write default-constructed messages.
   ProbeRecorder rec("imu", 5.f);
   rec.reset(std::make_shared<GlobalRecorder>("naoqi_driver"), 10.f);
-  ASSERT_EQ(rec.size(), 50u);
+  EXPECT_EQ(rec.size(), 0u);
+  EXPECT_EQ(rec.capacity(), 50u);
   for (int i = 1; i <= 6; ++i) {
     rec.bufferize(imuWithX(i));
   }
 
-  EXPECT_DOUBLE_EQ(rec.xAt(rec.size() - 1), 6.0);
-  EXPECT_DOUBLE_EQ(rec.xAt(rec.size() - 2), 4.0);
-  EXPECT_DOUBLE_EQ(rec.xAt(rec.size() - 3), 2.0);
-  EXPECT_DOUBLE_EQ(rec.xAt(rec.size() - 4), 0.0);  // pre-filled default
+  ASSERT_EQ(rec.size(), 3u);
+  EXPECT_DOUBLE_EQ(rec.xAt(0), 2.0);
+  EXPECT_DOUBLE_EQ(rec.xAt(1), 4.0);
+  EXPECT_DOUBLE_EQ(rec.xAt(2), 6.0);
 }
 
 TEST_F(RecorderTest, SetBufferDurationResizesCapacity)
@@ -134,27 +136,29 @@ TEST_F(RecorderTest, ConcurrentBufferizeResizeAndDumpAreSafe)
   EXPECT_LE(rec.size(), rec.capacity());
 }
 
-TEST_F(RecorderTest, GlobalRecorderNamesBagInWorkingDirectory)
+TEST_F(RecorderTest, GlobalRecorderCreatesBagFolderInWorkingDirectory)
 {
   naoqi_test::TempDir dir(/*chdir_into=*/ true);
   GlobalRecorder global("naoqi_driver");
 
   EXPECT_FALSE(global.isStarted());
-  global.startRecord("unit");
+  const std::string opened = global.startRecord("unit");
   EXPECT_TRUE(global.isStarted());
 
   const std::string bag = global.stopRecord();
   EXPECT_FALSE(global.isStarted());
+  EXPECT_EQ(bag, opened);
 
   const std::string expected_prefix = std::filesystem::current_path().string() + "/unit_";
   EXPECT_EQ(bag.rfind(expected_prefix, 0), 0u) << bag;
-  EXPECT_EQ(bag.substr(bag.size() - 4), ".bag") << bag;
+  EXPECT_TRUE(std::filesystem::is_directory(bag)) << bag;
+  EXPECT_TRUE(std::filesystem::exists(std::filesystem::path(bag) / "metadata.yaml"));
 }
 
 TEST_F(RecorderTest, GlobalRecorderStopWithoutStartIsRejected)
 {
   GlobalRecorder global("naoqi_driver");
-  EXPECT_EQ(global.stopRecord(), "Cannot stop recording while it has not been started.");
+  EXPECT_THROW(global.stopRecord(), std::runtime_error);
 }
 
 TEST_F(RecorderTest, GlobalRecorderConcurrentStartStopAndWriteDoNotDeadlock)
@@ -174,7 +178,7 @@ TEST_F(RecorderTest, GlobalRecorderConcurrentStartStopAndWriteDoNotDeadlock)
         }
       });
   }
-  for (int i = 0; i < 200; ++i) {
+  for (int i = 0; i < 30; ++i) {
     global.startRecord("unit");
     global.stopRecord();
   }

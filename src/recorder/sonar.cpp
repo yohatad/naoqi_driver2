@@ -72,7 +72,7 @@ void SonarRecorder::reset(std::shared_ptr<GlobalRecorder> gr, float conv_frequen
     max_counter_ = 1;
     buffer_size_ = static_cast<size_t>(buffer_duration_ * conv_frequency);
   }
-  buffer_.resize(buffer_size_);
+  buffer_.set_capacity(buffer_size_);
   is_initialized_ = true;
 }
 

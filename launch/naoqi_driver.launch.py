@@ -69,6 +69,11 @@ def generate_launch_description():
             default_value="30.0",
             description='Seconds a listen goal waits for speech before it is aborted; 0 waits forever.'),
         launch.actions.DeclareLaunchArgument(
+            'minidump_duration',
+            default_value="0.0",
+            description='Seconds of recent sensor data kept in memory for the '
+                        '/naoqi_driver/minidump service; 0 turns it off.'),
+        launch.actions.DeclareLaunchArgument(
             'respawn',
             default_value="true",
             description='Restart the driver when it exits on its own, e.g. after losing '
@@ -95,6 +100,8 @@ def generate_launch_description():
                     launch.substitutions.LaunchConfiguration('max_angular_speed'), value_type=float),
                 'listen_timeout': launch_ros.parameter_descriptions.ParameterValue(
                     launch.substitutions.LaunchConfiguration('listen_timeout'), value_type=float),
+                'minidump_duration': launch_ros.parameter_descriptions.ParameterValue(
+                    launch.substitutions.LaunchConfiguration('minidump_duration'), value_type=float),
             }],
             output="screen",
             respawn=launch.substitutions.LaunchConfiguration('respawn'),

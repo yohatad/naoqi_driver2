@@ -300,6 +300,28 @@ ros2 service call /send_audio_buffer naoqi_bridge_msgs/srv/SendAudioBuffer "{aud
 
 > **Note**: Audio data must be 16-bit stereo interleaved PCM.
 
+### Record sensor data
+
+The driver can record every enabled sensor into a rosbag2 bag, under the same
+topic names it publishes, whether or not anything subscribes to them. The bag
+is a folder in the directory the driver was started from:
+
+```sh
+ros2 service call /naoqi_driver/start_recording std_srvs/srv/Trigger
+ros2 service call /naoqi_driver/stop_recording std_srvs/srv/Trigger  # answers with the bag folder
+ros2 bag info <bag_folder>
+```
+
+To keep the last seconds of data in memory and save them after something
+happened, start the driver with `minidump_duration:=10` (seconds; the default 0
+turns it off), then call:
+
+```sh
+ros2 service call /naoqi_driver/minidump std_srvs/srv/Trigger
+```
+
+The minidump is refused once the bags in that directory take more than 2 GB.
+
 
 ## Development
 

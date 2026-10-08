@@ -103,12 +103,12 @@ public:
   }
 
   /**
-   * @brief Write a ROSbag with the last bufferized data (10s by default)
+   * @brief Writes the buffered recent data (see startLogging()) into a new bag
+   * @return the bag folder
+   * @throw std::runtime_error if logging is off, the bags take too much space, or
+   * the bag cannot be written
    */
   std::string minidump(const std::string & prefix);
-  std::string minidumpConverters(
-    const std::string & prefix,
-    const std::vector<std::string> & names);
 
   void setBufferDuration(float duration);
   float getBufferDuration();
@@ -157,14 +157,14 @@ public:
     std::shared_ptr<recorder::Recorder> rec);
 
   /**
-   * @brief qicli call function to register a converter for a given memory key
+   * @brief Registers a converter for a given memory key
    */
   bool registerMemoryConverter(
     const std::string & key, float frequency,
     const dataType::DataType & type);
 
   /**
-   * @brief qicli call function to register a converter for a given memory event
+   * @brief Registers a converter for a given memory event
    */
   bool registerEventConverter(const std::string & key, const dataType::DataType & type);
 
@@ -202,46 +202,40 @@ public:
   void registerService(std::shared_ptr<service::Service> srv);
 
   /**
-  * @brief qicli call function to start/enable publishing all registered publisher
+  * @brief Starts publishing with all registered publishers
   */
   void startPublishing();
 
   /**
-  * @brief qicli call function to stop/disable publishing all registered publisher
+  * @brief Stops publishing with all registered publishers
   */
   void stopPublishing();
 
   /**
-  * @brief qicli call function to start recording all registered converter in a ROSbag
+  * @brief Starts recording every registered sensor into a new bag
+  * @return the bag folder
+  * @throw std::runtime_error if already recording or the bag cannot be created
   */
-  void startRecording();
+  std::string startRecording();
 
   /**
-  * @brief qicli call function to start recording given topics in a ROSbag
-  */
-  void startRecordingConverters(const std::vector<std::string> & names);
-
-  /**
-  * @brief qicli call function to stop recording all registered publisher in a ROSbag
+  * @brief Stops recording and closes the bag
+  * @return the bag folder
+  * @throw std::runtime_error if not recording
   */
   std::string stopRecording();
 
+  /** @brief Starts keeping the recent data of every sensor in memory, for minidump() */
   void startLogging();
 
   void stopLogging();
 
   /**
-   * @brief qicli call function to add on-the-fly some memory keys extractors
+   * @brief Adds converters for the memory keys listed in a JSON file
    */
   void addMemoryConverters(std::string filepath);
 
   void parseJsonFile(std::string filepath, boost::property_tree::ptree & pt);
-
-  std::vector<std::string> getFilesList();
-
-  void removeAllFiles();
-
-  void removeFiles(std::vector<std::string> files);
 
 private:
   qi::SessionPtr session_;

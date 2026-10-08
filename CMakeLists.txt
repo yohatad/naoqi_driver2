@@ -29,6 +29,7 @@ find_package(naoqi_bridge_msgs REQUIRED)
 find_package(naoqi_libqi REQUIRED)
 find_package(naoqi_libqicore REQUIRED)
 find_package(robot_state_publisher REQUIRED)
+find_package(rosbag2_cpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 find_package(tf2_msgs REQUIRED)
@@ -83,6 +84,7 @@ set(
   src/services/set_language.cpp
   src/services/get_language.cpp
   src/services/odom_reset.cpp
+  src/services/trigger.cpp
   )
 
 set(
@@ -155,6 +157,7 @@ ament_target_dependencies(naoqi_driver
   naoqi_libqi
   naoqi_libqicore
   robot_state_publisher
+  rosbag2_cpp
   sensor_msgs
   tf2_geometry_msgs
   tf2_msgs
@@ -196,14 +199,12 @@ if(BUILD_TESTING)
   ament_uncrustify(src include test)
 
   find_package(ament_cmake_gtest REQUIRED)
-  # The pre-migration boost implementations are used as reference in the tests
-  find_package(Boost REQUIRED COMPONENTS filesystem)
 
   function(naoqi_driver_add_test name)
     ament_add_gtest(${name} test/${name}.cpp TIMEOUT 120)
     target_include_directories(${name} PRIVATE test)
     target_compile_definitions(${name} PRIVATE NAOQI_DRIVER_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
-    target_link_libraries(${name} naoqi_driver Boost::filesystem ${naoqi_libqi_LIBRARIES})
+    target_link_libraries(${name} naoqi_driver ${naoqi_libqi_LIBRARIES})
     ament_target_dependencies(${name}
       rclcpp
       geometry_msgs
@@ -233,6 +234,8 @@ if(BUILD_TESTING)
   naoqi_driver_add_test(test_motion_safety)
   naoqi_driver_add_test(test_driver_shutdown)
   naoqi_driver_add_test(test_heartbeat)
+  naoqi_driver_add_test(test_recording)
+  ament_target_dependencies(test_recording rosbag2_cpp std_srvs)
 
   find_package(ament_cmake_pytest REQUIRED)
   ament_add_pytest_test(test_robot_watchdog test/test_robot_watchdog.py TIMEOUT 60)

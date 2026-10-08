@@ -84,6 +84,7 @@
 #include "services/set_language.hpp"
 #include "services/get_language.hpp"
 #include "services/odom_reset.hpp"
+#include "services/trigger.hpp"
 
 /*
  * RECORDERS
@@ -114,11 +115,11 @@
  * STATIC FUNCTIONS INCLUDE
  */
 #include "heartbeat.hpp"
-#include "ros_env.hpp"
 #include "helpers/filesystem_helpers.hpp"
 #include "helpers/recorder_helpers.hpp"
 #include "helpers/naoqi_helpers.hpp"
 #include "helpers/driver_helpers.hpp"
+#include "helpers/parameter_helpers.hpp"
 
 
 namespace naoqi
@@ -189,7 +190,7 @@ Driver::Driver()
   record_enabled_(false),
   log_enabled_(false),
   keep_looping_(true),
-  recorder_(std::make_shared<recorder::GlobalRecorder>("naoqi_driver")),
+  recorder_(std::make_shared<recorder::GlobalRecorder>(get_namespace())),
   buffer_duration_(helpers::recorder::bufferDefaultDuration) {}
 
 Driver::~Driver() = default;
@@ -201,6 +202,15 @@ void Driver::run()
   registerDefaultConverter();
   registerDefaultSubscriber();
   registerDefaultServices();
+
+  // Keeps the last minidump_duration seconds of sensor data for /naoqi_driver/minidump.
+  const double minidump_duration = helpers::declareNumberParameter(
+    this, "minidump_duration", 0.0,
+    "Seconds of recent sensor data kept in memory for /naoqi_driver/minidump; 0 turns it off");
+  if (minidump_duration > 0.0) {
+    setBufferDuration(static_cast<float>(minidump_duration));
+    startLogging();
+  }
 
   // Action servers. They outlive the callback thread below; destroying them stops
   // their running goals in NAOqi and joins the goal threads.
@@ -367,126 +377,48 @@ void Driver::rosIteration()
 std::string Driver::minidump(const std::string & prefix)
 {
   if (!log_enabled_) {
-    const std::string & err = "Log is not enabled, please enable logging before calling minidump";
-    RCLCPP_WARN_STREAM(get_logger(), err);
-    return err;
+    throw std::runtime_error(
+            "Minidump is off: set the minidump_duration parameter above 0 to keep recent data");
+  }
+  const std::filesystem::path folder = std::filesystem::current_path();
+  if (helpers::filesystem::getBagsSize(folder) > helpers::filesystem::folderMaximumSize) {
+    throw std::runtime_error(
+            "The bags in " + folder.string() + " take more than 2 GB; move or delete some first");
   }
 
-  // CHECK SIZE IN FOLDER
-  long files_size = 0;
-  std::filesystem::path folderPath(std::filesystem::current_path());
-  helpers::filesystem::getFilesSize(folderPath, files_size);
-  if (files_size > helpers::filesystem::folderMaximumSize) {
-    RCLCPP_WARN_STREAM(
-      get_logger(),
-      "No more space on robot. You need to upload the presents bags and remove them to make new ones.\nTo remove all the presents bags, you can run this command:\n\t$ qicli call ROS-Driver.removeFiles");
-    return
-      "No more space on robot. You need to upload the presents bags and remove them to make new ones.";
-  }
-
-  // IF A ROSBAG WAS OPENED, FIRST CLOSE IT
+  // The minidump needs the bag: close a recording in progress.
   if (record_enabled_) {
     stopRecording();
   }
 
-  // STOP BUFFERIZING
+  // Stop bufferizing while the buffers are written, and resume afterwards.
   log_enabled_ = false;
   for (auto & [name, event] : event_map_) {
     event->isDumping(true);
   }
-  rclcpp::Time time = this->now();
+  const auto resume = [this] {
+      for (auto & [name, event] : event_map_) {
+        event->isDumping(false);
+      }
+      log_enabled_ = true;
+    };
 
-  // START A NEW ROSBAG
   std::lock_guard<std::mutex> lock_record(mutex_record_);
-  recorder_->startRecord(prefix);
-
-  // WRITE ALL BUFFER INTO THE ROSBAG
+  try {
+    recorder_->startRecord(prefix);
+  } catch (...) {
+    resume();
+    throw;
+  }
+  const rclcpp::Time time = this->now();
   for (auto & [name, event] : event_map_) {
     event->writeDump(time);
   }
   for (auto & [name, recorder] : rec_map_) {
     recorder->writeDump(time);
   }
-
-  // RESTART BUFFERIZING
-  log_enabled_ = true;
-  for (auto & [name, event] : event_map_) {
-    event->isDumping(false);
-  }
-  return recorder_->stopRecord(::naoqi::ros_env::getROSIP("eth0"));
-}
-
-std::string Driver::minidumpConverters(
-  const std::string & prefix,
-  const std::vector<std::string> & names)
-{
-  if (!log_enabled_) {
-    const std::string & err = "Log is not enabled, please enable logging before calling minidump";
-    RCLCPP_WARN_STREAM(get_logger(), err);
-    return err;
-  }
-
-  // CHECK SIZE IN FOLDER
-  long files_size = 0;
-  std::filesystem::path folderPath(std::filesystem::current_path());
-  helpers::filesystem::getFilesSize(folderPath, files_size);
-  if (files_size > helpers::filesystem::folderMaximumSize) {
-    RCLCPP_WARN_STREAM(
-      get_logger(),
-      "No more space on robot. You need to upload the presents bags and remove them to make new ones.\nTo remove all the presents bags, you can run this command:\n\t$ qicli call ROS-Driver.removeFiles");
-    return
-      "No more space on robot. You need to upload the presents bags and remove them to make new ones.";
-  }
-
-  // IF A ROSBAG WAS OPENED, FIRST CLOSE IT
-  if (record_enabled_) {
-    stopRecording();
-  }
-
-  // STOP BUFFERIZING
-  log_enabled_ = false;
-  for (auto & [name, event] : event_map_) {
-    event->isDumping(true);
-  }
-  rclcpp::Time time = this->now();
-
-  // WRITE CHOOSEN BUFFER INTO THE ROSBAG
-  std::lock_guard<std::mutex> lock_record(mutex_record_);
-
-  bool is_started = false;
-  for (const std::string & name: names) {
-    auto it = rec_map_.find(name);
-    if (it != rec_map_.end() ) {
-      if (!is_started) {
-        recorder_->startRecord(prefix);
-        is_started = true;
-      }
-      it->second->writeDump(time);
-    } else {
-      auto it_event = event_map_.find(name);
-      if (it_event != event_map_.end() ) {
-        if (!is_started) {
-          recorder_->startRecord(prefix);
-          is_started = true;
-        }
-        it_event->second->writeDump(time);
-      }
-    }
-  }
-  // RESTART BUFFERIZING
-  log_enabled_ = true;
-  for (auto & [name, event] : event_map_) {
-    event->isDumping(false);
-  }
-  if (is_started) {
-    return recorder_->stopRecord(::naoqi::ros_env::getROSIP("eth0"));
-  } else {
-    RCLCPP_ERROR_STREAM(
-      get_logger(),
-      "Could not find any topic in recorders\nTo get the list of all available converter's name, please run:\n\t$ qicli call ROS-Driver.getAvailableConverters");
-    return
-      "Could not find any topic in converters. To get the list of all available converter's name, please run: $ qicli call ROS-Driver.getAvailableConverters";
-  }
+  resume();
+  return recorder_->stopRecord();
 }
 
 void Driver::setBufferDuration(float duration)
@@ -894,6 +826,15 @@ void Driver::registerService(std::shared_ptr<service::Service> srv)
 void Driver::registerDefaultServices()
 {
   registerService(
+    std::make_shared<service::TriggerService>(
+      "start_recording", "/naoqi_driver/start_recording", [this] {return startRecording();}));
+  registerService(
+    std::make_shared<service::TriggerService>(
+      "stop_recording", "/naoqi_driver/stop_recording", [this] {return stopRecording();}));
+  registerService(
+    std::make_shared<service::TriggerService>(
+      "minidump", "/naoqi_driver/minidump", [this] {return minidump("naoqi_driver_minidump");}));
+  registerService(
     std::make_shared<service::RobotConfigService>(
       "get_robot_config",
       "/naoqi_driver/get_robot_config", session_) );
@@ -951,71 +892,29 @@ std::vector<std::string> Driver::getSubscribedPublishers() const
   return publisher;
 }
 
-void Driver::startRecording()
+std::string Driver::startRecording()
 {
   std::lock_guard<std::mutex> lock_record(mutex_record_);
-  recorder_->startRecord();
-  for (const auto & conv : converters_) {
-    auto it = rec_map_.find(conv->name());
-    if (it != rec_map_.end() ) {
-      it->second->subscribe(true);
-      RCLCPP_INFO_STREAM(get_logger(), "Topic " << conv->name() << " is subscribed for recording");
-    }
+  const std::string bag = recorder_->startRecord();
+  for (auto & [name, recorder] : rec_map_) {
+    recorder->subscribe(true);
   }
   for (auto & [name, event] : event_map_) {
     event->isRecording(true);
-    RCLCPP_INFO_STREAM(get_logger(), "Topic " << name << " is subscribed for recording");
   }
   record_enabled_ = true;
-}
-
-void Driver::startRecordingConverters(const std::vector<std::string> & names)
-{
-  std::lock_guard<std::mutex> lock_record(mutex_record_);
-
-  bool is_started = false;
-  for (const std::string & name: names) {
-    auto it_rec = rec_map_.find(name);
-    auto it_ev = event_map_.find(name);
-    if (it_rec != rec_map_.end() ) {
-      if (!is_started) {
-        recorder_->startRecord();
-        is_started = true;
-      }
-      it_rec->second->subscribe(true);
-      RCLCPP_INFO_STREAM(get_logger(), "Topic " << name << " is subscribed for recording");
-    } else if (it_ev != event_map_.end() ) {
-      if (!is_started) {
-        recorder_->startRecord();
-        is_started = true;
-      }
-      it_ev->second->isRecording(true);
-      RCLCPP_INFO_STREAM(get_logger(), "Topic " << name << " is subscribed for recording");
-    } else {
-      RCLCPP_ERROR_STREAM(
-        get_logger(),
-        "Could not find topic " << name <<
-          " in recorders\nTo get the list of all available converter's name, please run:\n\t$ qicli call ROS-Driver.getAvailableConverters");
-    }
-  }
-  if (is_started) {
-    record_enabled_ = true;
-  } else {
-    RCLCPP_ERROR_STREAM(
-      get_logger(),
-      "Could not find any topic in recorders\nTo get the list of all available converter's name, please run:\n\t$ qicli call ROS-Driver.getAvailableConverters");
-  }
+  RCLCPP_INFO(
+    get_logger(), "Recording %zu sensors into %s", rec_map_.size() + event_map_.size(),
+    bag.c_str());
+  return bag;
 }
 
 std::string Driver::stopRecording()
 {
   std::lock_guard<std::mutex> lock_record(mutex_record_);
   record_enabled_ = false;
-  for (const auto & conv : converters_) {
-    auto it = rec_map_.find(conv->name());
-    if (it != rec_map_.end() ) {
-      it->second->subscribe(false);
-    }
+  for (auto & [name, recorder] : rec_map_) {
+    recorder->subscribe(false);
   }
   for (auto & [name, event] : event_map_) {
     event->isRecording(false);
@@ -1060,6 +959,15 @@ void Driver::stop()
 
   for (auto & [name, event] : event_map_) {
     event->stopProcess();
+  }
+
+  // Close a bag still being recorded, so that it is complete (metadata.yaml).
+  if (record_enabled_) {
+    try {
+      RCLCPP_INFO(get_logger(), "Saved the recording in %s", stopRecording().c_str());
+    } catch (const std::exception & e) {
+      RCLCPP_WARN(get_logger(), "Could not close the recording: %s", e.what());
+    }
   }
 
   {
@@ -1233,56 +1141,4 @@ bool Driver::registerEventConverter(const std::string & key, const dataType::Dat
   return true;
 }
 
-std::vector<std::string> Driver::getFilesList()
-{
-  std::vector<std::string> fileNames;
-  std::filesystem::path folderPath(std::filesystem::current_path() );
-  std::vector<std::filesystem::path> files;
-  helpers::filesystem::getFiles(folderPath, ".bag", files);
-
-  for (const auto & file : files) {
-    fileNames.push_back(file.string());
-  }
-  return fileNames;
-}
-
-void Driver::removeAllFiles()
-{
-  std::filesystem::path folderPath(std::filesystem::current_path() );
-  std::vector<std::filesystem::path> files;
-  helpers::filesystem::getFiles(folderPath, ".bag", files);
-
-  for (const auto & file : files) {
-    std::remove(file.c_str());
-  }
-}
-
-void Driver::removeFiles(std::vector<std::string> files)
-{
-  for (const auto & file : files) {
-    std::remove(file.c_str());
-  }
-}
-
-QI_REGISTER_OBJECT(
-  Driver,
-  minidump,
-  minidumpConverters,
-  setBufferDuration,
-  getBufferDuration,
-  startPublishing,
-  stopPublishing,
-  getAvailableConverters,
-  getSubscribedPublishers,
-  addMemoryConverters,
-  registerMemoryConverter,
-  registerEventConverter,
-  getFilesList,
-  removeAllFiles,
-  removeFiles,
-  startRecording,
-  startRecordingConverters,
-  stopRecording,
-  startLogging,
-  stopLogging);
 }  // namespace naoqi

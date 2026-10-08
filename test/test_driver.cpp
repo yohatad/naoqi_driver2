@@ -1,9 +1,9 @@
 // Driver-level checks that need no robot: node ownership (Driver is now created
-// with std::make_shared) and the std::filesystem-based bag file management.
+// with std::make_shared), converter registration and the minidump guard.
 
 #include <algorithm>
-#include <filesystem>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -39,44 +39,15 @@ TEST_F(DriverTest, StdOwnedDriverSupportsSharedFromThis)
   naoqi::helpers::Node::setNode(node_);
 }
 
-TEST_F(DriverTest, GetFilesListReturnsBagNamesUnderWorkingDirectory)
-{
-  naoqi_test::TempDir dir(/*chdir_into=*/ true);
-  dir.writeFile("first.bag", 3);
-  dir.writeFile("notes.txt", 3);
-  dir.writeFile("nested/second.bag", 3);
-
-  auto driver = std::make_shared<naoqi::Driver>();
-  auto files = driver->getFilesList();
-  std::sort(files.begin(), files.end());
-
-  const std::vector<std::string> expected = {"first.bag", "second.bag"};
-  EXPECT_EQ(files, expected);
-}
-
-TEST_F(DriverTest, RemoveAllFilesDeletesTopLevelBagsOnly)
-{
-  // Same as before the migration: getFiles() yields bare filenames, so only bags
-  // directly in the working directory resolve and get removed.
-  naoqi_test::TempDir dir(/*chdir_into=*/ true);
-  dir.writeFile("first.bag", 3);
-  dir.writeFile("notes.txt", 3);
-  dir.writeFile("nested/second.bag", 3);
-
-  auto driver = std::make_shared<naoqi::Driver>();
-  driver->removeAllFiles();
-
-  EXPECT_FALSE(std::filesystem::exists(dir.path() / "first.bag"));
-  EXPECT_TRUE(std::filesystem::exists(dir.path() / "notes.txt"));
-  EXPECT_TRUE(std::filesystem::exists(dir.path() / "nested/second.bag"));
-}
-
 TEST_F(DriverTest, MinidumpRefusesWhenLoggingIsDisabled)
 {
   auto driver = std::make_shared<naoqi::Driver>();
-  EXPECT_EQ(
-    driver->minidump("unit"),
-    "Log is not enabled, please enable logging before calling minidump");
+  try {
+    driver->minidump("unit");
+    FAIL() << "minidump must refuse while logging is off";
+  } catch (const std::runtime_error & e) {
+    EXPECT_NE(std::string(e.what()).find("minidump_duration"), std::string::npos) << e.what();
+  }
 }
 
 namespace
