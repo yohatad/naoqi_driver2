@@ -20,16 +20,18 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
     naoqi_launch = os.path.join(
         get_package_share_directory('naoqi_driver'),
         'launch', 'naoqi_driver.launch.py')
-    gscam_launch = os.path.join(
-        get_package_share_directory('gscam2'),
-        'launch', 'pepper_camera_launch.py')
+    # Resolved lazily (only if the include below actually runs), so gscam2
+    # need not be installed when use_camera is false.
+    gscam_launch = PathJoinSubstitution(
+        [FindPackageShare('gscam2'), 'launch', 'pepper_camera_launch.py'])
 
     # publish_wheel_odom_tf is deliberately NOT declared or forwarded here.
     # naoqi_driver.launch.py is the single place that defines it (default false,
