@@ -35,6 +35,7 @@ struct NaoqiImage{
   int timestamp_s;
   int timestamp_us;
   void* buffer;
+  size_t buffer_size;
   int cam_id;
   float fov_left;
   float fov_top;

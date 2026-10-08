@@ -86,6 +86,14 @@ namespace
     std::string goal_id = rclcpp_action::to_string(goal_handle->get_goal_id());
     RCLCPP_INFO(state->logger, "Executing SpeechWithFeedback %s", goal_id.c_str());
 
+    // Claim the goal before returning, so a second goal arriving right after
+    // is rejected by handle_goal instead of speaking concurrently.
+    {
+      std::lock_guard<std::mutex> lock(state->mutex);
+      state->current_goal = goal_handle;
+      state->cancel_requested = false;
+    }
+
     // Run speech in a separate thread to avoid blocking
     std::thread([state, goal_handle, goal_id]() {
       try
@@ -103,8 +111,6 @@ namespace
         {
           std::lock_guard<std::mutex> lock(state->mutex);
           state->animated_speech_service = animated_speech_service;
-          state->current_goal = goal_handle;
-          state->cancel_requested = false;
         }
 
         const auto& goal = goal_handle->get_goal();

@@ -73,6 +73,12 @@ namespace
     std::shared_ptr<LedState> state,
     const std::shared_ptr<RunLedGoalHandle> goal_handle)
   {
+    // Claim the goal before returning, so handle_goal rejects a concurrent one.
+    {
+      std::lock_guard<std::mutex> lock(state->mutex);
+      state->current_goal = goal_handle;
+    }
+
     std::thread([state, goal_handle]() {
       std::string goal_id = rclcpp_action::to_string(goal_handle->get_goal_id());
       auto result = std::make_shared<RunLed::Result>();
@@ -88,7 +94,6 @@ namespace
 
         {
           std::lock_guard<std::mutex> lock(state->mutex);
-          state->current_goal = goal_handle;
           state->current_target = target;
         }
 

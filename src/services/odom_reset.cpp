@@ -50,6 +50,8 @@ void OdomResetService::callback( const std::shared_ptr<std_srvs::srv::Trigger::R
     // frame as OdomConverter::callAll: getRobotPosition returns [X, Y, Theta].
     bool use_sensor = true;
     std::vector<float> current_pos = p_motion.call<std::vector<float> >( "getRobotPosition", use_sensor );
+    if (current_pos.size() < 3)
+      throw std::runtime_error("getRobotPosition returned " + std::to_string(current_pos.size()) + " values, expected 3");
 
     // Set offsets to current position, so future readings will be relative to this point
     naoqi::converter::OdomConverter::setOffsets(

@@ -160,19 +160,21 @@ void handle_accepted(
   std::shared_ptr<AudioPlayerState> state,
   const std::shared_ptr<PlayGoalHandle> goal_handle)
 {
+  // Claim the goal before returning, so handle_goal rejects a concurrent one
+  // and a cancel arriving before the thread starts is not reset by it.
+  {
+    std::lock_guard<std::mutex> lock(state->mutex);
+    state->current_goal = goal_handle;
+    state->cancel_requested.store(false);
+    state->pause_requested.store(false);
+    state->is_paused.store(false);
+  }
+
   std::thread([state, goal_handle]()
   {
     const auto goal     = goal_handle->get_goal();
     auto       feedback = std::make_shared<PlayAudio::Feedback>();
     auto       result   = std::make_shared<PlayAudio::Result>();
-
-    {
-      std::lock_guard<std::mutex> lock(state->mutex);
-      state->current_goal = goal_handle;
-      state->cancel_requested.store(false);
-      state->pause_requested.store(false);
-      state->is_paused.store(false);
-    }
 
     const auto start = std::chrono::steady_clock::now();
     auto elapsed_secs = [&]() -> float {

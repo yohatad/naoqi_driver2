@@ -89,7 +89,7 @@ namespace recorder
         // _writer.open(storage_options, {"", "rmw1_format"});
         _isStarted = true;
         std::cout << YELLOW << "The bag " << BOLDCYAN << _nameBag << RESETCOLOR << YELLOW << " is opened" << RESETCOLOR << std::endl;
-      } catch (std::exception e){
+      } catch (const std::exception& e){
         throw std::runtime_error(e.what());
       }
     }
@@ -109,9 +109,8 @@ namespace recorder
       std::cout << YELLOW << "The bag " << BOLDCYAN << _nameBag << RESETCOLOR << YELLOW << " is closed" << RESETCOLOR << std::endl;
 
       // Check if we are on a robot
-      char* current_path;
-      current_path = getenv("HOME");
-      std::string cp = current_path;
+      const char* home = getenv("HOME");
+      const std::string cp = home ? home : "";
       if (!(cp.find("nao") == std::string::npos)) {
         std::cout << BOLDRED << "To download this bag on your computer:" << RESETCOLOR << std::endl
                      << GREEN << "\t$ scp nao@" << robot_ip << ":" << _nameBag << " <LOCAL_PATH>" << RESETCOLOR

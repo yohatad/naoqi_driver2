@@ -21,6 +21,7 @@
 #include <memory>
 #include <string>
 
+#include <atomic>
 #include <mutex>
 
 #include <boost/make_shared.hpp>
@@ -98,7 +99,7 @@ private:
   std::mutex subscription_mutex_;
   std::mutex processing_mutex_;
 
-  bool isStarted_;
+  std::atomic<bool> isStarted_;
   bool isPublishing_;
   bool isRecording_;
   bool isDumping_;

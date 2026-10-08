@@ -22,7 +22,7 @@
 
 #include <std_msgs/msg/string.hpp>
 
-#include "../helpers/string_helpers.hpp"
+#include "log_source.hpp"
 #include <mutex>
 
 namespace naoqi
@@ -92,10 +92,10 @@ void logCallback(const qi::LogMessage& msg)
   // Convert the NAOqi log to a ROS log
   rcl_interfaces::msg::Log log;
 
-  std::vector<std::string> results = helpers::string::split(msg.source, ':');
-  log.file = results[0];
-  log.function = results[1];
-  log.line = atoi(results[2].c_str());
+  const LogSource source = parseLogSource(msg.source);
+  log.file = source.file;
+  log.function = source.function;
+  log.line = source.line;
   log.level = LogLevel::get_from_qi(msg.level).ros_msg_;
   log.name = msg.category;
   log.msg = msg.message;
@@ -145,17 +145,21 @@ void LogConverter::registerCallback( const message_actions::MessageAction action
 
 void LogConverter::callAll( const std::vector<message_actions::MessageAction>& actions )
 {
-  while ( !LOGS.empty() )
+  // Take the pending logs under the lock: logCallback() pushes (and trims the
+  // queue) from NAOqi threads while we publish.
+  std::queue<rcl_interfaces::msg::Log> pending;
   {
-    rcl_interfaces::msg::Log& log_msg = LOGS.front();
+    std::lock_guard<std::mutex> lock( MUTEX_LOGS );
+    std::swap(pending, LOGS);
+  }
+  while ( !pending.empty() )
+  {
+    rcl_interfaces::msg::Log& log_msg = pending.front();
     for( const message_actions::MessageAction& action: actions)
     {
       callbacks_[action](log_msg);
     }
-    {
-      std::lock_guard<std::mutex> lock( MUTEX_LOGS );
-      LOGS.pop();
-    }
+    pending.pop();
   }
   set_qi_logger_level();
 }

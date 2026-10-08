@@ -194,6 +194,8 @@ void JointStateConverter::callAll( const std::vector<message_actions::MessageAct
   if ( publish_wheel_odom_tf_ )
   {
     std::vector<float> al_odometry_data = p_motion_.call<std::vector<float> >( "getRobotPosition", true );
+    if (al_odometry_data.size() < 3)
+      throw std::runtime_error("getRobotPosition returned " + std::to_string(al_odometry_data.size()) + " values, expected 3");
 
     // Get the current offsets from OdomConverter
     float offset_x, offset_y, offset_z, offset_wx, offset_wy, offset_wz;

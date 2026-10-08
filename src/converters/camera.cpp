@@ -226,7 +226,15 @@ CameraConverter::~CameraConverter()
   if (!handle_.empty())
   {
     std::cout << "Unsubscribe camera handle " << handle_ << std::endl;
-    p_video_.call<qi::AnyValue>("unsubscribe", handle_);
+    // Destructors must not throw; NAOqi may already be unreachable at shutdown.
+    try
+    {
+      p_video_.call<qi::AnyValue>("unsubscribe", handle_);
+    }
+    catch (const std::exception& e)
+    {
+      std::cerr << "Failed to unsubscribe camera " << handle_ << ": " << e.what() << std::endl;
+    }
     handle_.clear();
   }
 }
@@ -264,14 +272,24 @@ void CameraConverter::callAll( const std::vector<message_actions::MessageAction>
     return;
   }
 
-  qi::AnyValue image_anyvalue = p_video_.call<qi::AnyValue>("getImageRemote", handle_);
+  qi::AnyValue image_anyvalue;
   tools::NaoqiImage image;
   try{
+      image_anyvalue = p_video_.call<qi::AnyValue>("getImageRemote", handle_);
       image = tools::fromAnyValueToNaoqiImage(image_anyvalue);
   }
-  catch(std::runtime_error& e)
+  catch(const std::exception& e)
   {
-    std::cout << "Cannot retrieve image" << std::endl;
+    std::cout << "Cannot retrieve image: " << e.what() << std::endl;
+    return;
+  }
+
+  // Never let cv::Mat read past the buffer NAOqi actually sent.
+  const size_t expected_size = static_cast<size_t>(image.width) * image.height * CV_ELEM_SIZE(cv_mat_type_);
+  if (image.width <= 0 || image.height <= 0 || image.buffer_size < expected_size)
+  {
+    std::cerr << name_ << ": image buffer is " << image.buffer_size << " bytes, expected "
+              << expected_size << " for " << image.width << "x" << image.height << std::endl;
     return;
   }
 

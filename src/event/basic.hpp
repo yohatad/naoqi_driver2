@@ -21,6 +21,7 @@
 #include <string>
 
 #include <memory>
+#include <atomic>
 #include <mutex>
 
 #include <qi/session.hpp>
@@ -83,7 +84,7 @@ private:
 
   std::mutex mutex_;
 
-  bool isStarted_;
+  std::atomic<bool> isStarted_;
   bool isPublishing_;
   bool isRecording_;
   bool isDumping_;

@@ -33,6 +33,11 @@ NaoqiImage fromAnyValueToNaoqiImage(qi::AnyValue& value){
     ss << "Could not transform AnyValue into list: " << e.what();
     throw std::runtime_error(ss.str());
   }
+  if (anyref.size() < 12)
+  {
+    ss << "Expected 12 image fields, got " << anyref.size();
+    throw std::runtime_error(ss.str());
+  }
   qi::AnyReference ref;
 
   /** Width **/
@@ -111,7 +116,9 @@ NaoqiImage fromAnyValueToNaoqiImage(qi::AnyValue& value){
   ref = anyref[6].content();
   if(ref.kind() == qi::TypeKind_Raw)
   {
-    result.buffer = (void*)ref.asRaw().first;
+    const std::pair<char*, size_t> raw = ref.asRaw();
+    result.buffer = (void*)raw.first;
+    result.buffer_size = raw.second;
   }
   else
   {

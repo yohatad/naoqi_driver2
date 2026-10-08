@@ -77,7 +77,15 @@ AudioEventRegister::AudioEventRegister( const std::string& name, const float& fr
 
 AudioEventRegister::~AudioEventRegister()
 {
-  stopProcess();
+  // Destructors must not throw; NAOqi may already be unreachable at shutdown.
+  try
+  {
+    stopProcess();
+  }
+  catch (const std::exception& e)
+  {
+    std::cerr << "Failed to stop audio extractor: " << e.what() << std::endl;
+  }
   converter_.unregisterCallback(message_actions::PUBLISH);
   converter_.unregisterCallback(message_actions::RECORD);
   converter_.unregisterCallback(message_actions::LOG);

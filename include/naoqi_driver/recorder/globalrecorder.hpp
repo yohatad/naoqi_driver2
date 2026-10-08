@@ -27,6 +27,7 @@
 /*
 * STANDARD includes
 */
+#include <atomic>
 #include <mutex>
 #include <string>
 
@@ -126,7 +127,7 @@ private:
   // rosbag::Bag _bag;
   // rosbag2::Writer _writer;
   std::string _nameBag;
-  bool _isStarted;
+  std::atomic<bool> _isStarted;
 
   // TOPICS
   std::vector<Topics> _topics;

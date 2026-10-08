@@ -18,6 +18,8 @@
 #include <memory>
 #include <signal.h>
 
+#include <atomic>
+
 #include <rclcpp/rclcpp.hpp>
 #include <qi/applicationsession.hpp>
 #include <qi/session.hpp>
@@ -32,14 +34,17 @@
 #include "naoqi_driver/tools.hpp"
 #include "naoqi_driver/ros_helpers.hpp"
 
-std::weak_ptr<naoqi::Driver> driver_weak;
+// A plain atomic pointer: unlike weak_ptr::lock(), loading it is async-signal-safe.
+std::atomic<naoqi::Driver*> g_driver{nullptr};
+static_assert(std::atomic<naoqi::Driver*>::is_always_lock_free,
+              "the SIGINT handler needs a lock-free pointer");
 
 void sigint_handler(int sig)
 {
   // Only async-signal-safe work here: just flag the run() loop to stop.
   // The actual cleanup (driver->stop()) happens afterwards in main(),
   // since it locks mutexes and isn't safe to call from a signal handler.
-  if (auto driver = driver_weak.lock()) {
+  if (naoqi::Driver* driver = g_driver.load()) {
     driver->requestStop();
   }
 }
@@ -120,11 +125,11 @@ int main(int argc, char** argv)
   bs->setQiSession(session);
 
   // Run the driver node. Stop it on SIGINT.
-  driver_weak = bs;
+  g_driver = bs.get();
   signal(SIGINT, sigint_handler);
   bs->run();
+  g_driver = nullptr;
   bs->stop();
-  driver_weak.reset();
 
   // Close the qi::Session and shutdown ROS.
   app.session()->close();

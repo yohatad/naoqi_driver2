@@ -25,8 +25,8 @@ namespace naoqi {
 
 class DriverAuthenticator : public qi::ClientAuthenticator {
 public:
-  static const std::string user_key;
-  static const std::string pass_key;
+  inline static const std::string user_key = "user";
+  inline static const std::string pass_key = "token";
 
   DriverAuthenticator(
     const std::string& user, 
@@ -46,9 +46,6 @@ private:
   std::string _u;
   std::string _p;
 };
-
-const std::string DriverAuthenticator::user_key = "user";
-const std::string DriverAuthenticator::pass_key = "token";
 
 class DriverAuthenticatorFactory : public qi::ClientAuthenticatorFactory {
 public:

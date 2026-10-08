@@ -95,6 +95,9 @@ namespace converter {
     // gyro  (X,Y,Z) = memData(4,5,6);
     // acc   (X,Y,Z) = memData(7,8,9);
 
+    if (memData.size() < 10)
+      throw std::runtime_error("ImuConverter: expected 10 ALMemory values, got " + std::to_string(memData.size()));
+
     const rclcpp::Time& stamp = helpers::Time::now();
     msg_imu_.header.stamp = stamp;
 

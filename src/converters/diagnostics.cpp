@@ -100,6 +100,11 @@ DiagnosticsConverter::DiagnosticsConverter( const std::string& name, float frequ
         continue;
     }
 
+    if (joint_limits.empty() || joint_limits[0].size() < 4) {
+        std::cerr << "Unexpected joint limits shape for " << *it << std::endl;
+        continue;
+    }
+
     this->joint_limit_map_[(*it)].push_back(
                 static_cast<double>(joint_limits[0][0]));
     this->joint_limit_map_[(*it)].push_back(
