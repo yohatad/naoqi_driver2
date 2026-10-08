@@ -19,6 +19,7 @@
  * LOCAL includes
  */
 #include "teleop.hpp"
+#include "motion_validation.hpp"
 
 namespace naoqi
 {
@@ -39,6 +40,42 @@ TeleopSubscriber::TeleopSubscriber(const std::string& name,
 
 void TeleopSubscriber::reset(rclcpp::Node* node)
 {
+  logger_ = node->get_logger();
+
+  // Stop the base when /cmd_vel goes silent while moving (0 disables).
+  // Dynamically typed so that both 0 and 0.5 are accepted from the command line.
+  if (!node->has_parameter("cmd_vel_timeout"))
+  {
+    rcl_interfaces::msg::ParameterDescriptor descriptor;
+    descriptor.description = "Seconds without /cmd_vel before a moving base is stopped; 0 disables";
+    descriptor.dynamic_typing = true;
+    node->declare_parameter("cmd_vel_timeout", rclcpp::ParameterValue(0.5), descriptor);
+  }
+  const rclcpp::Parameter timeout_param = node->get_parameter("cmd_vel_timeout");
+  double timeout_s = 0.5;
+  if (timeout_param.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE)
+    timeout_s = timeout_param.as_double();
+  else if (timeout_param.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER)
+    timeout_s = static_cast<double>(timeout_param.as_int());
+  else
+    RCLCPP_WARN(logger_, "cmd_vel_timeout must be a number, using %.1f s", timeout_s);
+  cmd_vel_watchdog_ = std::make_shared<CmdVelWatchdog>(
+    std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(timeout_s)));
+  cmd_vel_watchdog_timer_.reset();
+  if (cmd_vel_watchdog_->enabled())
+  {
+    cmd_vel_watchdog_timer_ = node->create_wall_timer(std::chrono::milliseconds(100), [this]()
+    {
+      if (cmd_vel_watchdog_->expired(CmdVelWatchdog::Clock::now()))
+      {
+        RCLCPP_WARN(logger_, "No /cmd_vel for the configured timeout, stopping the base");
+        p_motion_.async<void>("move", 0.0f, 0.0f, 0.0f);
+      }
+    });
+  }
+  RCLCPP_INFO(logger_, "cmd_vel_timeout: %.2f s%s", timeout_s,
+              cmd_vel_watchdog_->enabled() ? "" : " (disabled)");
+
   sub_cmd_vel_ = node->create_subscription<geometry_msgs::msg::Twist>(
       cmd_vel_topic_, 10,
       std::bind(&TeleopSubscriber::cmd_vel_callback, this, std::placeholders::_1));
@@ -56,17 +93,36 @@ void TeleopSubscriber::reset(rclcpp::Node* node)
 
 void TeleopSubscriber::cmd_vel_callback(const geometry_msgs::msg::Twist::SharedPtr twist_msg)
 {
-  const float& vel_x  = twist_msg->linear.x;
-  const float& vel_y  = twist_msg->linear.y;
-  const float& vel_th = twist_msg->angular.z;
+  const std::string error = validation::validateVelocity(
+    twist_msg->linear.x, twist_msg->linear.y, twist_msg->angular.z);
+  if (!error.empty())
+  {
+    RCLCPP_WARN(logger_, "Ignoring /cmd_vel: %s", error.c_str());
+    return;
+  }
 
-  std::cout << "going to move x: " << vel_x << " y: " << vel_y << " th: " << vel_th << std::endl;
+  const float vel_x  = twist_msg->linear.x;
+  const float vel_y  = twist_msg->linear.y;
+  const float vel_th = twist_msg->angular.z;
+
+  RCLCPP_DEBUG(logger_, "going to move x: %f y: %f th: %f", vel_x, vel_y, vel_th);
+  if (cmd_vel_watchdog_)
+    cmd_vel_watchdog_->onCommand(vel_x == 0.f && vel_y == 0.f && vel_th == 0.f,
+                                 CmdVelWatchdog::Clock::now());
   p_motion_.async<void>("move", vel_x, vel_y, vel_th);
 }
 
 void TeleopSubscriber::joint_angles_callback(
     const naoqi_bridge_msgs::msg::JointAnglesWithSpeed::SharedPtr js_msg)
 {
+  const std::string error = validation::validateJointAngles(
+    js_msg->joint_names, js_msg->joint_angles, js_msg->speed);
+  if (!error.empty())
+  {
+    RCLCPP_WARN(logger_, "Ignoring JointAnglesWithSpeed: %s", error.c_str());
+    return;
+  }
+
   if (js_msg->relative == 0)
   {
     p_motion_.async<void>("setAngles", js_msg->joint_names, js_msg->joint_angles, js_msg->speed);
@@ -103,6 +159,13 @@ void TeleopSubscriber::joint_angle_traj_callback(
 
   bool is_absolute = (traj_msg->relative == 0);
   bool use_bezier = traj_msg->use_bezier;  // NEW: Check for Bezier flag
+
+  const std::string error = validation::validateTrajectory(names, angles, times, is_absolute, use_bezier);
+  if (!error.empty())
+  {
+    RCLCPP_WARN(logger_, "Ignoring JointAnglesTrajectory: %s", error.c_str());
+    return;
+  }
 
   try
   {

@@ -57,27 +57,12 @@ void MovetoSubscriber::callback( const geometry_msgs::msg::PoseStamped::SharedPt
   if (pose_msg->header.frame_id == "odom") {
     geometry_msgs::msg::PoseStamped pose_msg_bf;
 
-    bool canTransform = tf2_buffer_->canTransform(
-      "base_footprint",
-      "odom",
-      tf2::get_now(),
-      tf2::Duration(2));
-
-    if (!canTransform) {
-      std::cout << "Cannot transform from "
-                << "odom"
-                << " to base_footprint"
-                << std::endl;
-      return;
-    }
-
     try {
-      tf2_buffer_->transform(
-        *pose_msg,
-        pose_msg_bf,
-        "base_footprint",
-        tf2::get_now(),
-        "odom");
+      // Use the latest transform without waiting: this runs on the driver's only
+      // loop thread, and blocking here would stall every sensor stream.
+      const auto odom_to_base = tf2_buffer_->lookupTransform(
+        "base_footprint", "odom", tf2::TimePointZero);
+      tf2::doTransform(*pose_msg, pose_msg_bf, odom_to_base);
 
       double yaw = helpers::transform::getYaw(pose_msg_bf.pose);
 
@@ -96,15 +81,13 @@ void MovetoSubscriber::callback( const geometry_msgs::msg::PoseStamped::SharedPt
         pose_msg_bf.pose.position.y,
         yaw);
 
-    } catch( const tf2::LookupException& e) {
+    } catch( const tf2::TransformException& e) {
       std::cout << e.what() << std::endl;
       std::cout << "moveto position in frame_id "
                 << pose_msg->header.frame_id
                 << "is not supported in any other base frame than "
                    "basefootprint"
                 << std::endl;
-    } catch( const tf2::ExtrapolationException& e) {
-      std::cout << "received an error on the time lookup" << std::endl;
     }
   }
   else if (pose_msg->header.frame_id == "base_footprint"){

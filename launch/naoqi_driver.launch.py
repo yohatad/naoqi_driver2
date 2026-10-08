@@ -3,6 +3,7 @@ import launch_ros
 import launch.actions
 import launch.substitutions
 import launch_ros.actions
+import launch_ros.parameter_descriptions
 
 def generate_launch_description():
     return launch.LaunchDescription([
@@ -46,6 +47,11 @@ def generate_launch_description():
             description='Publish odom -> base_footprint from wheel odometry. '
                          'Leave FALSE when an external localization source '
                          '(e.g. FAST-LIO) owns this edge, or the TF tree splits.'),
+        launch.actions.DeclareLaunchArgument(
+            'cmd_vel_timeout',
+            default_value="0.5",
+            description='Seconds without /cmd_vel before a moving base is stopped. '
+                        '0 disables the watchdog (the base then keeps the last velocity).'),
         launch_ros.actions.Node(
             package='naoqi_driver',
             executable='naoqi_driver_node',
@@ -58,6 +64,8 @@ def generate_launch_description():
                 'network_interface': launch.substitutions.LaunchConfiguration('network_interface'),
                 'qi_listen_url': launch.substitutions.LaunchConfiguration('qi_listen_url'),
                 'publish_wheel_odom_tf': launch.substitutions.LaunchConfiguration('publish_wheel_odom_tf'),
+                'cmd_vel_timeout': launch_ros.parameter_descriptions.ParameterValue(
+                    launch.substitutions.LaunchConfiguration('cmd_vel_timeout'), value_type=float),
             }],
             output="screen"),
     ])

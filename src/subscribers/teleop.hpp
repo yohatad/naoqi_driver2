@@ -21,6 +21,7 @@
  * LOCAL includes
  */
 #include "subscriber_base.hpp"
+#include "cmd_vel_watchdog.hpp"
 
 /*
  * ROS includes
@@ -68,6 +69,9 @@ private:
 
   qi::AnyObject p_motion_;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr sub_cmd_vel_;
+  std::shared_ptr<CmdVelWatchdog> cmd_vel_watchdog_;
+  rclcpp::TimerBase::SharedPtr cmd_vel_watchdog_timer_;
+  rclcpp::Logger logger_ = rclcpp::get_logger("TeleopSubscriber");
   rclcpp::Subscription<naoqi_bridge_msgs::msg::JointAnglesWithSpeed>::SharedPtr sub_joint_angles_;
   rclcpp::Subscription<naoqi_bridge_msgs::msg::JointAnglesTrajectory>::SharedPtr sub_joint_angle_traj_;
 };

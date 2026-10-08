@@ -287,7 +287,17 @@ void Driver::rosIteration() {
       // only call when we have at least one action to perform
       if (actions.size() >0)
       {
-        conv.callAll( actions );
+        // A NAOqi error in one converter (camera busy, network hiccup) must not
+        // take the whole driver down; it is retried on its next schedule.
+        try
+        {
+          conv.callAll( actions );
+        }
+        catch (const std::exception& e)
+        {
+          RCLCPP_ERROR_THROTTLE(get_logger(), *get_clock(), 5000,
+                                "Converter %s failed: %s", conv.name().c_str(), e.what());
+        }
       }
 
       rclcpp::Duration d(schedule - this->now());
@@ -311,10 +321,9 @@ void Driver::rosIteration() {
     }
   } // mutex scope
 
-  if ( publish_enabled_ )
-  {
-    rclcpp::spin_some(this->get_node_base_interface());
-  }
+  // Always service ROS callbacks: commands such as a zero /cmd_vel, action
+  // cancels and services must keep working while publishing is disabled.
+  rclcpp::spin_some(this->get_node_base_interface());
 }
 
 std::string Driver::minidump(const std::string& prefix)
@@ -1177,6 +1186,31 @@ void Driver::stopLogging()
 void Driver::stop()
 {
   keep_looping = false;
+
+  // ALMotion.move() keeps the last velocity, so leaving without stopping would
+  // let the base drive on. Each call is independent: one failing must not skip the others.
+  if (sessionPtr_)
+  {
+    const std::vector<std::pair<std::string, std::string>> halts = {
+      {"ALMotion", "stopMove"},
+      {"ALAnimatedSpeech", "stopAll"},
+      {"ALTextToSpeech", "stopAll"},
+      {"ALAudioPlayer", "stopAll"},
+    };
+    for (const auto& halt : halts)
+    {
+      try
+      {
+        sessionPtr_->service(halt.first).value().call<void>(halt.second);
+      }
+      catch (const std::exception& e)
+      {
+        RCLCPP_WARN(get_logger(), "%s.%s failed on shutdown: %s",
+                    halt.first.c_str(), halt.second.c_str(), e.what());
+      }
+    }
+  }
+
   for(EventIter iterator = event_map_.begin(); iterator != event_map_.end(); iterator++)
   {
     iterator->second.stopProcess();
