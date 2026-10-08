@@ -19,56 +19,55 @@ using naoqi_test::TempDir;
 namespace legacy
 {
 
-inline void getFoldersize(std::string rootFolder, long& file_size){
+inline void getFoldersize(std::string rootFolder, long & file_size)
+{
   boost::algorithm::replace_all(rootFolder, "\\\\", "\\");
   boost::filesystem::path folderPath(rootFolder);
-  if (boost::filesystem::exists(folderPath)){
+  if (boost::filesystem::exists(folderPath)) {
     boost::filesystem::directory_iterator end_itr;
 
-    for (boost::filesystem::directory_iterator dirIte(rootFolder); dirIte != end_itr; ++dirIte )
-    {
+    for (boost::filesystem::directory_iterator dirIte(rootFolder); dirIte != end_itr; ++dirIte) {
       boost::filesystem::path filePath(dirIte->path());
-      try{
-        if (!boost::filesystem::is_directory(dirIte->status()) )
-        {
+      try {
+        if (!boost::filesystem::is_directory(dirIte->status()) ) {
           file_size = file_size + boost::filesystem::file_size(filePath);
-        }else{
-          getFoldersize(filePath.string(),file_size);
+        } else {
+          getFoldersize(filePath.string(), file_size);
         }
-      }catch(std::exception& e){
+      } catch (std::exception & e) {
         std::cout << e.what() << std::endl;
       }
     }
   }
 }
 
-inline void getFiles(const boost::filesystem::path& root, const std::string& ext, std::vector<boost::filesystem::path>& ret)
+inline void getFiles(
+  const boost::filesystem::path & root, const std::string & ext,
+  std::vector<boost::filesystem::path> & ret)
 {
-  if(!boost::filesystem::exists(root) || !boost::filesystem::is_directory(root)) return;
+  if (!boost::filesystem::exists(root) || !boost::filesystem::is_directory(root)) {return;}
 
   boost::filesystem::recursive_directory_iterator it(root);
   boost::filesystem::recursive_directory_iterator endit;
 
-  while(it != endit)
-  {
-    if(boost::filesystem::is_regular_file(*it) && it->path().extension() == ext)
-    {
+  while (it != endit) {
+    if (boost::filesystem::is_regular_file(*it) && it->path().extension() == ext) {
       ret.push_back(it->path().filename());
     }
     ++it;
   }
 }
 
-inline void getFilesSize(const boost::filesystem::path& root, long& file_size)
+inline void getFilesSize(const boost::filesystem::path & root, long & file_size)
 {
   std::vector<boost::filesystem::path> files_path;
   getFiles(root, ".bag", files_path);
-  for (std::vector<boost::filesystem::path>::const_iterator it=files_path.begin();
-       it!=files_path.end(); it++)
+  for (std::vector<boost::filesystem::path>::const_iterator it = files_path.begin();
+    it != files_path.end(); it++)
   {
-    try{
+    try {
       file_size = file_size + boost::filesystem::file_size(*it);
-    }catch(std::exception& e){
+    } catch (std::exception & e) {
       std::cout << e.what() << std::endl;
     }
   }
@@ -79,30 +78,32 @@ inline void getFilesSize(const boost::filesystem::path& root, long& file_size)
 namespace
 {
 
-std::vector<std::string> stdGetFiles(const std::filesystem::path& root, const std::string& ext)
+std::vector<std::string> stdGetFiles(const std::filesystem::path & root, const std::string & ext)
 {
   std::vector<std::filesystem::path> files;
   fsh::getFiles(root, ext, files);
   std::vector<std::string> names;
-  for (const auto& f : files)
+  for (const auto & f : files) {
     names.push_back(f.string());
+  }
   std::sort(names.begin(), names.end());
   return names;
 }
 
-std::vector<std::string> legacyGetFiles(const std::filesystem::path& root, const std::string& ext)
+std::vector<std::string> legacyGetFiles(const std::filesystem::path & root, const std::string & ext)
 {
   std::vector<boost::filesystem::path> files;
   legacy::getFiles(boost::filesystem::path(root.string()), ext, files);
   std::vector<std::string> names;
-  for (const auto& f : files)
+  for (const auto & f : files) {
     names.push_back(f.string());
+  }
   std::sort(names.begin(), names.end());
   return names;
 }
 
 /** a.bag(100) b.txt(50) e.bagx(9) sub/c.bag(30) sub/deeper/d.bag(7) => 196 bytes total */
-void populate(const TempDir& dir)
+void populate(const TempDir & dir)
 {
   dir.writeFile("a.bag", 100);
   dir.writeFile("b.txt", 50);
@@ -160,7 +161,7 @@ TEST(FilesystemHelpers, GetFilesSizeMatchesLegacyFromDriverWorkingDirectory)
   // The driver always calls this with root == current_path(). getFiles() returns
   // bare filenames, so only top-level bags resolve and nested ones are skipped
   // (pre-existing behaviour, kept unchanged by the migration).
-  TempDir dir(/*chdir_into=*/true);
+  TempDir dir(/*chdir_into=*/ true);
   populate(dir);
 
   long std_size = 0;

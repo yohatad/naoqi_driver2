@@ -46,13 +46,12 @@ class Recorder
 {
 
 public:
-
   /**
   * @brief Constructor for recorder interface
   */
   template<typename T>
-  Recorder( T rec ):
-    recPtr_( std::make_shared<RecorderModel<T> >(rec) )
+  Recorder(T rec)
+  : recPtr_(std::make_shared<RecorderModel<T>>(rec) )
   {}
 
   /**
@@ -65,7 +64,7 @@ public:
   }
 
 
-  void subscribe( bool state )
+  void subscribe(bool state)
   {
     recPtr_->subscribe(state);
   }
@@ -85,19 +84,19 @@ public:
   }
 
   /**
-   * @brief initializes/resets the recorder into ROS with a given 
+   * @brief initializes/resets the recorder into ROS with a given
    * GlobalRecorder pointer and a frequency, this will be called at first for
    * initialization
-   * 
+   *
    * @param gr GlobalRecorder pointer
    * @param frequency the frequency of the recoder
    */
-  void reset( std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float frequency)
+  void reset(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float frequency)
   {
-    recPtr_->reset( gr, frequency );
+    recPtr_->reset(gr, frequency);
   }
 
-  void writeDump(const rclcpp::Time& time)
+  void writeDump(const rclcpp::Time & time)
   {
     recPtr_->writeDump(time);
   }
@@ -107,29 +106,29 @@ public:
     recPtr_->setBufferDuration(duration);
   }
 
-  friend bool operator==( const Recorder& lhs, const Recorder& rhs )
+  friend bool operator==(const Recorder & lhs, const Recorder & rhs)
   {
     // decision made for OR-comparison since we want to be more restrictive
-    if ( lhs.topic() == rhs.topic() )
+    if (lhs.topic() == rhs.topic() ) {
       return true;
+    }
     return false;
   }
 
 private:
-
   /**
   * BASE concept struct
   */
   struct RecorderConcept
   {
-    virtual ~RecorderConcept(){}
+    virtual ~RecorderConcept() {}
     virtual bool isInitialized() const = 0;
     virtual void subscribe(bool state) = 0;
     virtual bool isSubscribed() const = 0;
     virtual std::string topic() const = 0;
-    virtual void writeDump(const rclcpp::Time& time) = 0;
+    virtual void writeDump(const rclcpp::Time & time) = 0;
     virtual void setBufferDuration(float duration) = 0;
-    virtual void reset( std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float frequency ) = 0;
+    virtual void reset(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float frequency) = 0;
   };
 
 
@@ -139,13 +138,13 @@ private:
   template<typename T>
   struct RecorderModel : public RecorderConcept
   {
-    RecorderModel( const T& other ):
-      recorder_( other )
+    RecorderModel(const T & other)
+    : recorder_(other)
     {}
 
-    void reset( std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float frequency )
+    void reset(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float frequency)
     {
-      recorder_->reset( gr, frequency );
+      recorder_->reset(gr, frequency);
     }
 
     bool isInitialized() const
@@ -155,7 +154,7 @@ private:
 
     void subscribe(bool state)
     {
-      recorder_->subscribe( state );
+      recorder_->subscribe(state);
     }
 
     bool isSubscribed() const
@@ -168,7 +167,7 @@ private:
       return recorder_->topic();
     }
 
-    void writeDump(const rclcpp::Time& time)
+    void writeDump(const rclcpp::Time & time)
     {
       recorder_->writeDump(time);
     }

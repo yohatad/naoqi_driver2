@@ -35,17 +35,21 @@
 */
 #include <qi/anymodule.hpp>
 
-namespace naoqi{
+namespace naoqi
+{
 
-namespace converter{
+namespace converter
+{
 
 class AudioEventConverter : public BaseConverter<AudioEventConverter>
 {
 
-  typedef std::function<void(naoqi_bridge_msgs::msg::AudioBuffer&) > Callback_t;
+  typedef std::function<void (naoqi_bridge_msgs::msg::AudioBuffer &)> Callback_t;
 
 public:
-  AudioEventConverter(const std::string& name, const float& frequency, const qi::SessionPtr& session);
+  AudioEventConverter(
+    const std::string & name, const float & frequency,
+    const qi::SessionPtr & session);
 
   ~AudioEventConverter();
 
@@ -54,7 +58,9 @@ public:
   void registerCallback(const message_actions::MessageAction action, Callback_t cb);
   void unregisterCallback(const message_actions::MessageAction action);
 
-  void callAll(const std::vector<message_actions::MessageAction>& actions, naoqi_bridge_msgs::msg::AudioBuffer& msg);
+  void callAll(
+    const std::vector<message_actions::MessageAction> & actions,
+    naoqi_bridge_msgs::msg::AudioBuffer & msg);
 
 private:
   /** Registered Callbacks **/

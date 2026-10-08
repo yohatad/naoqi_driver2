@@ -24,8 +24,9 @@ class RosTest : public ::testing::Test
 protected:
   static void SetUpTestSuite()
   {
-    if (!rclcpp::ok())
+    if (!rclcpp::ok()) {
       rclcpp::init(0, nullptr);
+    }
     node_ = std::make_shared<rclcpp::Node>("naoqi_driver_test");
     naoqi::helpers::Node::setNode(node_);
   }
@@ -48,32 +49,34 @@ class TempDir
 {
 public:
   explicit TempDir(bool chdir_into = false)
-    : previous_cwd_(std::filesystem::current_path()), chdir_into_(chdir_into)
+  : previous_cwd_(std::filesystem::current_path()), chdir_into_(chdir_into)
   {
     static std::atomic<int> counter{0};
     path_ = std::filesystem::temp_directory_path() /
-            ("naoqi_driver_test_" + std::to_string(::getpid()) + "_" + std::to_string(counter++));
+      ("naoqi_driver_test_" + std::to_string(::getpid()) + "_" + std::to_string(counter++));
     std::filesystem::remove_all(path_);
     std::filesystem::create_directories(path_);
-    if (chdir_into_)
+    if (chdir_into_) {
       std::filesystem::current_path(path_);
+    }
   }
 
   ~TempDir()
   {
-    if (chdir_into_)
+    if (chdir_into_) {
       std::filesystem::current_path(previous_cwd_);
+    }
     std::error_code ec;
     std::filesystem::remove_all(path_, ec);
   }
 
-  TempDir(const TempDir&) = delete;
-  TempDir& operator=(const TempDir&) = delete;
+  TempDir(const TempDir &) = delete;
+  TempDir & operator=(const TempDir &) = delete;
 
-  const std::filesystem::path& path() const { return path_; }
+  const std::filesystem::path & path() const {return path_;}
 
   /** Writes a file of exactly size bytes at path_/relative, creating parent folders. */
-  std::filesystem::path writeFile(const std::string& relative, std::size_t size) const
+  std::filesystem::path writeFile(const std::string & relative, std::size_t size) const
   {
     const auto file = path_ / relative;
     std::filesystem::create_directories(file.parent_path());

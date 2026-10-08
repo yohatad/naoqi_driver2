@@ -26,26 +26,26 @@ namespace naoqi
 namespace subscriber
 {
 
-TeleopSubscriber::TeleopSubscriber(const std::string& name,
-                                   const std::string& cmd_vel_topic,
-                                   const std::string& joint_angles_topic,
-                                   const std::string& joint_angle_traj_topic,
-                                   const qi::SessionPtr& session)
+TeleopSubscriber::TeleopSubscriber(
+  const std::string & name,
+  const std::string & cmd_vel_topic,
+  const std::string & joint_angles_topic,
+  const std::string & joint_angle_traj_topic,
+  const qi::SessionPtr & session)
 : cmd_vel_topic_(cmd_vel_topic)
-, joint_angles_topic_(joint_angles_topic)
-, joint_angle_traj_topic_(joint_angle_traj_topic)
-, BaseSubscriber(name, cmd_vel_topic, session)
-, p_motion_(session->service("ALMotion").value())
+  , joint_angles_topic_(joint_angles_topic)
+  , joint_angle_traj_topic_(joint_angle_traj_topic)
+  , BaseSubscriber(name, cmd_vel_topic, session)
+  , p_motion_(session->service("ALMotion").value())
 {}
 
-void TeleopSubscriber::reset(rclcpp::Node* node)
+void TeleopSubscriber::reset(rclcpp::Node * node)
 {
   logger_ = node->get_logger();
 
   // Stop the base when /cmd_vel goes silent while moving (0 disables).
   // Dynamically typed so that both 0 and 0.5 are accepted from the command line.
-  if (!node->has_parameter("cmd_vel_timeout"))
-  {
+  if (!node->has_parameter("cmd_vel_timeout")) {
     rcl_interfaces::msg::ParameterDescriptor descriptor;
     descriptor.description = "Seconds without /cmd_vel before a moving base is stopped; 0 disables";
     descriptor.dynamic_typing = true;
@@ -53,40 +53,41 @@ void TeleopSubscriber::reset(rclcpp::Node* node)
   }
   const rclcpp::Parameter timeout_param = node->get_parameter("cmd_vel_timeout");
   double timeout_s = 0.5;
-  if (timeout_param.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE)
+  if (timeout_param.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE) {
     timeout_s = timeout_param.as_double();
-  else if (timeout_param.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER)
+  } else if (timeout_param.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER) {
     timeout_s = static_cast<double>(timeout_param.as_int());
-  else
+  } else {
     RCLCPP_WARN(logger_, "cmd_vel_timeout must be a number, using %.1f s", timeout_s);
+  }
   cmd_vel_watchdog_ = std::make_shared<CmdVelWatchdog>(
     std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(timeout_s)));
   cmd_vel_watchdog_timer_.reset();
-  if (cmd_vel_watchdog_->enabled())
-  {
-    cmd_vel_watchdog_timer_ = node->create_wall_timer(std::chrono::milliseconds(100), [this]()
-    {
-      if (cmd_vel_watchdog_->expired(CmdVelWatchdog::Clock::now()))
+  if (cmd_vel_watchdog_->enabled()) {
+    cmd_vel_watchdog_timer_ = node->create_wall_timer(
+      std::chrono::milliseconds(100), [this]()
       {
-        RCLCPP_WARN(logger_, "No /cmd_vel for the configured timeout, stopping the base");
-        p_motion_.async<void>("move", 0.0f, 0.0f, 0.0f);
-      }
-    });
+        if (cmd_vel_watchdog_->expired(CmdVelWatchdog::Clock::now())) {
+          RCLCPP_WARN(logger_, "No /cmd_vel for the configured timeout, stopping the base");
+          p_motion_.async<void>("move", 0.0f, 0.0f, 0.0f);
+        }
+      });
   }
-  RCLCPP_INFO(logger_, "cmd_vel_timeout: %.2f s%s", timeout_s,
-              cmd_vel_watchdog_->enabled() ? "" : " (disabled)");
+  RCLCPP_INFO(
+    logger_, "cmd_vel_timeout: %.2f s%s", timeout_s,
+    cmd_vel_watchdog_->enabled() ? "" : " (disabled)");
 
   sub_cmd_vel_ = node->create_subscription<geometry_msgs::msg::Twist>(
-      cmd_vel_topic_, 10,
-      std::bind(&TeleopSubscriber::cmd_vel_callback, this, std::placeholders::_1));
+    cmd_vel_topic_, 10,
+    std::bind(&TeleopSubscriber::cmd_vel_callback, this, std::placeholders::_1));
 
   sub_joint_angles_ = node->create_subscription<naoqi_bridge_msgs::msg::JointAnglesWithSpeed>(
-      joint_angles_topic_, 10,
-      std::bind(&TeleopSubscriber::joint_angles_callback, this, std::placeholders::_1));
+    joint_angles_topic_, 10,
+    std::bind(&TeleopSubscriber::joint_angles_callback, this, std::placeholders::_1));
 
   sub_joint_angle_traj_ = node->create_subscription<naoqi_bridge_msgs::msg::JointAnglesTrajectory>(
-      joint_angle_traj_topic_, 10,
-      std::bind(&TeleopSubscriber::joint_angle_traj_callback, this, std::placeholders::_1));
+    joint_angle_traj_topic_, 10,
+    std::bind(&TeleopSubscriber::joint_angle_traj_callback, this, std::placeholders::_1));
 
   is_initialized_ = true;
 }
@@ -95,182 +96,169 @@ void TeleopSubscriber::cmd_vel_callback(const geometry_msgs::msg::Twist::SharedP
 {
   const std::string error = validation::validateVelocity(
     twist_msg->linear.x, twist_msg->linear.y, twist_msg->angular.z);
-  if (!error.empty())
-  {
+  if (!error.empty()) {
     RCLCPP_WARN(logger_, "Ignoring /cmd_vel: %s", error.c_str());
     return;
   }
 
-  const float vel_x  = twist_msg->linear.x;
-  const float vel_y  = twist_msg->linear.y;
+  const float vel_x = twist_msg->linear.x;
+  const float vel_y = twist_msg->linear.y;
   const float vel_th = twist_msg->angular.z;
 
   RCLCPP_DEBUG(logger_, "going to move x: %f y: %f th: %f", vel_x, vel_y, vel_th);
-  if (cmd_vel_watchdog_)
-    cmd_vel_watchdog_->onCommand(vel_x == 0.f && vel_y == 0.f && vel_th == 0.f,
-                                 CmdVelWatchdog::Clock::now());
+  if (cmd_vel_watchdog_) {
+    cmd_vel_watchdog_->onCommand(
+      vel_x == 0.f && vel_y == 0.f && vel_th == 0.f,
+      CmdVelWatchdog::Clock::now());
+  }
   p_motion_.async<void>("move", vel_x, vel_y, vel_th);
 }
 
 void TeleopSubscriber::joint_angles_callback(
-    const naoqi_bridge_msgs::msg::JointAnglesWithSpeed::SharedPtr js_msg)
+  const naoqi_bridge_msgs::msg::JointAnglesWithSpeed::SharedPtr js_msg)
 {
   const std::string error = validation::validateJointAngles(
     js_msg->joint_names, js_msg->joint_angles, js_msg->speed);
-  if (!error.empty())
-  {
+  if (!error.empty()) {
     RCLCPP_WARN(logger_, "Ignoring JointAnglesWithSpeed: %s", error.c_str());
     return;
   }
 
-  if (js_msg->relative == 0)
-  {
+  if (js_msg->relative == 0) {
     p_motion_.async<void>("setAngles", js_msg->joint_names, js_msg->joint_angles, js_msg->speed);
-  }
-  else
-  {
+  } else {
     p_motion_.async<void>("changeAngles", js_msg->joint_names, js_msg->joint_angles, js_msg->speed);
   }
 }
 
 void TeleopSubscriber::joint_angle_traj_callback(
-    const naoqi_bridge_msgs::msg::JointAnglesTrajectory::SharedPtr traj_msg)
+  const naoqi_bridge_msgs::msg::JointAnglesTrajectory::SharedPtr traj_msg)
 {
   // Basic validation
-  const auto& names  = traj_msg->joint_names;
-  const auto& angles = traj_msg->joint_angles;
-  const auto& times  = traj_msg->times;
+  const auto & names = traj_msg->joint_names;
+  const auto & angles = traj_msg->joint_angles;
+  const auto & times = traj_msg->times;
 
-  if (names.empty() || angles.empty() || times.empty())
-  {
-    RCLCPP_WARN(rclcpp::get_logger("TeleopSubscriber"),
-                "JointAnglesTrajectory: empty fields (names:%zu angles:%zu times:%zu)",
-                names.size(), angles.size(), times.size());
+  if (names.empty() || angles.empty() || times.empty()) {
+    RCLCPP_WARN(
+      rclcpp::get_logger("TeleopSubscriber"),
+      "JointAnglesTrajectory: empty fields (names:%zu angles:%zu times:%zu)",
+      names.size(), angles.size(), times.size());
     return;
   }
 
-  if (angles.size() != times.size())
-  {
-    RCLCPP_WARN(rclcpp::get_logger("TeleopSubscriber"),
-                "JointAnglesTrajectory: angles.size() (%zu) != times.size() (%zu)",
-                angles.size(), times.size());
+  if (angles.size() != times.size()) {
+    RCLCPP_WARN(
+      rclcpp::get_logger("TeleopSubscriber"),
+      "JointAnglesTrajectory: angles.size() (%zu) != times.size() (%zu)",
+      angles.size(), times.size());
     return;
   }
 
   bool is_absolute = (traj_msg->relative == 0);
   bool use_bezier = traj_msg->use_bezier;  // NEW: Check for Bezier flag
 
-  const std::string error = validation::validateTrajectory(names, angles, times, is_absolute, use_bezier);
-  if (!error.empty())
-  {
+  const std::string error = validation::validateTrajectory(
+    names, angles, times, is_absolute,
+    use_bezier);
+  if (!error.empty()) {
     RCLCPP_WARN(logger_, "Ignoring JointAnglesTrajectory: %s", error.c_str());
     return;
   }
 
-  try
-  {
-    if (use_bezier)
-    {
+  try {
+    if (use_bezier) {
       // Use Bezier interpolation for smooth biological motion
       execute_bezier_trajectory(names, angles, times);
-    }
-    else
-    {
+    } else {
       // Original angleInterpolation logic
       execute_angle_interpolation(names, angles, times, is_absolute);
     }
-  }
-  catch (const std::exception& e)
-  {
-    RCLCPP_ERROR(rclcpp::get_logger("TeleopSubscriber"),
-                 "ALMotion trajectory error: %s", e.what());
+  } catch (const std::exception & e) {
+    RCLCPP_ERROR(
+      rclcpp::get_logger("TeleopSubscriber"),
+      "ALMotion trajectory error: %s", e.what());
   }
 }
 
 void TeleopSubscriber::execute_angle_interpolation(
-    const std::vector<std::string>& names,
-    const std::vector<float>& angles,
-    const std::vector<float>& times,
-    bool is_absolute)
+  const std::vector<std::string> & names,
+  const std::vector<float> & angles,
+  const std::vector<float> & times,
+  bool is_absolute)
 {
-  if (names.size() == 1)
-  {
+  if (names.size() == 1) {
     // Single joint/chain with multiple waypoints
     p_motion_.async<void>("angleInterpolation", names[0], angles, times, is_absolute);
-  }
-  else if (names.size() == angles.size())
-  {
-      // One waypoint per joint -> all reach their target at the same per-joint time
-      std::vector<std::vector<float>> angleLists;
-      std::vector<std::vector<float>> timeLists;
-      angleLists.reserve(names.size());
-      timeLists.reserve(names.size());
-      
-      for (size_t i = 0; i < names.size(); ++i)
-      {
-        angleLists.push_back(std::vector<float>{angles[i]});
-        timeLists.push_back(std::vector<float>{times[i]});
-      }
-      p_motion_.async<void>("angleInterpolation", names, angleLists, timeLists, is_absolute);
-  }
-  else
-  {
-    RCLCPP_WARN(rclcpp::get_logger("TeleopSubscriber"),
-                "JointAnglesTrajectory: unsupported combination: names:%zu angles:%zu times:%zu",
-                names.size(), angles.size(), times.size());
+  } else if (names.size() == angles.size()) {
+    // One waypoint per joint -> all reach their target at the same per-joint time
+    std::vector<std::vector<float>> angleLists;
+    std::vector<std::vector<float>> timeLists;
+    angleLists.reserve(names.size());
+    timeLists.reserve(names.size());
+
+    for (size_t i = 0; i < names.size(); ++i) {
+      angleLists.push_back(std::vector<float>{angles[i]});
+      timeLists.push_back(std::vector<float>{times[i]});
+    }
+    p_motion_.async<void>("angleInterpolation", names, angleLists, timeLists, is_absolute);
+  } else {
+    RCLCPP_WARN(
+      rclcpp::get_logger("TeleopSubscriber"),
+      "JointAnglesTrajectory: unsupported combination: names:%zu angles:%zu times:%zu",
+      names.size(), angles.size(), times.size());
   }
 }
 
 void TeleopSubscriber::execute_bezier_trajectory(
-    const std::vector<std::string>& names,
-    const std::vector<float>& angles,
-    const std::vector<float>& times)
+  const std::vector<std::string> & names,
+  const std::vector<float> & angles,
+  const std::vector<float> & times)
 {
   // angleInterpolationBezier expects:
   // - jointNames: vector<string>
   // - timeLists: list of lists (ragged array)
   // - angleLists: list of lists (ragged array)
-  
+
   // Determine waypoints per joint
   size_t waypoints_per_joint = angles.size() / names.size();
-  
-  if (angles.size() % names.size() != 0 || times.size() != angles.size())
-  {
-    RCLCPP_WARN(rclcpp::get_logger("TeleopSubscriber"),
-                "Bezier: invalid dimensions - names:%zu angles:%zu times:%zu",
-                names.size(), angles.size(), times.size());
+
+  if (angles.size() % names.size() != 0 || times.size() != angles.size()) {
+    RCLCPP_WARN(
+      rclcpp::get_logger("TeleopSubscriber"),
+      "Bezier: invalid dimensions - names:%zu angles:%zu times:%zu",
+      names.size(), angles.size(), times.size());
     return;
   }
-  
+
   // Reshape flat arrays into ragged arrays
   std::vector<std::vector<float>> timeLists;
   std::vector<std::vector<float>> angleLists;
   timeLists.reserve(names.size());
   angleLists.reserve(names.size());
-  
-  for (size_t i = 0; i < names.size(); ++i)
-  {
+
+  for (size_t i = 0; i < names.size(); ++i) {
     std::vector<float> joint_angles;
     std::vector<float> joint_times;
     joint_angles.reserve(waypoints_per_joint);
     joint_times.reserve(waypoints_per_joint);
-    
-    for (size_t wp = 0; wp < waypoints_per_joint; ++wp)
-    {
+
+    for (size_t wp = 0; wp < waypoints_per_joint; ++wp) {
       joint_angles.push_back(angles[i * waypoints_per_joint + wp]);
       joint_times.push_back(times[i * waypoints_per_joint + wp]);
     }
-    
+
     angleLists.push_back(joint_angles);
     timeLists.push_back(joint_times);
   }
-  
+
   p_motion_.async<void>("angleInterpolationBezier", names, timeLists, angleLists);
-  
-  RCLCPP_INFO(rclcpp::get_logger("TeleopSubscriber"),
-              "Bezier trajectory: %zu joint%s with %zu waypoint%s each",
-              names.size(), names.size() == 1 ? "" : "s",
-              waypoints_per_joint, waypoints_per_joint == 1 ? "" : "s");
+
+  RCLCPP_INFO(
+    rclcpp::get_logger("TeleopSubscriber"),
+    "Bezier trajectory: %zu joint%s with %zu waypoint%s each",
+    names.size(), names.size() == 1 ? "" : "s",
+    waypoints_per_joint, waypoints_per_joint == 1 ? "" : "s");
 }
 
 } // namespace subscriber

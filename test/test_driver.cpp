@@ -41,7 +41,7 @@ TEST_F(DriverTest, StdOwnedDriverSupportsSharedFromThis)
 
 TEST_F(DriverTest, GetFilesListReturnsBagNamesUnderWorkingDirectory)
 {
-  naoqi_test::TempDir dir(/*chdir_into=*/true);
+  naoqi_test::TempDir dir(/*chdir_into=*/ true);
   dir.writeFile("first.bag", 3);
   dir.writeFile("notes.txt", 3);
   dir.writeFile("nested/second.bag", 3);
@@ -58,7 +58,7 @@ TEST_F(DriverTest, RemoveAllFilesDeletesTopLevelBagsOnly)
 {
   // Same as before the migration: getFiles() yields bare filenames, so only bags
   // directly in the working directory resolve and get removed.
-  naoqi_test::TempDir dir(/*chdir_into=*/true);
+  naoqi_test::TempDir dir(/*chdir_into=*/ true);
   dir.writeFile("first.bag", 3);
   dir.writeFile("notes.txt", 3);
   dir.writeFile("nested/second.bag", 3);
@@ -74,6 +74,7 @@ TEST_F(DriverTest, RemoveAllFilesDeletesTopLevelBagsOnly)
 TEST_F(DriverTest, MinidumpRefusesWhenLoggingIsDisabled)
 {
   auto driver = std::make_shared<naoqi::Driver>();
-  EXPECT_EQ(driver->minidump("unit"),
-            "Log is not enabled, please enable logging before calling minidump");
+  EXPECT_EQ(
+    driver->minidump("unit"),
+    "Log is not enabled, please enable logging before calling minidump");
 }

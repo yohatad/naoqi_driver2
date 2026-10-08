@@ -29,11 +29,12 @@ namespace
 
 struct MockConverter
 {
-  explicit MockConverter(std::string name, float frequency = 10.f) : name_(std::move(name)), frequency_(frequency) {}
-  std::string name() const { return name_; }
-  float frequency() const { return frequency_; }
-  void reset() { ++resets; }
-  void callAll(const std::vector<MessageAction>& actions) { calls.push_back(actions); }
+  explicit MockConverter(std::string name, float frequency = 10.f)
+  : name_(std::move(name)), frequency_(frequency) {}
+  std::string name() const {return name_;}
+  float frequency() const {return frequency_;}
+  void reset() {++resets;}
+  void callAll(const std::vector<MessageAction> & actions) {calls.push_back(actions);}
 
   std::string name_;
   float frequency_;
@@ -43,28 +44,33 @@ struct MockConverter
 
 struct MockPublisher
 {
-  explicit MockPublisher(std::string topic) : topic_(std::move(topic)) {}
-  std::string topic() const { return topic_; }
-  bool isInitialized() const { return initialized; }
-  bool isSubscribed() const { return subscribed; }
-  void reset(rclcpp::Node* node) { last_node = node; initialized = true; }
+  explicit MockPublisher(std::string topic)
+  : topic_(std::move(topic)) {}
+  std::string topic() const {return topic_;}
+  bool isInitialized() const {return initialized;}
+  bool isSubscribed() const {return subscribed;}
+  void reset(rclcpp::Node * node) {last_node = node; initialized = true;}
 
   std::string topic_;
   bool initialized = false;
   bool subscribed = false;
-  rclcpp::Node* last_node = nullptr;
+  rclcpp::Node * last_node = nullptr;
 };
 
 struct MockRecorder
 {
-  explicit MockRecorder(std::string topic) : topic_(std::move(topic)) {}
-  std::string topic() const { return topic_; }
-  void reset(std::shared_ptr<GlobalRecorder> gr, float frequency) { global = gr; reset_frequency = frequency; initialized = true; }
-  bool isInitialized() const { return initialized; }
-  void subscribe(bool state) { subscribed = state; }
-  bool isSubscribed() const { return subscribed; }
-  void writeDump(const rclcpp::Time&) { ++dumps; }
-  void setBufferDuration(float duration) { buffer_duration = duration; }
+  explicit MockRecorder(std::string topic)
+  : topic_(std::move(topic)) {}
+  std::string topic() const {return topic_;}
+  void reset(std::shared_ptr<GlobalRecorder> gr, float frequency)
+  {
+    global = gr; reset_frequency = frequency; initialized = true;
+  }
+  bool isInitialized() const {return initialized;}
+  void subscribe(bool state) {subscribed = state;}
+  bool isSubscribed() const {return subscribed;}
+  void writeDump(const rclcpp::Time &) {++dumps;}
+  void setBufferDuration(float duration) {buffer_duration = duration;}
 
   std::string topic_;
   std::shared_ptr<GlobalRecorder> global;
@@ -77,31 +83,32 @@ struct MockRecorder
 
 struct MockEndpoint  // shape shared by subscribers and services
 {
-  MockEndpoint(std::string name, std::string topic) : name_(std::move(name)), topic_(std::move(topic)) {}
-  std::string name() const { return name_; }
-  std::string topic() const { return topic_; }
-  bool isInitialized() const { return initialized; }
-  void reset(rclcpp::Node* node) { last_node = node; initialized = true; }
+  MockEndpoint(std::string name, std::string topic)
+  : name_(std::move(name)), topic_(std::move(topic)) {}
+  std::string name() const {return name_;}
+  std::string topic() const {return topic_;}
+  bool isInitialized() const {return initialized;}
+  void reset(rclcpp::Node * node) {last_node = node; initialized = true;}
 
   std::string name_;
   std::string topic_;
   bool initialized = false;
-  rclcpp::Node* last_node = nullptr;
+  rclcpp::Node * last_node = nullptr;
 };
 
 struct MockEvent
 {
-  void resetPublisher(rclcpp::Node* node) { last_node = node; }
-  void resetRecorder(std::shared_ptr<GlobalRecorder> gr) { global = gr; }
-  void startProcess() { started = true; }
-  void stopProcess() { started = false; }
-  void writeDump(const rclcpp::Time&) { ++dumps; }
-  void setBufferDuration(float duration) { buffer_duration = duration; }
-  void isRecording(bool state) { recording = state; }
-  void isPublishing(bool state) { publishing = state; }
-  void isDumping(bool state) { dumping = state; }
+  void resetPublisher(rclcpp::Node * node) {last_node = node;}
+  void resetRecorder(std::shared_ptr<GlobalRecorder> gr) {global = gr;}
+  void startProcess() {started = true;}
+  void stopProcess() {started = false;}
+  void writeDump(const rclcpp::Time &) {++dumps;}
+  void setBufferDuration(float duration) {buffer_duration = duration;}
+  void isRecording(bool state) {recording = state;}
+  void isPublishing(bool state) {publishing = state;}
+  void isDumping(bool state) {dumping = state;}
 
-  rclcpp::Node* last_node = nullptr;
+  rclcpp::Node * last_node = nullptr;
   std::shared_ptr<GlobalRecorder> global;
   bool started = false;
   bool recording = false;
@@ -236,8 +243,8 @@ TEST_F(TypeErasureTest, SubscriberAndServiceForward)
   EXPECT_EQ(srv_mock->last_node, node_.get());
 }
 
-template <typename Ptr>
-void exerciseEvent(const Ptr& mock, rclcpp::Node* node)
+template<typename Ptr>
+void exerciseEvent(const Ptr & mock, rclcpp::Node * node)
 {
   naoqi::event::Event event(mock);
   auto global = std::make_shared<GlobalRecorder>("naoqi_driver");

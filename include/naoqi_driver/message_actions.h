@@ -3,17 +3,17 @@
 
 namespace naoqi
 {
-namespace message_actions
-{
+  namespace message_actions
+  {
 
-enum MessageAction
-{
-  PUBLISH,
-  RECORD,
-  LOG
-};
+    enum MessageAction
+    {
+      PUBLISH,
+      RECORD,
+      LOG
+    };
 
-}
+  }
 
 }
 

@@ -34,9 +34,11 @@ namespace service
 class RobotConfigService
 {
 public:
-  RobotConfigService( const std::string& name, const std::string& topic, const qi::SessionPtr& session );
+  RobotConfigService(
+    const std::string & name, const std::string & topic,
+    const qi::SessionPtr & session);
 
-  ~RobotConfigService(){};
+  ~RobotConfigService() {}
 
   std::string name() const
   {
@@ -48,16 +50,17 @@ public:
     return topic_;
   }
 
-  void reset( rclcpp::Node* node );
+  void reset(rclcpp::Node * node);
 
-  void callback( const std::shared_ptr<naoqi_bridge_msgs::srv::GetRobotInfo::Request> req, std::shared_ptr<naoqi_bridge_msgs::srv::GetRobotInfo::Response> resp );
-
+  void callback(
+    const std::shared_ptr<naoqi_bridge_msgs::srv::GetRobotInfo::Request> req,
+    std::shared_ptr<naoqi_bridge_msgs::srv::GetRobotInfo::Response> resp);
 
 private:
   const std::string name_;
   const std::string topic_;
 
-  const qi::SessionPtr& session_;
+  const qi::SessionPtr & session_;
   rclcpp::Service<naoqi_bridge_msgs::srv::GetRobotInfo>::SharedPtr service_;
 };
 

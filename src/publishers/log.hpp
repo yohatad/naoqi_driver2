@@ -51,7 +51,7 @@ namespace publisher
 class LogPublisher : public BasicPublisher<rcl_interfaces::msg::Log>
 {
 public:
-  LogPublisher(const std::string& topic);
+  LogPublisher(const std::string & topic);
 
   // check whether a real copy of the log message should be more safe
   // remove const ref here

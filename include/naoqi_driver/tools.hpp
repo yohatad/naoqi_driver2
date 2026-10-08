@@ -52,13 +52,15 @@ struct NaoqiVersion
 };
 }
 
-enum Topics {
+enum Topics
+{
   Laser = 0,
   Camera,
   Sonar
 };
 
-namespace dataType {
+namespace dataType
+{
 enum DataType
 {
   None = 0,
@@ -71,7 +73,7 @@ enum DataType
 
 } // naoqi
 
-#if LIBQI_VERSION>24
+#if LIBQI_VERSION > 24
 QI_TYPE_ENUM(naoqi::Topics);
 QI_TYPE_ENUM(naoqi::dataType::DataType);
 #else

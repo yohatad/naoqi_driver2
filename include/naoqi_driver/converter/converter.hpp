@@ -43,13 +43,12 @@ class Converter
 {
 
 public:
-
   /**
   * @brief Constructor for converter interface
   */
   template<typename T>
-  Converter( T conv ):
-    convPtr_( std::make_shared<ConverterModel<T> >(conv) )
+  Converter(T conv)
+  : convPtr_(std::make_shared<ConverterModel<T>>(conv) )
   {}
 
   /**
@@ -75,10 +74,9 @@ public:
     convPtr_->reset();
   }
 
-  void callAll( const std::vector<message_actions::MessageAction>& actions )
+  void callAll(const std::vector<message_actions::MessageAction> & actions)
   {
-    if ( actions.size() > 0 )
-    {
+    if (actions.size() > 0) {
       convPtr_->callAll(actions);
     }
 
@@ -92,16 +90,16 @@ public:
   //   return lapse_time;
   // }
 
-  friend bool operator==( const Converter& lhs, const Converter& rhs )
+  friend bool operator==(const Converter & lhs, const Converter & rhs)
   {
     // decision made for OR-comparison since we want to be more restrictive
-    if ( lhs.name() == rhs.name() )
+    if (lhs.name() == rhs.name() ) {
       return true;
+    }
     return false;
   }
 
 private:
-
   rclcpp::Time before;
   // rclcpp::Duration lapse_time;
 
@@ -110,11 +108,11 @@ private:
   */
   struct ConverterConcept
   {
-    virtual ~ConverterConcept(){}
+    virtual ~ConverterConcept() {}
     virtual std::string name() const = 0;
     virtual float frequency() const = 0;
     virtual void reset() = 0;
-    virtual void callAll( const std::vector<message_actions::MessageAction>& actions ) = 0;
+    virtual void callAll(const std::vector<message_actions::MessageAction> & actions) = 0;
   };
 
 
@@ -124,8 +122,8 @@ private:
   template<typename T>
   struct ConverterModel : public ConverterConcept
   {
-    ConverterModel( const T& other ):
-      converter_( other )
+    ConverterModel(const T & other)
+    : converter_(other)
     {}
 
     std::string name() const
@@ -137,15 +135,15 @@ private:
     {
       return converter_->frequency();
     }
-    
+
     void reset()
     {
       converter_->reset();
     }
 
-    void callAll( const std::vector<message_actions::MessageAction>& actions )
+    void callAll(const std::vector<message_actions::MessageAction> & actions)
     {
-      converter_->callAll( actions );
+      converter_->callAll(actions);
     }
 
     T converter_;

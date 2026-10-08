@@ -38,17 +38,18 @@ namespace converter
 
 class MemoryStringConverter : public BaseConverter<MemoryStringConverter>
 {
-  typedef std::function<void(naoqi_bridge_msgs::msg::StringStamped&)> Callback_t;
+  typedef std::function<void (naoqi_bridge_msgs::msg::StringStamped &)> Callback_t;
 
 public:
-
-  MemoryStringConverter( const std::string& name, const float& frequency, const qi::SessionPtr& session, const std::string& memory_key );
+  MemoryStringConverter(
+    const std::string & name, const float & frequency,
+    const qi::SessionPtr & session, const std::string & memory_key);
 
   void reset();
 
-  void registerCallback( const message_actions::MessageAction action, Callback_t cb );
+  void registerCallback(const message_actions::MessageAction action, Callback_t cb);
 
-  void callAll( const std::vector<message_actions::MessageAction>& actions );
+  void callAll(const std::vector<message_actions::MessageAction> & actions);
 
 private:
   bool convert();

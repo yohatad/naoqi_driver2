@@ -21,38 +21,46 @@
 #include <boost/make_shared.hpp>
 #include <qi/messaging/authprovider.hpp>
 
-namespace naoqi {
+namespace naoqi
+{
 
-class DriverAuthenticator : public qi::ClientAuthenticator {
+class DriverAuthenticator : public qi::ClientAuthenticator
+{
 public:
   inline static const std::string user_key = "user";
   inline static const std::string pass_key = "token";
 
   DriverAuthenticator(
-    const std::string& user, 
-    const std::string& pass) : _u(user), _p(pass) {}
+    const std::string & user,
+    const std::string & pass)
+  : _u(user), _p(pass) {}
 
-  qi::CapabilityMap initialAuthData() {
+  qi::CapabilityMap initialAuthData()
+  {
     qi::CapabilityMap result;
     result[DriverAuthenticator::user_key] = qi::AnyValue::from(_u);
     result[DriverAuthenticator::pass_key] = qi::AnyValue::from(_p);
     return result;
   }
 
-  qi::CapabilityMap _processAuth(const qi::CapabilityMap&) {
+  qi::CapabilityMap _processAuth(const qi::CapabilityMap &)
+  {
     return qi::CapabilityMap();
   }
+
 private:
   std::string _u;
   std::string _p;
 };
 
-class DriverAuthenticatorFactory : public qi::ClientAuthenticatorFactory {
+class DriverAuthenticatorFactory : public qi::ClientAuthenticatorFactory
+{
 public:
   std::string user;
   std::string pass;
 
-  qi::ClientAuthenticatorPtr newAuthenticator() {
+  qi::ClientAuthenticatorPtr newAuthenticator()
+  {
     // qi::ClientAuthenticatorPtr is a boost::shared_ptr, so this must stay boost.
     return boost::make_shared<DriverAuthenticator>(user, pass);
   }

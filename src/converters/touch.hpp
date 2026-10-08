@@ -37,26 +37,30 @@
 */
 #include <qi/anymodule.hpp>
 
-namespace naoqi{
-
-namespace converter{
-
-template <class T>
-class TouchEventConverter : public BaseConverter<TouchEventConverter<T> >
+namespace naoqi
 {
 
-  typedef std::function<void(T&) > Callback_t;
+namespace converter
+{
+
+template<class T>
+class TouchEventConverter : public BaseConverter<TouchEventConverter<T>>
+{
+
+  typedef std::function<void (T &)> Callback_t;
 
 public:
-  TouchEventConverter(const std::string& name, const float& frequency, const qi::SessionPtr& session);
+  TouchEventConverter(
+    const std::string & name, const float & frequency,
+    const qi::SessionPtr & session);
 
   ~TouchEventConverter();
 
   virtual void reset();
 
-  void registerCallback( const message_actions::MessageAction action, Callback_t cb );
+  void registerCallback(const message_actions::MessageAction action, Callback_t cb);
 
-  void callAll(const std::vector<message_actions::MessageAction>& actions, T& msg);
+  void callAll(const std::vector<message_actions::MessageAction> & actions, T & msg);
 
 private:
   /** Registered Callbacks **/

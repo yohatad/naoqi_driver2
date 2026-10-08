@@ -45,15 +45,19 @@ class CameraRecorder
 {
 
 public:
-  CameraRecorder(const std::string& topic, float buffer_frequency );
+  CameraRecorder(const std::string & topic, float buffer_frequency);
 
-  void write( const sensor_msgs::msg::Image::SharedPtr& img, const sensor_msgs::msg::CameraInfo& camera_info );
+  void write(
+    const sensor_msgs::msg::Image::SharedPtr & img,
+    const sensor_msgs::msg::CameraInfo & camera_info);
 
-  void reset(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float conv_frequency );
+  void reset(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float conv_frequency);
 
-  void bufferize( const sensor_msgs::msg::Image::SharedPtr& img, const sensor_msgs::msg::CameraInfo& camera_info );
+  void bufferize(
+    const sensor_msgs::msg::Image::SharedPtr & img,
+    const sensor_msgs::msg::CameraInfo & camera_info);
 
-  void writeDump(const rclcpp::Time& time);
+  void writeDump(const rclcpp::Time & time);
 
   void setBufferDuration(float duration);
 
@@ -67,7 +71,7 @@ public:
     return is_initialized_;
   }
 
-  inline void subscribe( bool state)
+  inline void subscribe(bool state)
   {
     is_subscribed_ = state;
   }
@@ -81,7 +85,8 @@ protected:
   bool is_initialized_;
   bool is_subscribed_;
 
-  boost::circular_buffer< std::pair<sensor_msgs::msg::Image::SharedPtr, sensor_msgs::msg::CameraInfo> > buffer_;
+  boost::circular_buffer<std::pair<sensor_msgs::msg::Image::SharedPtr,
+    sensor_msgs::msg::CameraInfo>> buffer_;
   size_t buffer_size_;
   float buffer_duration_;
 

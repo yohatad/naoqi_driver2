@@ -25,32 +25,30 @@ namespace naoqi
 namespace publisher
 {
 
-SonarPublisher::SonarPublisher( const std::vector<std::string>& topics )
-  : is_initialized_(false),
+SonarPublisher::SonarPublisher(const std::vector<std::string> & topics)
+: is_initialized_(false),
   topics_(topics)
 {
 }
 
-void SonarPublisher::publish( const std::vector<sensor_msgs::msg::Range>& sonar_msgs )
+void SonarPublisher::publish(const std::vector<sensor_msgs::msg::Range> & sonar_msgs)
 {
-  if ( pubs_.size() != sonar_msgs.size() )
-  {
-    std::cerr << "Incorrect number of sonar range messages in sonar publisher. " << sonar_msgs.size() << "/" << pubs_.size() << std::endl;
+  if (pubs_.size() != sonar_msgs.size() ) {
+    std::cerr << "Incorrect number of sonar range messages in sonar publisher. " <<
+      sonar_msgs.size() << "/" << pubs_.size() << std::endl;
     return;
   }
 
-  for( size_t i=0; i<sonar_msgs.size(); ++i)
-  {
-    pubs_[i]->publish( sonar_msgs[i] );
+  for (size_t i = 0; i < sonar_msgs.size(); ++i) {
+    pubs_[i]->publish(sonar_msgs[i]);
   }
 }
 
-void SonarPublisher::reset( rclcpp::Node* node )
+void SonarPublisher::reset(rclcpp::Node * node)
 {
   pubs_.clear();
-  for( size_t i=0; i<topics_.size(); ++i)
-  {
-    pubs_.push_back( node->create_publisher<sensor_msgs::msg::Range>(topics_[i], 1) );
+  for (size_t i = 0; i < topics_.size(); ++i) {
+    pubs_.push_back(node->create_publisher<sensor_msgs::msg::Range>(topics_[i], 1) );
   }
 
   is_initialized_ = true;

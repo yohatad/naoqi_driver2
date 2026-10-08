@@ -26,13 +26,16 @@ namespace naoqi
 namespace converter
 {
 
-MemoryBoolConverter::MemoryBoolConverter( const std::string& name, const float& frequency, const qi::SessionPtr& session, const std::string& memory_key )
-  : BaseConverter( name, frequency, session ),
-    memory_key_(memory_key),
-    p_memory_( session->service("ALMemory").value() )
+MemoryBoolConverter::MemoryBoolConverter(
+  const std::string & name, const float & frequency,
+  const qi::SessionPtr & session,
+  const std::string & memory_key)
+: BaseConverter(name, frequency, session),
+  memory_key_(memory_key),
+  p_memory_(session->service("ALMemory").value() )
 {}
 
-void MemoryBoolConverter::registerCallback( message_actions::MessageAction action, Callback_t cb )
+void MemoryBoolConverter::registerCallback(message_actions::MessageAction action, Callback_t cb)
 {
   callbacks_[action] = cb;
 }
@@ -45,23 +48,22 @@ bool MemoryBoolConverter::convert()
     msg_.header.stamp = helpers::Time::now();
     msg_.data = value;
     success = true;
-  } catch (const std::exception& e) {
+  } catch (const std::exception & e) {
     std::cerr << "Exception caught in MemoryBoolConverter: " << e.what() << std::endl;
   }
   return success;
 }
 
-void MemoryBoolConverter::callAll( const std::vector<message_actions::MessageAction>& actions )
+void MemoryBoolConverter::callAll(const std::vector<message_actions::MessageAction> & actions)
 {
   if (convert()) {
-    for( message_actions::MessageAction action: actions )
-    {
-      callbacks_[action]( msg_ );
+    for (message_actions::MessageAction action: actions) {
+      callbacks_[action](msg_);
     }
   }
 }
 
-void MemoryBoolConverter::reset( )
+void MemoryBoolConverter::reset()
 {}
 
 } // publisher

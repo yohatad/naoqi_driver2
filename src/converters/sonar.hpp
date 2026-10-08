@@ -39,20 +39,18 @@ namespace converter
 class SonarConverter : public BaseConverter<SonarConverter>
 {
 
-  typedef std::function<void(std::vector<sensor_msgs::msg::Range>&)> Callback_t;
-
+  typedef std::function<void (std::vector<sensor_msgs::msg::Range> &)> Callback_t;
 
 public:
-  SonarConverter( const std::string& name, const float& frequency, const qi::SessionPtr& session );
+  SonarConverter(const std::string & name, const float & frequency, const qi::SessionPtr & session);
 
   ~SonarConverter();
 
-  void reset( );
+  void reset();
 
-  void registerCallback( message_actions::MessageAction action, Callback_t cb );
+  void registerCallback(message_actions::MessageAction action, Callback_t cb);
 
-  void callAll( const std::vector<message_actions::MessageAction>& actions );
-
+  void callAll(const std::vector<message_actions::MessageAction> & actions);
 
 private:
   std::map<message_actions::MessageAction, Callback_t> callbacks_;

@@ -31,13 +31,12 @@ namespace string
  * Same semantics as boost::split(out, str, boost::is_any_of(delim_char)):
  * empty tokens are kept and an empty input yields a single empty token.
  */
-inline std::vector<std::string> split(const std::string& str, char delimiter)
+inline std::vector<std::string> split(const std::string & str, char delimiter)
 {
   std::vector<std::string> tokens;
   std::string::size_type start = 0;
   std::string::size_type pos;
-  while ((pos = str.find(delimiter, start)) != std::string::npos)
-  {
+  while ((pos = str.find(delimiter, start)) != std::string::npos) {
     tokens.push_back(str.substr(start, pos - start));
     start = pos + 1;
   }
@@ -50,13 +49,13 @@ inline std::vector<std::string> split(const std::string& str, char delimiter)
  * Same semantics as boost::algorithm::replace_all: occurrences are found
  * left to right without overlap, and the replacement text is not rescanned.
  */
-inline void replaceAll(std::string& str, const std::string& from, const std::string& to)
+inline void replaceAll(std::string & str, const std::string & from, const std::string & to)
 {
-  if (from.empty())
+  if (from.empty()) {
     return;
+  }
   std::string::size_type pos = 0;
-  while ((pos = str.find(from, pos)) != std::string::npos)
-  {
+  while ((pos = str.find(from, pos)) != std::string::npos) {
     str.replace(pos, from.size(), to);
     pos += to.size();
   }

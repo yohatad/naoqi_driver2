@@ -30,19 +30,23 @@
 */
 #include <qi/anyvalue.hpp>
 
-namespace naoqi {
+namespace naoqi
+{
 
-namespace tools {
+namespace tools
+{
 
-NaoqiImage fromAnyValueToNaoqiImage(qi::AnyValue& value);
+NaoqiImage fromAnyValueToNaoqiImage(qi::AnyValue & value);
 
-std::vector<std::string> fromAnyValueToStringVector(qi::AnyValue& value, std::vector<std::string>& result);
+std::vector<std::string> fromAnyValueToStringVector(
+  qi::AnyValue & value,
+  std::vector<std::string> & result);
 
-std::vector<float> fromAnyValueToFloatVector(qi::AnyValue& value, std::vector<float>& result);
+std::vector<float> fromAnyValueToFloatVector(qi::AnyValue & value, std::vector<float> & result);
 
 void fromAnyValueToFloatVectorVector(
-        qi::AnyValue &value,
-        std::vector< std::vector<float> > &result);
+  qi::AnyValue & value,
+  std::vector<std::vector<float>> & result);
 
 }
 }

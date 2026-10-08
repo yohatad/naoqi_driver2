@@ -41,26 +41,25 @@ namespace naoqi
 * @note a type erasure pattern in implemented here to avoid strict inheritance,
 * thus each possible publisher instance has to implement the virtual functions mentioned in the concept
 */
-template <typename Converter, typename Publisher, typename Recorder>
+template<typename Converter, typename Publisher, typename Recorder>
 class EventRegister
 {
 
 public:
-
   /**
   * @brief Constructor for recorder interface
   */
   EventRegister();
-  EventRegister( const std::string& key, const qi::SessionPtr& session );
+  EventRegister(const std::string & key, const qi::SessionPtr & session);
   ~EventRegister();
 
-  void resetPublisher( rclcpp::Node* node );
-  void resetRecorder( std::shared_ptr<naoqi::recorder::GlobalRecorder> gr );
+  void resetPublisher(rclcpp::Node * node);
+  void resetRecorder(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr);
 
   void startProcess();
   void stopProcess();
 
-  void writeDump(const rclcpp::Time& time);
+  void writeDump(const rclcpp::Time & time);
   void setBufferDuration(float duration);
 
   void isRecording(bool state);

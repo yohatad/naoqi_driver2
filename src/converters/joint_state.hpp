@@ -45,30 +45,34 @@ namespace converter
 class JointStateConverter : public BaseConverter<JointStateConverter>
 {
 
-  typedef std::function<void(sensor_msgs::msg::JointState&, std::vector<geometry_msgs::msg::TransformStamped>&) > Callback_t;
+  typedef std::function<void (sensor_msgs::msg::JointState &,
+      std::vector<geometry_msgs::msg::TransformStamped> &)> Callback_t;
 
   typedef std::shared_ptr<tf2_ros::Buffer> BufferPtr;
 
   typedef std::map<std::string, urdf::JointMimicSharedPtr> MimicMap;
 
 public:
-  JointStateConverter( const std::string& name, const float& frequency, const BufferPtr& tf2_buffer, const qi::SessionPtr& session );
+  JointStateConverter(
+    const std::string & name, const float & frequency,
+    const BufferPtr & tf2_buffer, const qi::SessionPtr & session);
 
   ~JointStateConverter();
 
-  virtual void reset( );
+  virtual void reset();
 
-  void registerCallback( const message_actions::MessageAction action, Callback_t cb );
+  void registerCallback(const message_actions::MessageAction action, Callback_t cb);
 
-  void callAll( const std::vector<message_actions::MessageAction>& actions );
+  void callAll(const std::vector<message_actions::MessageAction> & actions);
 
 private:
-
   /** blatently copied from robot state publisher */
   void addChildren(const KDL::SegmentMap::const_iterator segment);
   std::map<std::string, robot_state_publisher::SegmentPair> segments_, segments_fixed_;
-  void setTransforms(const std::map<std::string, double>& joint_positions, const rclcpp::Time& time, const std::string& tf_prefix);
-  void setFixedTransforms(const std::string& tf_prefix, const rclcpp::Time& time);
+  void setTransforms(
+    const std::map<std::string, double> & joint_positions,
+    const rclcpp::Time & time, const std::string & tf_prefix);
+  void setFixedTransforms(const std::string & tf_prefix, const rclcpp::Time & time);
 
   /** Global Shared tf2 buffer **/
   BufferPtr tf2_buffer_;

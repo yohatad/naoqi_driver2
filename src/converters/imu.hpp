@@ -33,13 +33,16 @@
 
 namespace naoqi
 {
-namespace converter {
+namespace converter
+{
 
-namespace IMU{
+namespace IMU
+{
 
-enum Location{
-    TORSO,
-    BASE
+enum Location
+{
+  TORSO,
+  BASE
 };
 
 }
@@ -47,18 +50,20 @@ enum Location{
 class ImuConverter : public BaseConverter<ImuConverter>
 {
 
-  typedef std::function<void(sensor_msgs::msg::Imu&) > Callback_t;
+  typedef std::function<void (sensor_msgs::msg::Imu &)> Callback_t;
 
 public:
-  ImuConverter(const std::string& name, const IMU::Location& location, const float& frequency, const qi::SessionPtr& session);
+  ImuConverter(
+    const std::string & name, const IMU::Location & location, const float & frequency,
+    const qi::SessionPtr & session);
 
   ~ImuConverter();
 
   virtual void reset();
 
-  void registerCallback( const message_actions::MessageAction action, Callback_t cb );
+  void registerCallback(const message_actions::MessageAction action, Callback_t cb);
 
-  virtual void callAll(const std::vector<message_actions::MessageAction>& actions);
+  virtual void callAll(const std::vector<message_actions::MessageAction> & actions);
 
 private:
   sensor_msgs::msg::Imu msg_imu_;

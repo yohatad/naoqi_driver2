@@ -36,7 +36,7 @@ namespace publisher
 class CameraPublisher
 {
 public:
-  CameraPublisher( const std::string& topic, int camera_source );
+  CameraPublisher(const std::string & topic, int camera_source);
 
   ~CameraPublisher();
 
@@ -50,15 +50,17 @@ public:
     return is_initialized_;
   }
 
-  void publish( const sensor_msgs::msg::Image::SharedPtr& img, const sensor_msgs::msg::CameraInfo& camera_info );
+  void publish(
+    const sensor_msgs::msg::Image::SharedPtr & img,
+    const sensor_msgs::msg::CameraInfo & camera_info);
 
-  void reset( rclcpp::Node* node );
+  void reset(rclcpp::Node * node);
 
   inline bool isSubscribed() const
   {
-    if (is_initialized_ == false){
+    if (is_initialized_ == false) {
       return false;
-    } else{
+    } else {
       return helpers::Node::count_subscribers(topic_) > 0;
     }
   }

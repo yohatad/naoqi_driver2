@@ -32,58 +32,53 @@ namespace naoqi
 {
 static const std::string AUDIO_EXTRACTOR_NAME = "ROS-Driver-Audio";
 
-AudioEventRegister::AudioEventRegister( const std::string& name, const float& frequency, const qi::SessionPtr& session )
-  : session_(session),
-    publisher_(name),
-    recorder_(name),
-    converter_(name, frequency, session),
-    p_audio_( session->service("ALAudioDevice").value()),
-    serviceId(0),
-    isStarted_(false),
-    isPublishing_(false),
-    isRecording_(false),
-    isDumping_(false)
+AudioEventRegister::AudioEventRegister(
+  const std::string & name, const float & frequency,
+  const qi::SessionPtr & session)
+: session_(session),
+  publisher_(name),
+  recorder_(name),
+  converter_(name, frequency, session),
+  p_audio_(session->service("ALAudioDevice").value()),
+  serviceId(0),
+  isStarted_(false),
+  isPublishing_(false),
+  isRecording_(false),
+  isDumping_(false)
 {
   // _getMicrophoneConfig is used for NAOqi < 2.9, _getConfigMap for NAOqi > 2.9
   int micConfig;
   auto robotModel = session->service("ALRobotModel").value();
-  const auto &naoqiVersion = helpers::driver::getNaoqiVersion(session);
-  if (helpers::driver::isNaoqiVersionLesser(naoqiVersion, 2, 8))
-  {
+  const auto & naoqiVersion = helpers::driver::getNaoqiVersion(session);
+  if (helpers::driver::isNaoqiVersionLesser(naoqiVersion, 2, 8)) {
     micConfig = robotModel.call<int>("_getMicrophoneConfig");
-  }
-  else
-  {
-    auto config_map = robotModel.call<std::map<std::string, std::string> >("_getConfigMap");
+  } else {
+    auto config_map = robotModel.call<std::map<std::string, std::string>>("_getConfigMap");
     micConfig = std::atoi(config_map["RobotConfig/Head/Device/Micro/Version"].c_str());
   }
 
-  if(micConfig){
+  if (micConfig) {
     channelMap.push_back(3);
     channelMap.push_back(5);
     channelMap.push_back(0);
     channelMap.push_back(2);
-  }
-  else{
+  } else {
     channelMap.push_back(0);
     channelMap.push_back(2);
     channelMap.push_back(1);
     channelMap.push_back(4);
   }
-  converter_.registerCallback( message_actions::PUBLISH, [&](auto msg){ publisher_.publish(msg); });
-  converter_.registerCallback( message_actions::RECORD, [&](auto msg){ recorder_.write(msg); });
-  converter_.registerCallback( message_actions::LOG, [&](auto msg){ recorder_.bufferize(msg); });
+  converter_.registerCallback(message_actions::PUBLISH, [&](auto msg) {publisher_.publish(msg);});
+  converter_.registerCallback(message_actions::RECORD, [&](auto msg) {recorder_.write(msg);});
+  converter_.registerCallback(message_actions::LOG, [&](auto msg) {recorder_.bufferize(msg);});
 }
 
 AudioEventRegister::~AudioEventRegister()
 {
   // Destructors must not throw; NAOqi may already be unreachable at shutdown.
-  try
-  {
+  try {
     stopProcess();
-  }
-  catch (const std::exception& e)
-  {
+  } catch (const std::exception & e) {
     std::cerr << "Failed to stop audio extractor: " << e.what() << std::endl;
   }
   converter_.unregisterCallback(message_actions::PUBLISH);
@@ -91,12 +86,12 @@ AudioEventRegister::~AudioEventRegister()
   converter_.unregisterCallback(message_actions::LOG);
 }
 
-void AudioEventRegister::resetPublisher(rclcpp::Node* node)
+void AudioEventRegister::resetPublisher(rclcpp::Node * node)
 {
   publisher_.reset(node);
 }
 
-void AudioEventRegister::resetRecorder( std::shared_ptr<naoqi::recorder::GlobalRecorder> gr )
+void AudioEventRegister::resetRecorder(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr)
 {
   recorder_.reset(gr, converter_.frequency());
 }
@@ -104,18 +99,16 @@ void AudioEventRegister::resetRecorder( std::shared_ptr<naoqi::recorder::GlobalR
 void AudioEventRegister::startProcess()
 {
   std::lock_guard<std::mutex> start_lock(subscription_mutex_);
-  if (!isStarted_)
-  {
-    if(!serviceId)
-    {
+  if (!isStarted_) {
+    if (!serviceId) {
       serviceId = session_->registerService(AUDIO_EXTRACTOR_NAME, shared_from_this()).value();
       p_audio_.call<void>(
-              "setClientPreferences",
-              AUDIO_EXTRACTOR_NAME,
-              48000,
-              0,
-              0
-              );
+        "setClientPreferences",
+        AUDIO_EXTRACTOR_NAME,
+        48000,
+        0,
+        0
+      );
       p_audio_.call<void>("subscribe", AUDIO_EXTRACTOR_NAME);
       std::cout << "Audio Extractor: Start" << std::endl;
     }
@@ -126,9 +119,8 @@ void AudioEventRegister::startProcess()
 void AudioEventRegister::stopProcess()
 {
   std::lock_guard<std::mutex> stop_lock(subscription_mutex_);
-  if (isStarted_)
-  {
-    if(serviceId){
+  if (isStarted_) {
+    if (serviceId) {
       p_audio_.call<void>("unsubscribe", AUDIO_EXTRACTOR_NAME);
       session_->unregisterService(serviceId);
       serviceId = 0;
@@ -138,10 +130,9 @@ void AudioEventRegister::stopProcess()
   }
 }
 
-void AudioEventRegister::writeDump(const rclcpp::Time& time)
+void AudioEventRegister::writeDump(const rclcpp::Time & time)
 {
-  if (isStarted_)
-  {
+  if (isStarted_) {
     recorder_.writeDump(time);
   }
 }
@@ -177,39 +168,37 @@ void AudioEventRegister::unregisterCallback()
 {
 }
 
-void AudioEventRegister::processRemote(int nbOfChannels, int samplesByChannel, qi::AnyValue altimestamp, qi::AnyValue buffer)
+void AudioEventRegister::processRemote(
+  int nbOfChannels, int samplesByChannel,
+  qi::AnyValue altimestamp, qi::AnyValue buffer)
 {
   naoqi_bridge_msgs::msg::AudioBuffer msg = naoqi_bridge_msgs::msg::AudioBuffer();
   msg.header.stamp = helpers::Time::now();
   msg.frequency = 48000;
   msg.channel_map = channelMap;
 
-  std::pair<char*, size_t> buffer_pointer = buffer.asRaw();
+  std::pair<char *, size_t> buffer_pointer = buffer.asRaw();
 
-  int16_t* remoteBuffer = (int16_t*)buffer_pointer.first;
+  int16_t * remoteBuffer = (int16_t *)buffer_pointer.first;
   int bufferSize = nbOfChannels * samplesByChannel;
-  msg.data = std::vector<int16_t>(remoteBuffer, remoteBuffer+bufferSize);
+  msg.data = std::vector<int16_t>(remoteBuffer, remoteBuffer + bufferSize);
 
   std::vector<message_actions::MessageAction> actions;
   std::lock_guard<std::mutex> callback_lock(processing_mutex_);
   if (isStarted_) {
     // CHECK FOR PUBLISH
-    if ( isPublishing_ && publisher_.isSubscribed() )
-    {
+    if (isPublishing_ && publisher_.isSubscribed() ) {
       actions.push_back(message_actions::PUBLISH);
     }
     // CHECK FOR RECORD
-    if ( isRecording_ )
-    {
+    if (isRecording_) {
       actions.push_back(message_actions::RECORD);
     }
-    if ( !isDumping_ )
-    {
+    if (!isDumping_) {
       actions.push_back(message_actions::LOG);
     }
-    if (actions.size() >0)
-    {
-      converter_.callAll( actions, msg );
+    if (actions.size() > 0) {
+      converter_.callAll(actions, msg);
     }
   }
 

@@ -44,17 +44,19 @@ class JointStateRecorder
 {
 
 public:
-  JointStateRecorder( const std::string& topic, float buffer_frequency = 0 );
+  JointStateRecorder(const std::string & topic, float buffer_frequency = 0);
 
-  void write( const sensor_msgs::msg::JointState& js_msg,
-              const std::vector<geometry_msgs::msg::TransformStamped>& tf_transforms );
+  void write(
+    const sensor_msgs::msg::JointState & js_msg,
+    const std::vector<geometry_msgs::msg::TransformStamped> & tf_transforms);
 
-  void reset( std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float conv_frequency );
+  void reset(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float conv_frequency);
 
-  void bufferize( const sensor_msgs::msg::JointState& js_msg,
-                  const std::vector<geometry_msgs::msg::TransformStamped>& tf_transforms );
+  void bufferize(
+    const sensor_msgs::msg::JointState & js_msg,
+    const std::vector<geometry_msgs::msg::TransformStamped> & tf_transforms);
 
-  void writeDump(const rclcpp::Time& time);
+  void writeDump(const rclcpp::Time & time);
 
   void setBufferDuration(float duration);
 
@@ -68,7 +70,7 @@ public:
     return is_initialized_;
   }
 
-  inline void subscribe( bool state)
+  inline void subscribe(bool state)
   {
     is_subscribed_ = state;
   }
@@ -82,7 +84,7 @@ protected:
   std::string topic_;
 
   boost::circular_buffer<sensor_msgs::msg::JointState> bufferJoinState_;
-  boost::circular_buffer< std::vector<geometry_msgs::msg::TransformStamped> > bufferTF_;
+  boost::circular_buffer<std::vector<geometry_msgs::msg::TransformStamped>> bufferTF_;
   size_t buffer_size_;
   float buffer_duration_;
 

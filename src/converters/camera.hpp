@@ -39,24 +39,25 @@ namespace converter
 class CameraConverter : public BaseConverter<CameraConverter>
 {
 
-  typedef std::function<void(sensor_msgs::msg::Image::SharedPtr, sensor_msgs::msg::CameraInfo)> Callback_t;
+  typedef std::function<void (sensor_msgs::msg::Image::SharedPtr,
+      sensor_msgs::msg::CameraInfo)> Callback_t;
 
 public:
   CameraConverter(
-    const std::string& name,
-    const float& frequency,
-    const qi::SessionPtr& session,
-    const int& camera_source,
-    const int& resolution,
-    const bool& has_stereo=false);
+    const std::string & name,
+    const float & frequency,
+    const qi::SessionPtr & session,
+    const int & camera_source,
+    const int & resolution,
+    const bool & has_stereo = false);
 
   ~CameraConverter();
 
   void reset();
 
-  void registerCallback( const message_actions::MessageAction action, Callback_t cb );
+  void registerCallback(const message_actions::MessageAction action, Callback_t cb);
 
-  void callAll( const std::vector<message_actions::MessageAction>& actions );
+  void callAll(const std::vector<message_actions::MessageAction> & actions);
 
 private:
   std::map<message_actions::MessageAction, Callback_t> callbacks_;

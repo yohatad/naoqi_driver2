@@ -15,7 +15,7 @@ namespace
 {
 
 /** Builds the 12-field list returned by ALVideoDevice.getImageRemote. */
-std::vector<qi::AnyValue> imageFields(int width, int height, const std::string& pixels)
+std::vector<qi::AnyValue> imageFields(int width, int height, const std::string & pixels)
 {
   qi::Buffer buffer;
   buffer.write(pixels.data(), pixels.size());
@@ -47,7 +47,7 @@ TEST(NaoqiImage, ReportsDimensionsAndBufferSize)
   EXPECT_EQ(image.height, 2);
   EXPECT_EQ(image.buffer_size, pixels.size());
   ASSERT_NE(image.buffer, nullptr);
-  EXPECT_EQ(static_cast<const char*>(image.buffer)[0], '\x7f');
+  EXPECT_EQ(static_cast<const char *>(image.buffer)[0], '\x7f');
   EXPECT_FLOAT_EQ(image.fov_bottom, 0.4f);
 }
 

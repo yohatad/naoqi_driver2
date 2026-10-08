@@ -44,15 +44,15 @@ class SonarRecorder
 {
 
 public:
-  SonarRecorder( const std::vector<std::string>& topics, float buffer_frequency = 0 );
+  SonarRecorder(const std::vector<std::string> & topics, float buffer_frequency = 0);
 
-  void write(const std::vector<sensor_msgs::msg::Range>& sonar_msgs );
+  void write(const std::vector<sensor_msgs::msg::Range> & sonar_msgs);
 
-  void reset( std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float conv_frequency );
+  void reset(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float conv_frequency);
 
-  void bufferize(const std::vector<sensor_msgs::msg::Range>& sonar_msgs );
+  void bufferize(const std::vector<sensor_msgs::msg::Range> & sonar_msgs);
 
-  void writeDump(const rclcpp::Time& time);
+  void writeDump(const rclcpp::Time & time);
 
   void setBufferDuration(float duration);
 
@@ -66,7 +66,7 @@ public:
     return is_initialized_;
   }
 
-  inline void subscribe( bool state)
+  inline void subscribe(bool state)
   {
     is_subscribed_ = state;
   }
@@ -79,7 +79,7 @@ public:
 protected:
   std::string topic_;
 
-  boost::circular_buffer< std::vector<sensor_msgs::msg::Range> > buffer_;
+  boost::circular_buffer<std::vector<sensor_msgs::msg::Range>> buffer_;
   size_t buffer_size_;
   float buffer_duration_;
 

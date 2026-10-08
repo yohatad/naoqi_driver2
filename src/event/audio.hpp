@@ -55,31 +55,34 @@ namespace naoqi
 */
 // Stays on boost::enable_shared_from_this: startProcess() registers this object as a
 // qi service, and qi::Object can only be built from a boost::shared_ptr.
-class AudioEventRegister: public boost::enable_shared_from_this<AudioEventRegister>
+class AudioEventRegister : public boost::enable_shared_from_this<AudioEventRegister>
 {
 
 public:
-
   /**
   * @brief Constructor for recorder interface
   */
-  AudioEventRegister( const std::string& name, const float& frequency, const qi::SessionPtr& session );
+  AudioEventRegister(
+    const std::string & name, const float & frequency,
+    const qi::SessionPtr & session);
   ~AudioEventRegister();
 
-  void resetPublisher( rclcpp::Node* node );
-  void resetRecorder( std::shared_ptr<naoqi::recorder::GlobalRecorder> gr );
+  void resetPublisher(rclcpp::Node * node);
+  void resetRecorder(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr);
 
   void startProcess();
   void stopProcess();
 
-  void writeDump(const rclcpp::Time& time);
+  void writeDump(const rclcpp::Time & time);
   void setBufferDuration(float duration);
 
   void isRecording(bool state);
   void isPublishing(bool state);
   void isDumping(bool state);
 
-  void processRemote(int nbOfChannels, int samplesByChannel, qi::AnyValue altimestamp, qi::AnyValue buffer);
+  void processRemote(
+    int nbOfChannels, int samplesByChannel, qi::AnyValue altimestamp,
+    qi::AnyValue buffer);
 
 private:
   void registerCallback();

@@ -18,8 +18,10 @@
 #include <memory>
 #include <naoqi_driver/ros_helpers.hpp>
 
-namespace naoqi {
-namespace helpers {
+namespace naoqi
+{
+namespace helpers
+{
 
 std::shared_ptr<rclcpp::Node> Node::node_ptr_;
 

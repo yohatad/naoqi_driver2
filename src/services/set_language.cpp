@@ -24,20 +24,24 @@ namespace naoqi
 namespace service
 {
 
-SetLanguageService::SetLanguageService( const std::string& name, const std::string& topic, const qi::SessionPtr& session )
-  : name_(name),
+SetLanguageService::SetLanguageService(
+  const std::string & name, const std::string & topic,
+  const qi::SessionPtr & session)
+: name_(name),
   topic_(topic),
   session_(session)
 {}
 
-void SetLanguageService::reset( rclcpp::Node* node )
+void SetLanguageService::reset(rclcpp::Node * node)
 {
   service_ = node->create_service<naoqi_bridge_msgs::srv::SetString>(
     topic_,
     std::bind(&SetLanguageService::callback, this, std::placeholders::_1, std::placeholders::_2));
 }
 
-void SetLanguageService::callback( const std::shared_ptr<naoqi_bridge_msgs::srv::SetString::Request> req, std::shared_ptr<naoqi_bridge_msgs::srv::SetString::Response> resp )
+void SetLanguageService::callback(
+  const std::shared_ptr<naoqi_bridge_msgs::srv::SetString::Request> req,
+  std::shared_ptr<naoqi_bridge_msgs::srv::SetString::Response> resp)
 {
   std::cout << "Receiving service call of setting language" << std::endl;
   resp->success = helpers::driver::setLanguage(session_, req);

@@ -37,11 +37,11 @@ class MemoryFloatPublisher : public BasePublisher<naoqi_bridge_msgs::msg::FloatS
 {
 
 public:
-  MemoryFloatPublisher( const std::string& topic );
+  MemoryFloatPublisher(const std::string & topic);
 
-  void publish( const naoqi_bridge_msgs::msg::FloatStamped& msg );
+  void publish(const naoqi_bridge_msgs::msg::FloatStamped & msg);
 
-  void reset( rclcpp::Node* node );
+  void reset(rclcpp::Node * node);
 
 }; // class
 

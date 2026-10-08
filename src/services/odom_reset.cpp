@@ -25,33 +25,42 @@ namespace naoqi
 namespace service
 {
 
-OdomResetService::OdomResetService( const std::string& name, const std::string& topic, const qi::SessionPtr& session )
-  : name_(name),
+OdomResetService::OdomResetService(
+  const std::string & name, const std::string & topic,
+  const qi::SessionPtr & session)
+: name_(name),
   topic_(topic),
   session_(session)
 {}
 
-void OdomResetService::reset( rclcpp::Node* node )
+void OdomResetService::reset(rclcpp::Node * node)
 {
   service_ = node->create_service<std_srvs::srv::Trigger>(
     topic_,
     std::bind(&OdomResetService::callback, this, std::placeholders::_1, std::placeholders::_2));
 }
 
-void OdomResetService::callback( const std::shared_ptr<std_srvs::srv::Trigger::Request> req, std::shared_ptr<std_srvs::srv::Trigger::Response> resp )
+void OdomResetService::callback(
+  const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+  std::shared_ptr<std_srvs::srv::Trigger::Response> resp)
 {
   std::cout << "Receiving service call to reset odometry" << std::endl;
-  
+
   try {
     // Get the motion service
     qi::AnyObject p_motion = session_->service("ALMotion").value();
-    
+
     // Get current ground pose to set as offset. Must be the same API and
     // frame as OdomConverter::callAll: getRobotPosition returns [X, Y, Theta].
     bool use_sensor = true;
-    std::vector<float> current_pos = p_motion.call<std::vector<float> >( "getRobotPosition", use_sensor );
-    if (current_pos.size() < 3)
-      throw std::runtime_error("getRobotPosition returned " + std::to_string(current_pos.size()) + " values, expected 3");
+    std::vector<float> current_pos = p_motion.call<std::vector<float>>(
+      "getRobotPosition",
+      use_sensor);
+    if (current_pos.size() < 3) {
+      throw std::runtime_error(
+              "getRobotPosition returned " + std::to_string(
+                current_pos.size()) + " values, expected 3");
+    }
 
     // Set offsets to current position, so future readings will be relative to this point
     naoqi::converter::OdomConverter::setOffsets(
@@ -69,8 +78,7 @@ void OdomResetService::callback( const std::shared_ptr<std_srvs::srv::Trigger::R
     std::cout << "New offsets - X: " << current_pos[0]
               << " Y: " << current_pos[1]
               << " Theta: " << current_pos[2] << std::endl;
-  } 
-  catch (const std::exception& e) {
+  } catch (const std::exception & e) {
     resp->success = false;
     resp->message = std::string("Failed to reset odometry: ") + e.what();
     std::cerr << "Failed to reset odometry: " << e.what() << std::endl;

@@ -26,13 +26,16 @@ namespace naoqi
 namespace converter
 {
 
-MemoryStringConverter::MemoryStringConverter( const std::string& name, const float& frequency, const qi::SessionPtr& session, const std::string& memory_key )
-  : BaseConverter( name, frequency, session ),
-    memory_key_(memory_key),
-    p_memory_( session->service("ALMemory").value() )
+MemoryStringConverter::MemoryStringConverter(
+  const std::string & name, const float & frequency,
+  const qi::SessionPtr & session,
+  const std::string & memory_key)
+: BaseConverter(name, frequency, session),
+  memory_key_(memory_key),
+  p_memory_(session->service("ALMemory").value() )
 {}
 
-void MemoryStringConverter::registerCallback( message_actions::MessageAction action, Callback_t cb )
+void MemoryStringConverter::registerCallback(message_actions::MessageAction action, Callback_t cb)
 {
   callbacks_[action] = cb;
 }
@@ -40,32 +43,28 @@ void MemoryStringConverter::registerCallback( message_actions::MessageAction act
 bool MemoryStringConverter::convert()
 {
   bool success = false;
-  try
-  {
+  try {
     std::string value = p_memory_.call<std::string>("getData", memory_key_);
     msg_.header.stamp = helpers::Time::now();
     msg_.data = value;
     success = true;
-  }
-  catch( const std::exception& e )
-  {
+  } catch (const std::exception & e) {
     std::cerr << "Exception caught in MemoryStringConverter " << e.what() << std::endl;
     success = false;
   }
   return success;
 }
 
-void MemoryStringConverter::callAll( const std::vector<message_actions::MessageAction>& actions )
+void MemoryStringConverter::callAll(const std::vector<message_actions::MessageAction> & actions)
 {
   if (convert()) {
-    for( message_actions::MessageAction action: actions )
-    {
-      callbacks_[action]( msg_ );
+    for (message_actions::MessageAction action: actions) {
+      callbacks_[action](msg_);
     }
   }
 }
 
-void MemoryStringConverter::reset( )
+void MemoryStringConverter::reset()
 {}
 
 } // publisher

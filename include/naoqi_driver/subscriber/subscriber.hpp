@@ -41,13 +41,12 @@ class Subscriber
 {
 
 public:
-
   /**
   * @brief Constructor for subscriber interface
   */
   template<typename T>
-  Subscriber( T sub ):
-    subPtr_( std::make_shared<SubscriberModel<T> >(sub) )
+  Subscriber(T sub)
+  : subPtr_(std::make_shared<SubscriberModel<T>>(sub) )
   {}
 
   /**
@@ -64,10 +63,10 @@ public:
   * this will be called at first for initialization
   * @param node rclcpp::Node pointer object used to create the subscriber
   */
-  void reset( rclcpp::Node* node )
+  void reset(rclcpp::Node * node)
   {
     std::cout << name() << " is resetting" << std::endl;
-    subPtr_->reset( node );
+    subPtr_->reset(node);
     std::cout << name() << " reset" << std::endl;
   }
 
@@ -89,24 +88,24 @@ public:
     return subPtr_->topic();
   }
 
-  friend bool operator==( const Subscriber& lhs, const Subscriber& rhs )
+  friend bool operator==(const Subscriber & lhs, const Subscriber & rhs)
   {
     // decision made for OR-comparison since we want to be more restrictive
-    if ( lhs.name() == rhs.name() || lhs.topic() == rhs.topic() )
+    if (lhs.name() == rhs.name() || lhs.topic() == rhs.topic() ) {
       return true;
+    }
     return false;
   }
 
 private:
-
   /**
   * BASE concept struct
   */
   struct SubscriberConcept
   {
-    virtual ~SubscriberConcept(){}
+    virtual ~SubscriberConcept() {}
     virtual bool isInitialized() const = 0;
-    virtual void reset( rclcpp::Node* node ) = 0;
+    virtual void reset(rclcpp::Node * node) = 0;
     virtual std::string name() const = 0;
     virtual std::string topic() const = 0;
   };
@@ -118,8 +117,8 @@ private:
   template<typename T>
   struct SubscriberModel : public SubscriberConcept
   {
-    SubscriberModel( const T& other ):
-      subscriber_( other )
+    SubscriberModel(const T & other)
+    : subscriber_(other)
     {}
 
     std::string name() const
@@ -137,9 +136,9 @@ private:
       return subscriber_->isInitialized();
     }
 
-    void reset( rclcpp::Node* node )
+    void reset(rclcpp::Node * node)
     {
-      subscriber_->reset( node );
+      subscriber_->reset(node);
     }
 
     T subscriber_;

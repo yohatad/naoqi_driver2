@@ -16,32 +16,33 @@ namespace sh = naoqi::helpers::string;
 namespace
 {
 
-std::vector<std::string> boostSplit(const std::string& str, char delimiter)
+std::vector<std::string> boostSplit(const std::string & str, char delimiter)
 {
   std::vector<std::string> out;
   boost::split(out, str, boost::is_any_of(std::string(1, delimiter)));
   return out;
 }
 
-std::string boostReplaceAll(std::string str, const std::string& from, const std::string& to)
+std::string boostReplaceAll(std::string str, const std::string & from, const std::string & to)
 {
   boost::algorithm::replace_all(str, from, to);
   return str;
 }
 
-std::string stdReplaceAll(std::string str, const std::string& from, const std::string& to)
+std::string stdReplaceAll(std::string str, const std::string & from, const std::string & to)
 {
   sh::replaceAll(str, from, to);
   return str;
 }
 
-std::string randomString(std::mt19937& rng, const std::string& alphabet, std::size_t max_len)
+std::string randomString(std::mt19937 & rng, const std::string & alphabet, std::size_t max_len)
 {
   std::uniform_int_distribution<std::size_t> len_dist(0, max_len);
   std::uniform_int_distribution<std::size_t> char_dist(0, alphabet.size() - 1);
   std::string out(len_dist(rng), ' ');
-  for (auto& c : out)
+  for (auto & c : out) {
     c = alphabet[char_dist(rng)];
+  }
   return out;
 }
 
@@ -49,7 +50,8 @@ std::string randomString(std::mt19937& rng, const std::string& alphabet, std::si
 
 TEST(StringHelpersSplit, MatchesBoostOnEdgeCases)
 {
-  for (const std::string input : {"", ":", "::", "a", "a:b", "a::b", ":a:", "a:b:c:d", "no delimiter"})
+  for (const std::string input :
+    {"", ":", "::", "a", "a:b", "a::b", ":a:", "a:b:c:d", "no delimiter"})
   {
     EXPECT_EQ(sh::split(input, ':'), boostSplit(input, ':')) << "input: '" << input << "'";
   }
@@ -68,8 +70,7 @@ TEST(StringHelpersSplit, ParsesQiLogSourceLikeLogConverter)
 TEST(StringHelpersSplit, MatchesBoostOnRandomInputs)
 {
   std::mt19937 rng(42);
-  for (int i = 0; i < 5000; ++i)
-  {
+  for (int i = 0; i < 5000; ++i) {
     const auto input = randomString(rng, "ab:", 24);
     ASSERT_EQ(sh::split(input, ':'), boostSplit(input, ':')) << "input: '" << input << "'";
   }
@@ -89,8 +90,7 @@ TEST(StringHelpersReplaceAll, MatchesBoostOnEdgeCases)
     {"C:\\\\dir\\\\file", "\\\\", "\\"},  // filesystem_helpers getFoldersize
     {"abc", "", "x"},            // empty pattern is a no-op
   };
-  for (const auto& c : cases)
-  {
+  for (const auto & c : cases) {
     EXPECT_EQ(stdReplaceAll(c.input, c.from, c.to), boostReplaceAll(c.input, c.from, c.to))
       << "input: '" << c.input << "' from: '" << c.from << "' to: '" << c.to << "'";
   }
@@ -109,11 +109,10 @@ TEST(StringHelpersReplaceAll, MatchesBoostOnRandomInputs)
   std::mt19937 rng(7);
   const std::vector<std::string> patterns = {"-", "a", "ab", "aa", "ba-"};
   const std::vector<std::string> replacements = {"", "-", "x", "aa", "ab"};
-  for (int i = 0; i < 5000; ++i)
-  {
+  for (int i = 0; i < 5000; ++i) {
     const auto input = randomString(rng, "ab-", 24);
-    const auto& from = patterns[i % patterns.size()];
-    const auto& to = replacements[(i / patterns.size()) % replacements.size()];
+    const auto & from = patterns[i % patterns.size()];
+    const auto & to = replacements[(i / patterns.size()) % replacements.size()];
     ASSERT_EQ(stdReplaceAll(input, from, to), boostReplaceAll(input, from, to))
       << "input: '" << input << "' from: '" << from << "' to: '" << to << "'";
   }

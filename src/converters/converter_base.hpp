@@ -41,11 +41,11 @@ class BaseConverter
 {
 
 public:
-  BaseConverter( const std::string& name, float frequency, qi::SessionPtr session ):
-    name_( name ),
-    frequency_( frequency ),
-    robot_( helpers::driver::getRobot(session) ),
-    naoqi_version_( helpers::driver::getNaoqiVersion(session) ),
+  BaseConverter(const std::string & name, float frequency, qi::SessionPtr session)
+  : name_(name),
+    frequency_(frequency),
+    robot_(helpers::driver::getRobot(session) ),
+    naoqi_version_(helpers::driver::getNaoqiVersion(session) ),
     session_(session),
     record_enabled_(false)
   {}
@@ -68,9 +68,9 @@ protected:
   /** Frequency at which the converter should turn. This is informative */
   float frequency_;
   /** The type of the robot */
-  const robot::Robot& robot_;
+  const robot::Robot & robot_;
   /* The version of the Naoqi Software on the robot */
-  const robot::NaoqiVersion& naoqi_version_;
+  const robot::NaoqiVersion & naoqi_version_;
 
   /** Pointer to a session from which we can create proxies */
   qi::SessionPtr session_;

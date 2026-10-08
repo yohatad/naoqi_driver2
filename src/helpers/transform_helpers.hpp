@@ -30,18 +30,23 @@ namespace helpers
 namespace transform
 {
 
-inline double getYaw(const geometry_msgs::msg::Pose& pose)
+inline double getYaw(const geometry_msgs::msg::Pose & pose)
 {
   double yaw, _pitch, _roll;
-  tf2::Matrix3x3(tf2::Quaternion(pose.orientation.x, pose.orientation.y,
-                                pose.orientation.z, pose.orientation.w)).getEulerYPR(yaw, _pitch, _roll);
+  tf2::Matrix3x3(
+    tf2::Quaternion(
+      pose.orientation.x, pose.orientation.y,
+      pose.orientation.z, pose.orientation.w)).getEulerYPR(yaw, _pitch, _roll);
   return yaw;
 }
 
-inline double getYaw( const geometry_msgs::msg::Transform& pose)
+inline double getYaw(const geometry_msgs::msg::Transform & pose)
 {
   double yaw, _pitch, _roll;
-  tf2::Matrix3x3(tf2::Quaternion(pose.rotation.x, pose.rotation.y, pose.rotation.z, pose.rotation.w)).getEulerYPR(yaw, _pitch, _roll);
+  tf2::Matrix3x3(
+    tf2::Quaternion(
+      pose.rotation.x, pose.rotation.y, pose.rotation.z,
+      pose.rotation.w)).getEulerYPR(yaw, _pitch, _roll);
   return yaw;
 }
 

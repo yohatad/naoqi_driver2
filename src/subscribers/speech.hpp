@@ -35,17 +35,18 @@ namespace naoqi
 namespace subscriber
 {
 
-class SpeechSubscriber: public BaseSubscriber<SpeechSubscriber>
+class SpeechSubscriber : public BaseSubscriber<SpeechSubscriber>
 {
 public:
-  SpeechSubscriber( const std::string& name, const std::string& speech_topic, const qi::SessionPtr& session );
-  ~SpeechSubscriber(){}
+  SpeechSubscriber(
+    const std::string & name, const std::string & speech_topic,
+    const qi::SessionPtr & session);
+  ~SpeechSubscriber() {}
 
-  void reset( rclcpp::Node* node );
-  void speech_callback( const std_msgs::msg::String::SharedPtr msg );
+  void reset(rclcpp::Node * node);
+  void speech_callback(const std_msgs::msg::String::SharedPtr msg);
 
 private:
-
   std::string speech_topic_;
 
   qi::AnyObject p_tts_;

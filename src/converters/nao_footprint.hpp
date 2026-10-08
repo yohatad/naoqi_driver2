@@ -41,50 +41,63 @@ namespace converter
 namespace nao
 {
 
-inline void addBaseFootprint( std::shared_ptr<tf2_ros::Buffer> tf2_buffer, std::vector<geometry_msgs::msg::TransformStamped>& tf_transforms, const rclcpp::Time& time )
+inline void addBaseFootprint(
+  std::shared_ptr<tf2_ros::Buffer> tf2_buffer,
+  std::vector<geometry_msgs::msg::TransformStamped> & tf_transforms,
+  const rclcpp::Time & time)
 {
-  bool canTransform = tf2_buffer->canTransform("odom", "l_sole", tf2::timeFromSec(time.seconds()), tf2::durationFromSec(0.1) );
-  if (!canTransform)
-  {
-    RCLCPP_ERROR(helpers::Node::get_logger(), "Could not compute NAO Footprint: no transform is possible (%f seconds)", time.seconds());
+  bool canTransform = tf2_buffer->canTransform(
+    "odom", "l_sole", tf2::timeFromSec(
+      time.seconds()), tf2::durationFromSec(0.1) );
+  if (!canTransform) {
+    RCLCPP_ERROR(
+      helpers::Node::get_logger(), "Could not compute NAO Footprint: no transform is possible (%f seconds)",
+      time.seconds());
     return;
   }
 
   geometry_msgs::msg::TransformStamped tf_odom_to_base, tf_odom_to_left_foot, tf_odom_to_right_foot;
   try {
     // TRANSFORM THEM DIRECTLY INTO TRANSFORM
-    tf_odom_to_left_foot  = tf2_buffer->lookupTransform("odom", "l_sole", tf2::timeFromSec(time.seconds()));
-    tf_odom_to_right_foot = tf2_buffer->lookupTransform("odom", "r_sole", tf2::timeFromSec(time.seconds()));
-    tf_odom_to_base       = tf2_buffer->lookupTransform("odom", "base_link", tf2::timeFromSec(time.seconds()));
-  } catch (const tf2::TransformException& ex) {
-    RCLCPP_ERROR(helpers::Node::get_logger(), "NAO Footprint error %s",ex.what());
+    tf_odom_to_left_foot =
+      tf2_buffer->lookupTransform("odom", "l_sole", tf2::timeFromSec(time.seconds()));
+    tf_odom_to_right_foot =
+      tf2_buffer->lookupTransform("odom", "r_sole", tf2::timeFromSec(time.seconds()));
+    tf_odom_to_base =
+      tf2_buffer->lookupTransform("odom", "base_link", tf2::timeFromSec(time.seconds()));
+  } catch (const tf2::TransformException & ex) {
+    RCLCPP_ERROR(helpers::Node::get_logger(), "NAO Footprint error %s", ex.what());
     return;
   }
   // middle of both feet
   // z = fix to the lowest foot
   tf2::Vector3 new_origin(
-      float(tf_odom_to_right_foot.transform.translation.x + tf_odom_to_left_foot.transform.translation.x)/2.0,
-      float(tf_odom_to_right_foot.transform.translation.y + tf_odom_to_left_foot.transform.translation.y)/2.0,
-      std::min(tf_odom_to_left_foot.transform.translation.z, tf_odom_to_right_foot.transform.translation.z)
-      );
+    float(tf_odom_to_right_foot.transform.translation.x +
+    tf_odom_to_left_foot.transform.translation.x) / 2.0,
+    float(tf_odom_to_right_foot.transform.translation.y +
+    tf_odom_to_left_foot.transform.translation.y) / 2.0,
+    std::min(
+      tf_odom_to_left_foot.transform.translation.z,
+      tf_odom_to_right_foot.transform.translation.z)
+  );
 
   // adjust yaw according to torso orientation, all other angles 0 (= in z-plane)
-  double yaw = helpers::transform::getYaw( tf_odom_to_base.transform ) ;
+  double yaw = helpers::transform::getYaw(tf_odom_to_base.transform);
   tf2::Quaternion new_q;
   new_q.setRPY(0.0f, 0.0f, yaw);
-  tf2::Transform tf_odom_to_footprint( new_q, new_origin);
+  tf2::Transform tf_odom_to_footprint(new_q, new_origin);
 
   // way too complicated here, there should be proper conversions!
-  tf2::Quaternion q( tf_odom_to_base.transform.rotation.x,
-                     tf_odom_to_base.transform.rotation.y,
-                     tf_odom_to_base.transform.rotation.z,
-                     tf_odom_to_base.transform.rotation.w
-      );
-  tf2::Vector3 r( tf_odom_to_base.transform.translation.x,
-                  tf_odom_to_base.transform.translation.y,
-                  tf_odom_to_base.transform.translation.z
-      );
-  tf2::Transform tf_odom_to_base_conv( q,r);
+  tf2::Quaternion q(tf_odom_to_base.transform.rotation.x,
+    tf_odom_to_base.transform.rotation.y,
+    tf_odom_to_base.transform.rotation.z,
+    tf_odom_to_base.transform.rotation.w
+  );
+  tf2::Vector3 r(tf_odom_to_base.transform.translation.x,
+    tf_odom_to_base.transform.translation.y,
+    tf_odom_to_base.transform.translation.z
+  );
+  tf2::Transform tf_odom_to_base_conv(q, r);
   //tf2::Transform tf_odom_to_base_conv;
   //tf2::convert( tf_odom_to_base.transform, tf_odom_to_base_conv );
   tf2::Transform tf_base_to_footprint = tf_odom_to_base_conv.inverse() * tf_odom_to_footprint;
@@ -107,8 +120,8 @@ inline void addBaseFootprint( std::shared_ptr<tf2_ros::Buffer> tf2_buffer, std::
   //tf::transformTFToMsg( tf_base_to_footprint, message.transform);
   // publish transform with parent m_baseFrameId and new child m_baseFootPrintID
   // i.e. transform from m_baseFrameId to m_baseFootPrintID
-  tf2_buffer->setTransform( message, "naoqiconverter", false );
-  tf_transforms.push_back( message );
+  tf2_buffer->setTransform(message, "naoqiconverter", false);
+  tf_transforms.push_back(message);
 }
 
 } // nao

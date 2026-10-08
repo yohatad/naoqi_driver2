@@ -36,9 +36,9 @@ class BasicPublisher
 {
 
 public:
-  BasicPublisher( const std::string& topic ):
-    topic_( topic ),
-    is_initialized_( false )
+  BasicPublisher(const std::string & topic)
+  : topic_(topic),
+    is_initialized_(false)
   {}
 
   virtual ~BasicPublisher() {}
@@ -62,14 +62,14 @@ public:
     }
   }
 
-  virtual void publish( const T& msg )
+  virtual void publish(const T & msg)
   {
-    pub_->publish( msg );
+    pub_->publish(msg);
   }
 
-  virtual void reset( rclcpp::Node* node )
+  virtual void reset(rclcpp::Node * node)
   {
-    pub_ = node->create_publisher<T>( this->topic_, 10 );
+    pub_ = node->create_publisher<T>(this->topic_, 10);
     is_initialized_ = true;
   }
 

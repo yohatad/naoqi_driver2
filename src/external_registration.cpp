@@ -35,21 +35,22 @@
 #include "naoqi_driver/ros_helpers.hpp"
 
 // A plain atomic pointer: unlike weak_ptr::lock(), loading it is async-signal-safe.
-std::atomic<naoqi::Driver*> g_driver{nullptr};
-static_assert(std::atomic<naoqi::Driver*>::is_always_lock_free,
-              "the SIGINT handler needs a lock-free pointer");
+std::atomic<naoqi::Driver *> g_driver{nullptr};
+static_assert(
+  std::atomic<naoqi::Driver *>::is_always_lock_free,
+  "the SIGINT handler needs a lock-free pointer");
 
 void sigint_handler(int sig)
 {
   // Only async-signal-safe work here: just flag the run() loop to stop.
   // The actual cleanup (driver->stop()) happens afterwards in main(),
   // since it locks mutexes and isn't safe to call from a signal handler.
-  if (naoqi::Driver* driver = g_driver.load()) {
+  if (naoqi::Driver * driver = g_driver.load()) {
     driver->requestStop();
   }
 }
 
-int main(int argc, char** argv)
+int main(int argc, char ** argv)
 {
   const std::string no_password = "no_password";
   std::string protocol = "tcp://";
@@ -101,7 +102,7 @@ int main(int argc, char** argv)
 
 #if LIBQI_VERSION >= 29
   if (password.compare(no_password) != 0) {
-    naoqi::DriverAuthenticatorFactory *factory = new naoqi::DriverAuthenticatorFactory;
+    naoqi::DriverAuthenticatorFactory * factory = new naoqi::DriverAuthenticatorFactory;
     factory->user = user;
     factory->pass = password;
 
@@ -114,12 +115,13 @@ int main(int argc, char** argv)
   qi::Future<void> connection = session->connect(url);
 
   if (connection.hasError()) {
-    std::cout << BOLDRED << connection.error() <<  RESETCOLOR << std::endl;
+    std::cout << BOLDRED << connection.error() << RESETCOLOR << std::endl;
     return EXIT_FAILURE;
   }
   // The session needs to listen on the network to process audio callbacks.
-  if (!listen_url.empty())
+  if (!listen_url.empty()) {
     session->listen(listen_url);
+  }
 
   // Pass the create session to the driver node, and init the node
   bs->setQiSession(session);

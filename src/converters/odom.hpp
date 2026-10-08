@@ -41,28 +41,27 @@ namespace converter
 class OdomConverter : public BaseConverter<OdomConverter>
 {
 
-  typedef std::function<void(nav_msgs::msg::Odometry&)> Callback_t;
+  typedef std::function<void (nav_msgs::msg::Odometry &)> Callback_t;
 
 public:
-  OdomConverter( const std::string& name, const float& frequency, const qi::SessionPtr& session );
+  OdomConverter(const std::string & name, const float & frequency, const qi::SessionPtr & session);
 
-  void registerCallback( message_actions::MessageAction action, Callback_t cb );
+  void registerCallback(message_actions::MessageAction action, Callback_t cb);
 
-  void callAll( const std::vector<message_actions::MessageAction>& actions );
+  void callAll(const std::vector<message_actions::MessageAction> & actions);
 
-  void reset( );
+  void reset();
 
   // Method to reset odometry offset (uses instance's motion proxy)
   void resetOdometry();
-  
+
   // Static method to get current offsets (for debugging)
-  static void getOffsets(float& x, float& y, float& z, float& wx, float& wy, float& wz);
-  
+  static void getOffsets(float & x, float & y, float & z, float & wx, float & wy, float & wz);
+
   // Static method to set offsets directly (used by service)
   static void setOffsets(float x, float y, float z, float wx, float wy, float wz);
 
 private:
-
   /** Motion Proxy **/
   qi::AnyObject p_motion_;
 

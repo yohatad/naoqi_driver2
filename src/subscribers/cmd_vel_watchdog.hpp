@@ -37,9 +37,10 @@ class CmdVelWatchdog
 public:
   using Clock = std::chrono::steady_clock;
 
-  explicit CmdVelWatchdog(std::chrono::nanoseconds timeout) : timeout_(timeout) {}
+  explicit CmdVelWatchdog(std::chrono::nanoseconds timeout)
+  : timeout_(timeout) {}
 
-  bool enabled() const { return timeout_.count() > 0; }
+  bool enabled() const {return timeout_.count() > 0;}
 
   void onCommand(bool is_zero, Clock::time_point now)
   {
@@ -51,8 +52,9 @@ public:
   bool expired(Clock::time_point now)
   {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (!enabled() || !moving_ || now - last_command_ < timeout_)
+    if (!enabled() || !moving_ || now - last_command_ < timeout_) {
       return false;
+    }
     moving_ = false;
     return true;
   }

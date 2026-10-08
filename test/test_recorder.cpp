@@ -28,11 +28,11 @@ class ProbeRecorder : public naoqi::recorder::BasicRecorder<Imu>
 {
 public:
   using BasicRecorder::BasicRecorder;
-  std::size_t size() const { return buffer_.size(); }
-  std::size_t capacity() const { return buffer_.capacity(); }
-  double frontX() const { return buffer_.front().linear_acceleration.x; }
-  double backX() const { return buffer_.back().linear_acceleration.x; }
-  double xAt(std::size_t i) const { return buffer_[i].linear_acceleration.x; }
+  std::size_t size() const {return buffer_.size();}
+  std::size_t capacity() const {return buffer_.capacity();}
+  double frontX() const {return buffer_.front().linear_acceleration.x;}
+  double backX() const {return buffer_.back().linear_acceleration.x;}
+  double xAt(std::size_t i) const {return buffer_[i].linear_acceleration.x;}
 };
 
 Imu imuWithX(double x)
@@ -60,8 +60,9 @@ TEST_F(RecorderTest, BufferizeKeepsOnlyTheNewestMessages)
 {
   ProbeRecorder rec("imu");
   rec.reset(std::make_shared<GlobalRecorder>("naoqi_driver"), 1.f);  // 10 slots
-  for (int i = 0; i < 25; ++i)
+  for (int i = 0; i < 25; ++i) {
     rec.bufferize(imuWithX(i));
+  }
 
   ASSERT_EQ(rec.size(), 10u);
   EXPECT_DOUBLE_EQ(rec.frontX(), 15.0);
@@ -76,8 +77,9 @@ TEST_F(RecorderTest, BufferFrequencyDownsamples)
   ProbeRecorder rec("imu", 5.f);
   rec.reset(std::make_shared<GlobalRecorder>("naoqi_driver"), 10.f);
   ASSERT_EQ(rec.size(), 50u);
-  for (int i = 1; i <= 6; ++i)
+  for (int i = 1; i <= 6; ++i) {
     rec.bufferize(imuWithX(i));
+  }
 
   EXPECT_DOUBLE_EQ(rec.xAt(rec.size() - 1), 6.0);
   EXPECT_DOUBLE_EQ(rec.xAt(rec.size() - 2), 4.0);
@@ -101,26 +103,30 @@ TEST_F(RecorderTest, ConcurrentBufferizeResizeAndDumpAreSafe)
 
   std::atomic<bool> stop{false};
   std::vector<std::thread> producers;
-  for (int t = 0; t < 6; ++t)
-  {
-    producers.emplace_back([&rec, t] {
-      for (int i = 0; i < 20000; ++i)
-        rec.bufferize(imuWithX(t * 100000 + i));
-    });
+  for (int t = 0; t < 6; ++t) {
+    producers.emplace_back(
+      [&rec, t] {
+        for (int i = 0; i < 20000; ++i) {
+          rec.bufferize(imuWithX(t * 100000 + i));
+        }
+      });
   }
   std::thread resizer([&] {
-    int i = 0;
-    while (!stop)
-      rec.setBufferDuration(1.f + static_cast<float>(i++ % 5));
-  });
+      int i = 0;
+      while (!stop) {
+        rec.setBufferDuration(1.f + static_cast<float>(i++ % 5));
+      }
+    });
   std::thread dumper([&] {
-    const auto now = node_->now();
-    while (!stop)
-      rec.writeDump(now);
-  });
+      const auto now = node_->now();
+      while (!stop) {
+        rec.writeDump(now);
+      }
+    });
 
-  for (auto& p : producers)
+  for (auto & p : producers) {
     p.join();
+  }
   stop = true;
   resizer.join();
   dumper.join();
@@ -130,7 +136,7 @@ TEST_F(RecorderTest, ConcurrentBufferizeResizeAndDumpAreSafe)
 
 TEST_F(RecorderTest, GlobalRecorderNamesBagInWorkingDirectory)
 {
-  naoqi_test::TempDir dir(/*chdir_into=*/true);
+  naoqi_test::TempDir dir(/*chdir_into=*/ true);
   GlobalRecorder global("naoqi_driver");
 
   EXPECT_FALSE(global.isStarted());
@@ -153,30 +159,29 @@ TEST_F(RecorderTest, GlobalRecorderStopWithoutStartIsRejected)
 
 TEST_F(RecorderTest, GlobalRecorderConcurrentStartStopAndWriteDoNotDeadlock)
 {
-  naoqi_test::TempDir dir(/*chdir_into=*/true);
+  naoqi_test::TempDir dir(/*chdir_into=*/ true);
   GlobalRecorder global("naoqi_driver");
 
   std::atomic<bool> stop{false};
   std::vector<std::thread> writers;
-  for (int t = 0; t < 4; ++t)
-  {
-    writers.emplace_back([&] {
-      std::vector<geometry_msgs::msg::TransformStamped> tf(1);
-      while (!stop)
-      {
-        global.write("imu", imuWithX(1.0));
-        global.write("/tf", tf);
-      }
-    });
+  for (int t = 0; t < 4; ++t) {
+    writers.emplace_back(
+      [&] {
+        std::vector<geometry_msgs::msg::TransformStamped> tf(1);
+        while (!stop) {
+          global.write("imu", imuWithX(1.0));
+          global.write("/tf", tf);
+        }
+      });
   }
-  for (int i = 0; i < 200; ++i)
-  {
+  for (int i = 0; i < 200; ++i) {
     global.startRecord("unit");
     global.stopRecord();
   }
   stop = true;
-  for (auto& w : writers)
+  for (auto & w : writers) {
     w.join();
+  }
 
   EXPECT_FALSE(global.isStarted());
 }

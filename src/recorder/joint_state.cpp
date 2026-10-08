@@ -26,42 +26,41 @@ namespace naoqi
 namespace recorder
 {
 
-JointStateRecorder::JointStateRecorder( const std::string& topic, float buffer_frequency ):
-  topic_( topic ),
+JointStateRecorder::JointStateRecorder(const std::string & topic, float buffer_frequency)
+: topic_(topic),
   buffer_duration_(helpers::recorder::bufferDefaultDuration),
-  is_initialized_( false ),
-  is_subscribed_( false ),
+  is_initialized_(false),
+  is_subscribed_(false),
   buffer_frequency_(buffer_frequency),
   counter_(1)
 {}
 
-void JointStateRecorder::write( const sensor_msgs::msg::JointState& js_msg,
-                                const std::vector<geometry_msgs::msg::TransformStamped>& tf_transforms )
+void JointStateRecorder::write(
+  const sensor_msgs::msg::JointState & js_msg,
+  const std::vector<geometry_msgs::msg::TransformStamped> & tf_transforms)
 {
   if (!helpers::recorder::isZero(js_msg.header.stamp)) {
     gr_->write(topic_, js_msg, js_msg.header.stamp);
-  }
-  else {
+  } else {
     gr_->write(topic_, js_msg);
   }
   gr_->write("/tf", tf_transforms);
 }
 
-void JointStateRecorder::writeDump(const rclcpp::Time& time)
+void JointStateRecorder::writeDump(const rclcpp::Time & time)
 {
-  std::lock_guard<std::mutex> lock_write_buffer( mutex_ );
-  boost::circular_buffer< std::vector<geometry_msgs::msg::TransformStamped> >::iterator it_tf;
-  for (it_tf = bufferTF_.begin(); it_tf != bufferTF_.end(); it_tf++)
-  {
+  std::lock_guard<std::mutex> lock_write_buffer(mutex_);
+  boost::circular_buffer<std::vector<geometry_msgs::msg::TransformStamped>>::iterator it_tf;
+  for (it_tf = bufferTF_.begin(); it_tf != bufferTF_.end(); it_tf++) {
     gr_->write("/tf", *it_tf);
   }
-  for (boost::circular_buffer<sensor_msgs::msg::JointState>::iterator it_js = bufferJoinState_.begin();
-       it_js != bufferJoinState_.end(); it_js++)
+  for (boost::circular_buffer<sensor_msgs::msg::JointState>::iterator it_js =
+    bufferJoinState_.begin();
+    it_js != bufferJoinState_.end(); it_js++)
   {
     if (!helpers::recorder::isZero(it_js->header.stamp)) {
       gr_->write(topic_, *it_js, it_js->header.stamp);
-    }
-    else {
+    } else {
       gr_->write(topic_, *it_js);
     }
   }
@@ -71,31 +70,26 @@ void JointStateRecorder::reset(std::shared_ptr<GlobalRecorder> gr, float conv_fr
 {
   gr_ = gr;
   conv_frequency_ = conv_frequency;
-  if (buffer_frequency_ != 0)
-  {
-    max_counter_ = static_cast<int>(conv_frequency/buffer_frequency_);
-    buffer_size_ = static_cast<size_t>(buffer_duration_*(conv_frequency/max_counter_));
-  }
-  else
-  {
+  if (buffer_frequency_ != 0) {
+    max_counter_ = static_cast<int>(conv_frequency / buffer_frequency_);
+    buffer_size_ = static_cast<size_t>(buffer_duration_ * (conv_frequency / max_counter_));
+  } else {
     max_counter_ = 1;
-    buffer_size_ = static_cast<size_t>(buffer_duration_*conv_frequency);
+    buffer_size_ = static_cast<size_t>(buffer_duration_ * conv_frequency);
   }
   bufferJoinState_.resize(buffer_size_);
   bufferTF_.resize(buffer_size_);
   is_initialized_ = true;
 }
 
-void JointStateRecorder::bufferize( const sensor_msgs::msg::JointState& js_msg,
-                const std::vector<geometry_msgs::msg::TransformStamped>& tf_transforms )
+void JointStateRecorder::bufferize(
+  const sensor_msgs::msg::JointState & js_msg,
+  const std::vector<geometry_msgs::msg::TransformStamped> & tf_transforms)
 {
-  std::lock_guard<std::mutex> lock_bufferize( mutex_ );
-  if (counter_ < max_counter_)
-  {
+  std::lock_guard<std::mutex> lock_bufferize(mutex_);
+  if (counter_ < max_counter_) {
     counter_++;
-  }
-  else
-  {
+  } else {
     counter_ = 1;
     bufferJoinState_.push_back(js_msg);
     bufferTF_.push_back(tf_transforms);
@@ -104,8 +98,8 @@ void JointStateRecorder::bufferize( const sensor_msgs::msg::JointState& js_msg,
 
 void JointStateRecorder::setBufferDuration(float duration)
 {
-  std::lock_guard<std::mutex> lock_bufferize( mutex_ );
-  buffer_size_ = static_cast<size_t>(duration*(conv_frequency_/max_counter_));
+  std::lock_guard<std::mutex> lock_bufferize(mutex_);
+  buffer_size_ = static_cast<size_t>(duration * (conv_frequency_ / max_counter_));
   buffer_duration_ = duration;
   bufferJoinState_.set_capacity(buffer_size_);
   bufferTF_.set_capacity(buffer_size_);

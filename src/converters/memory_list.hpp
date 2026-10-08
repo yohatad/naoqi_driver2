@@ -31,22 +31,26 @@
 */
 #include <naoqi_bridge_msgs/msg/memory_list.hpp>
 
-namespace naoqi {
+namespace naoqi
+{
 
-namespace converter {
+namespace converter
+{
 
 class MemoryListConverter : public BaseConverter<MemoryListConverter>
 {
-  typedef std::function<void(naoqi_bridge_msgs::msg::MemoryList&) > Callback_t;
+  typedef std::function<void (naoqi_bridge_msgs::msg::MemoryList &)> Callback_t;
 
 public:
-  MemoryListConverter(const std::vector<std::string>& key_list, const std::string& name, const float& frequency, const qi::SessionPtr& session);
+  MemoryListConverter(
+    const std::vector<std::string> & key_list, const std::string & name,
+    const float & frequency, const qi::SessionPtr & session);
 
   virtual void reset();
 
-  void registerCallback( const message_actions::MessageAction action, Callback_t cb );
+  void registerCallback(const message_actions::MessageAction action, Callback_t cb);
 
-  virtual void callAll(const std::vector<message_actions::MessageAction>& actions );
+  virtual void callAll(const std::vector<message_actions::MessageAction> & actions);
 
 private:
   std::vector<std::string> _key_list;

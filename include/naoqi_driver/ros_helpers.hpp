@@ -22,30 +22,35 @@
 #include <rclcpp/rclcpp.hpp>
 #include <memory>
 
-namespace naoqi {
-namespace helpers {
+namespace naoqi
+{
+namespace helpers
+{
 
 /**
- * @brief Node helper class, holds a pointer towards the driver rclcpp::Node 
- * 
+ * @brief Node helper class, holds a pointer towards the driver rclcpp::Node
+ *
  */
-class Node {
+class Node
+{
 public:
   /**
    * @brief Set the Node object
-   * 
-   * @param node_ptr_ 
+   *
+   * @param node_ptr_
    */
-  static void setNode(const std::shared_ptr<rclcpp::Node>& node_ptr) {
+  static void setNode(const std::shared_ptr<rclcpp::Node> & node_ptr)
+  {
     Node::node_ptr_ = node_ptr;
   }
 
   /**
    * @brief Get the logger object for the driver node
-   * 
-   * @return rclcpp::Logger 
+   *
+   * @return rclcpp::Logger
    */
-  static rclcpp::Logger get_logger() {
+  static rclcpp::Logger get_logger()
+  {
     return Node::node_ptr_->get_logger();
   }
 
@@ -54,7 +59,8 @@ public:
    *
    * @return int
    */
-  static size_t count_subscribers(const std::string& topic_name) {
+  static size_t count_subscribers(const std::string & topic_name)
+  {
     return Node::node_ptr_->count_subscribers(topic_name);
   }
 
@@ -63,7 +69,8 @@ public:
    *
    * @return std::shared_ptr<rclcpp::Node>
    */
-  static const std::shared_ptr<rclcpp::Node>& get_node() {
+  static const std::shared_ptr<rclcpp::Node> & get_node()
+  {
     return Node::node_ptr_;
   }
 
@@ -72,18 +79,20 @@ protected:
 };
 
 /**
- * @brief Time helper class, used to access to time related functionalities 
+ * @brief Time helper class, used to access to time related functionalities
  * throughout the project
- * 
+ *
  */
-class Time : public Node {
+class Time : public Node
+{
 public:
   /**
    * @brief Calls the method now of the node instance
-   * 
-   * @return rclcpp::Time 
+   *
+   * @return rclcpp::Time
    */
-  static rclcpp::Time now() {
+  static rclcpp::Time now()
+  {
     return Time::node_ptr_->now();
   }
 };

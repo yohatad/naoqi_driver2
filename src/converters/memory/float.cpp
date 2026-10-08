@@ -25,13 +25,16 @@ namespace naoqi
 namespace converter
 {
 
-MemoryFloatConverter::MemoryFloatConverter( const std::string& name, const float& frequency, const qi::SessionPtr& session, const std::string& memory_key )
-  : BaseConverter( name, frequency, session ),
-    memory_key_(memory_key),
-    p_memory_( session->service("ALMemory").value() )
+MemoryFloatConverter::MemoryFloatConverter(
+  const std::string & name, const float & frequency,
+  const qi::SessionPtr & session,
+  const std::string & memory_key)
+: BaseConverter(name, frequency, session),
+  memory_key_(memory_key),
+  p_memory_(session->service("ALMemory").value() )
 {}
 
-void MemoryFloatConverter::registerCallback( message_actions::MessageAction action, Callback_t cb )
+void MemoryFloatConverter::registerCallback(message_actions::MessageAction action, Callback_t cb)
 {
   callbacks_[action] = cb;
 }
@@ -39,32 +42,28 @@ void MemoryFloatConverter::registerCallback( message_actions::MessageAction acti
 bool MemoryFloatConverter::convert()
 {
   bool success = false;
-  try
-  {
+  try {
     float value = p_memory_.call<float>("getData", memory_key_);
     msg_.header.stamp = helpers::Time::now();
     msg_.data = value;
     success = true;
-  }
-  catch( const std::exception& e )
-  {
+  } catch (const std::exception & e) {
     std::cerr << "Exception caught in MemoryFloatConverter " << e.what() << std::endl;
     success = false;
   }
   return success;
 }
 
-void MemoryFloatConverter::callAll( const std::vector<message_actions::MessageAction>& actions )
+void MemoryFloatConverter::callAll(const std::vector<message_actions::MessageAction> & actions)
 {
   if (convert()) {
-    for( message_actions::MessageAction action: actions )
-    {
-      callbacks_[action]( msg_ );
+    for (message_actions::MessageAction action: actions) {
+      callbacks_[action](msg_);
     }
   }
 }
 
-void MemoryFloatConverter::reset( )
+void MemoryFloatConverter::reset()
 {}
 
 } // publisher

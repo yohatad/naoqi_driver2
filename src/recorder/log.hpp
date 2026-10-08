@@ -45,15 +45,15 @@ class LogRecorder
 {
 
 public:
-  LogRecorder( const std::string& topic, float buffer_frequency = 0 );
+  LogRecorder(const std::string & topic, float buffer_frequency = 0);
 
-  void write( std::list<rcl_interfaces::msg::Log>& log_msgs );
+  void write(std::list<rcl_interfaces::msg::Log> & log_msgs);
 
-  void reset(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float conv_frequency );
+  void reset(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float conv_frequency);
 
-  void bufferize( std::list<rcl_interfaces::msg::Log>& log_msgs );
+  void bufferize(std::list<rcl_interfaces::msg::Log> & log_msgs);
 
-  void writeDump(const rclcpp::Time& time);
+  void writeDump(const rclcpp::Time & time);
 
   void setBufferDuration(float duration);
 
@@ -67,7 +67,7 @@ public:
     return is_initialized_;
   }
 
-  inline void subscribe( bool state)
+  inline void subscribe(bool state)
   {
     is_subscribed_ = state;
   }
@@ -80,7 +80,7 @@ public:
 protected:
   std::string topic_;
 
-  boost::circular_buffer< std::list<rcl_interfaces::msg::Log> > buffer_;
+  boost::circular_buffer<std::list<rcl_interfaces::msg::Log>> buffer_;
   size_t buffer_size_;
   float buffer_duration_;
 

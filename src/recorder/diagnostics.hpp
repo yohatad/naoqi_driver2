@@ -44,15 +44,15 @@ class DiagnosticsRecorder
 {
 
 public:
-  DiagnosticsRecorder( const std::string& topic, float buffer_frequency = 0 );
+  DiagnosticsRecorder(const std::string & topic, float buffer_frequency = 0);
 
-  void write(diagnostic_msgs::msg::DiagnosticArray& msg );
+  void write(diagnostic_msgs::msg::DiagnosticArray & msg);
 
-  void reset( std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float conv_frequency );
+  void reset(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float conv_frequency);
 
-  void bufferize(diagnostic_msgs::msg::DiagnosticArray& msg );
+  void bufferize(diagnostic_msgs::msg::DiagnosticArray & msg);
 
-  void writeDump(const rclcpp::Time& time);
+  void writeDump(const rclcpp::Time & time);
 
   void setBufferDuration(float duration);
 
@@ -66,7 +66,7 @@ public:
     return is_initialized_;
   }
 
-  inline void subscribe( bool state)
+  inline void subscribe(bool state)
   {
     is_subscribed_ = state;
   }

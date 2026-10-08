@@ -23,52 +23,52 @@
 #include "robot_description.hpp"
 #include "../helpers/filesystem_helpers.hpp"
 
-namespace naoqi{
+namespace naoqi
+{
 
-namespace tools{
+namespace tools
+{
 
-std::string getRobotDescription( const robot::Robot& robot){
-    std::string urdf_path;
-    static std::string robot_desc;
-    if(!robot_desc.empty())
-      return robot_desc;
-
-    if ( robot == robot::PEPPER)
-    {
-      urdf_path = helpers::filesystem::getURDF("pepper.urdf");
-    }
-    else if ( robot == robot::NAO )
-    {
-      urdf_path = helpers::filesystem::getURDF("nao.urdf");
-    }
-    else if ( robot == robot::ROMEO )
-    {
-      urdf_path = helpers::filesystem::getURDF("romeo.urdf");
-    }
-    else
-    {
-      std::cerr << " could not load urdf file from disk " << std::endl;
-      return std::string();
-    }
-
-    std::ifstream stream( (urdf_path).c_str() );
-    if (!stream)
-    {
-      std::cerr << "failed to load robot description in joint_state_publisher: " << urdf_path << std::endl;
-      return std::string();
-    }
-    robot_desc = std::string( (std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
+std::string getRobotDescription(const robot::Robot & robot)
+{
+  std::string urdf_path;
+  static std::string robot_desc;
+  if (!robot_desc.empty()) {
     return robot_desc;
+  }
+
+  if (robot == robot::PEPPER) {
+    urdf_path = helpers::filesystem::getURDF("pepper.urdf");
+  } else if (robot == robot::NAO) {
+    urdf_path = helpers::filesystem::getURDF("nao.urdf");
+  } else if (robot == robot::ROMEO) {
+    urdf_path = helpers::filesystem::getURDF("romeo.urdf");
+  } else {
+    std::cerr << " could not load urdf file from disk " << std::endl;
+    return std::string();
+  }
+
+  std::ifstream stream( (urdf_path).c_str() );
+  if (!stream) {
+    std::cerr << "failed to load robot description in joint_state_publisher: " << urdf_path <<
+      std::endl;
+    return std::string();
+  }
+  robot_desc = std::string(
+    (std::istreambuf_iterator<char>(stream)),
+    std::istreambuf_iterator<char>());
+  return robot_desc;
 }
 
 rclcpp::Publisher<std_msgs::msg::String>::SharedPtr
-publishRobotDescription(rclcpp::Node* node, const robot::Robot& robot_type) {
+publishRobotDescription(rclcpp::Node * node, const robot::Robot & robot_type)
+{
   static const auto topic = "robot_description";
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr description_pub =
     node->create_publisher<std_msgs::msg::String>(
-      topic,
-      // Transient local is similar to latching in ROS 1.
-      rclcpp::QoS(1).transient_local()
+    topic,
+    // Transient local is similar to latching in ROS 1.
+    rclcpp::QoS(1).transient_local()
     );
 
   std::string robot_desc = getRobotDescription(robot_type);

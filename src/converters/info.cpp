@@ -30,9 +30,11 @@ namespace naoqi
 namespace converter
 {
 
-InfoConverter::InfoConverter( const std::string& name, float frequency, const qi::SessionPtr& session )
-  : BaseConverter( name, frequency, session ),
-    p_memory_( session->service("ALMemory").value() )
+InfoConverter::InfoConverter(
+  const std::string & name, float frequency,
+  const qi::SessionPtr & session)
+: BaseConverter(name, frequency, session),
+  p_memory_(session->service("ALMemory").value() )
 {
   keys_.push_back("RobotConfig/Head/FullHeadId");
   keys_.push_back("Device/DeviceList/ChestBoard/BodyId");
@@ -44,8 +46,7 @@ InfoConverter::InfoConverter( const std::string& name, float frequency, const qi
   keys_.push_back("RobotConfig/Body/Version");
   keys_.push_back("RobotConfig/Body/SoftwareRequirement");
   keys_.push_back("RobotConfig/Body/Device/Legs/Version");
-  if(robot_ == robot::PEPPER)
-  {
+  if (robot_ == robot::PEPPER) {
     keys_.push_back("Device/DeviceList/BatteryFuelGauge/SerialNumber");
     keys_.push_back("Device/DeviceList/BatteryFuelGauge/FirmwareVersion");
     keys_.push_back("RobotConfig/Body/Device/Platform/Version");
@@ -58,18 +59,18 @@ void InfoConverter::reset()
 {
 }
 
-void InfoConverter::registerCallback( const message_actions::MessageAction action, Callback_t cb )
+void InfoConverter::registerCallback(const message_actions::MessageAction action, Callback_t cb)
 {
   callbacks_[action] = cb;
 }
 
-void InfoConverter::callAll( const std::vector<message_actions::MessageAction>& actions )
+void InfoConverter::callAll(const std::vector<message_actions::MessageAction> & actions)
 {
   std::vector<std::string> values;
   try {
-      qi::AnyValue anyvalues = p_memory_.call<qi::AnyValue>("getListData", keys_);
-      tools::fromAnyValueToStringVector(anyvalues, values);
-  } catch (const std::exception& e) {
+    qi::AnyValue anyvalues = p_memory_.call<qi::AnyValue>("getListData", keys_);
+    tools::fromAnyValueToStringVector(anyvalues, values);
+  } catch (const std::exception & e) {
     std::cerr << "Exception caught in InfoConverter: " << e.what() << std::endl;
     return;
   }
@@ -77,14 +78,13 @@ void InfoConverter::callAll( const std::vector<message_actions::MessageAction>& 
   naoqi_bridge_msgs::msg::StringStamped msg;
 
   msg.header.stamp = helpers::Time::now();
-  for(size_t i = 0; i < keys_.size(); ++i)
-  {
+  for (size_t i = 0; i < keys_.size(); ++i) {
     msg.data += keys_[i] + ": " + values[i];
-    if (i != keys_.size()-1)
-    msg.data += " ; ";
+    if (i != keys_.size() - 1) {
+      msg.data += " ; ";
+    }
   }
-  for( const message_actions::MessageAction& action: actions )
-  {
+  for (const message_actions::MessageAction & action: actions) {
     callbacks_[action](msg);
   }
 }

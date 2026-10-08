@@ -26,15 +26,16 @@ namespace naoqi
 namespace publisher
 {
 
-JointStatePublisher::JointStatePublisher( const std::string& topic ):
-  topic_( topic ),
-  is_initialized_( false )
+JointStatePublisher::JointStatePublisher(const std::string & topic)
+: topic_(topic),
+  is_initialized_(false)
 {}
 
-void JointStatePublisher::publish( const sensor_msgs::msg::JointState& js_msg,
-                                   const std::vector<geometry_msgs::msg::TransformStamped>& tf_transforms )
+void JointStatePublisher::publish(
+  const sensor_msgs::msg::JointState & js_msg,
+  const std::vector<geometry_msgs::msg::TransformStamped> & tf_transforms)
 {
-  pub_joint_states_->publish( js_msg );
+  pub_joint_states_->publish(js_msg);
 
   /**
    * ROBOT STATE PUBLISHER
@@ -42,9 +43,9 @@ void JointStatePublisher::publish( const sensor_msgs::msg::JointState& js_msg,
   tf_broadcasterPtr_->sendTransform(tf_transforms);
 }
 
-void JointStatePublisher::reset( rclcpp::Node* node )
+void JointStatePublisher::reset(rclcpp::Node * node)
 {
-  pub_joint_states_ = node->create_publisher<sensor_msgs::msg::JointState>( topic_, 10 );
+  pub_joint_states_ = node->create_publisher<sensor_msgs::msg::JointState>(topic_, 10);
 
   tf_broadcasterPtr_ = std::make_shared<tf2_ros::TransformBroadcaster>(node);
 

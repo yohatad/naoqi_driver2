@@ -37,14 +37,17 @@ namespace naoqi
 namespace subscriber
 {
 
-class MovetoSubscriber: public BaseSubscriber<MovetoSubscriber>
+class MovetoSubscriber : public BaseSubscriber<MovetoSubscriber>
 {
 public:
-  MovetoSubscriber( const std::string& name, const std::string& topic, const qi::SessionPtr& session, const std::shared_ptr<tf2_ros::Buffer>& tf2_buffer );
-  ~MovetoSubscriber(){}
+  MovetoSubscriber(
+    const std::string & name, const std::string & topic,
+    const qi::SessionPtr & session,
+    const std::shared_ptr<tf2_ros::Buffer> & tf2_buffer);
+  ~MovetoSubscriber() {}
 
-  void reset( rclcpp::Node* node );
-  void callback( const geometry_msgs::msg::PoseStamped::SharedPtr pose_msg );
+  void reset(rclcpp::Node * node);
+  void callback(const geometry_msgs::msg::PoseStamped::SharedPtr pose_msg);
 
 private:
   qi::AnyObject p_motion_;

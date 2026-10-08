@@ -53,25 +53,26 @@ namespace naoqi
 * thus each possible publisher instance has to implement the virtual functions mentioned in the concept
 */
 template<class T>
-class TouchEventRegister: public std::enable_shared_from_this<TouchEventRegister<T> >
+class TouchEventRegister : public std::enable_shared_from_this<TouchEventRegister<T>>
 {
 
 public:
-
   /**
   * @brief Constructor for recorder interface
   */
   TouchEventRegister();
-  TouchEventRegister(const std::string& name, const std::vector<std::string> keys, const float& frequency, const qi::SessionPtr& session );
+  TouchEventRegister(
+    const std::string & name, const std::vector<std::string> keys,
+    const float & frequency, const qi::SessionPtr & session);
   ~TouchEventRegister();
 
-  void resetPublisher( rclcpp::Node* node );
-  void resetRecorder( std::shared_ptr<naoqi::recorder::GlobalRecorder> gr );
+  void resetPublisher(rclcpp::Node * node);
+  void resetRecorder(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr);
 
   void startProcess();
   void stopProcess();
 
-  void writeDump(const rclcpp::Time& time);
+  void writeDump(const rclcpp::Time & time);
   void setBufferDuration(float duration);
 
   void isRecording(bool state);
@@ -79,26 +80,33 @@ public:
   void isDumping(bool state);
 
 private:
-  void touchCallback(const std::string &key, const qi::AnyValue &value);
-  void touchCallbackMessage(const std::string &key, bool &state, naoqi_bridge_msgs::msg::Bumper &msg);
-  void touchCallbackMessage(const std::string &key, bool &state, naoqi_bridge_msgs::msg::HandTouch &msg);
-  void touchCallbackMessage(const std::string &key, bool &state, naoqi_bridge_msgs::msg::HeadTouch &msg);
+  void touchCallback(const std::string & key, const qi::AnyValue & value);
+  void touchCallbackMessage(
+    const std::string & key, bool & state,
+    naoqi_bridge_msgs::msg::Bumper & msg);
+  void touchCallbackMessage(
+    const std::string & key, bool & state,
+    naoqi_bridge_msgs::msg::HandTouch & msg);
+  void touchCallbackMessage(
+    const std::string & key, bool & state,
+    naoqi_bridge_msgs::msg::HeadTouch & msg);
 
   void registerCallback();
   void unregisterCallback();
   void onEvent();
 
 private:
-  std::shared_ptr<converter::TouchEventConverter<T> > converter_;
-  std::shared_ptr<publisher::BasicPublisher<T> > publisher_;
+  std::shared_ptr<converter::TouchEventConverter<T>> converter_;
+  std::shared_ptr<publisher::BasicPublisher<T>> publisher_;
   //std::shared_ptr<recorder::BasicEventRecorder<T> > recorder_;
 
   qi::SessionPtr session_;
   qi::AnyObject p_memory_;
 
-  struct SubscriberAndLink {
+  struct SubscriberAndLink
+  {
     SubscriberAndLink(qi::AnyObject subscriber, qi::SignalLink link)
-      : subscriber(subscriber)
+    : subscriber(subscriber)
       , link(link)
     {}
     qi::AnyObject subscriber;
@@ -120,22 +128,31 @@ protected:
 }; // class
 
 
-class BumperEventRegister: public TouchEventRegister<naoqi_bridge_msgs::msg::Bumper>
+class BumperEventRegister : public TouchEventRegister<naoqi_bridge_msgs::msg::Bumper>
 {
 public:
-  BumperEventRegister( const std::string& name, const std::vector<std::string> keys, const float& frequency, const qi::SessionPtr& session ) : TouchEventRegister<naoqi_bridge_msgs::msg::Bumper>(name, keys, frequency, session) {}
+  BumperEventRegister(
+    const std::string & name, const std::vector<std::string> keys,
+    const float & frequency, const qi::SessionPtr & session)
+  : TouchEventRegister<naoqi_bridge_msgs::msg::Bumper>(name, keys, frequency, session) {}
 };
 
-class HeadTouchEventRegister: public TouchEventRegister<naoqi_bridge_msgs::msg::HeadTouch>
+class HeadTouchEventRegister : public TouchEventRegister<naoqi_bridge_msgs::msg::HeadTouch>
 {
 public:
-  HeadTouchEventRegister( const std::string& name, const std::vector<std::string> keys, const float& frequency, const qi::SessionPtr& session ) : TouchEventRegister<naoqi_bridge_msgs::msg::HeadTouch>(name, keys, frequency, session) {}
+  HeadTouchEventRegister(
+    const std::string & name, const std::vector<std::string> keys,
+    const float & frequency, const qi::SessionPtr & session)
+  : TouchEventRegister<naoqi_bridge_msgs::msg::HeadTouch>(name, keys, frequency, session) {}
 };
 
-class HandTouchEventRegister: public TouchEventRegister<naoqi_bridge_msgs::msg::HandTouch>
+class HandTouchEventRegister : public TouchEventRegister<naoqi_bridge_msgs::msg::HandTouch>
 {
 public:
-  HandTouchEventRegister( const std::string& name, const std::vector<std::string> keys, const float& frequency, const qi::SessionPtr& session ) : TouchEventRegister<naoqi_bridge_msgs::msg::HandTouch>(name, keys, frequency, session) {}
+  HandTouchEventRegister(
+    const std::string & name, const std::vector<std::string> keys,
+    const float & frequency, const qi::SessionPtr & session)
+  : TouchEventRegister<naoqi_bridge_msgs::msg::HandTouch>(name, keys, frequency, session) {}
 };
 
 } //naoqi

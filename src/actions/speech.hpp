@@ -7,10 +7,11 @@
 
 namespace naoqi
 {
-namespace action {
+namespace action
+{
 
 rclcpp_action::Server<naoqi_bridge_msgs::action::SpeechWithFeedback>::SharedPtr
-createSpeechWithFeedbackServer(rclcpp::Node* node, qi::SessionPtr session);
+createSpeechWithFeedbackServer(rclcpp::Node * node, qi::SessionPtr session);
 
 } // namespace action
 } // namespace naoqi

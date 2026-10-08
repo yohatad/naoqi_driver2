@@ -37,11 +37,11 @@ class MemoryIntPublisher : public BasePublisher<naoqi_bridge_msgs::msg::IntStamp
 {
 
 public:
-  MemoryIntPublisher( const std::string& topic );
+  MemoryIntPublisher(const std::string & topic);
 
-  void publish( const naoqi_bridge_msgs::msg::IntStamped& msg );
+  void publish(const naoqi_bridge_msgs::msg::IntStamped & msg);
 
-  void reset( rclcpp::Node* node );
+  void reset(rclcpp::Node * node);
 
 }; // class
 

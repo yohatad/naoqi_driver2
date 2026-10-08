@@ -25,8 +25,8 @@ namespace naoqi
 namespace publisher
 {
 
-LogPublisher::LogPublisher(const std::string &topic )
-  : BasicPublisher( topic )
+LogPublisher::LogPublisher(const std::string & topic)
+: BasicPublisher(topic)
 {
 }
 

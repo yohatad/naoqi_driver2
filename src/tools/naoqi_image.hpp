@@ -18,23 +18,26 @@
 #ifndef NAOQI_IMAGE_HPP
 #define NAOQI_IMAGE_HPP
 
-namespace naoqi{
+namespace naoqi
+{
 
-namespace tools {
+namespace tools
+{
 
 /**
  * @brief The struct describing an image retrieved by ALVideoDevice.
  *        This specification can be found here:
  *        http://doc.aldebaran.com/2-1/naoqi/vision/alvideodevice-tuto.html
  */
-struct NaoqiImage{
+struct NaoqiImage
+{
   int width;
   int height;
   int number_of_layers;
   int colorspace;
   int timestamp_s;
   int timestamp_us;
-  void* buffer;
+  void * buffer;
   size_t buffer_size;
   int cam_id;
   float fov_left;

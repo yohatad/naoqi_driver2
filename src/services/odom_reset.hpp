@@ -34,9 +34,11 @@ namespace service
 class OdomResetService
 {
 public:
-  OdomResetService( const std::string& name, const std::string& topic, const qi::SessionPtr& session );
+  OdomResetService(
+    const std::string & name, const std::string & topic,
+    const qi::SessionPtr & session);
 
-  ~OdomResetService(){};
+  ~OdomResetService() {}
 
   std::string name() const
   {
@@ -48,16 +50,17 @@ public:
     return topic_;
   }
 
-  void reset( rclcpp::Node* node );
+  void reset(rclcpp::Node * node);
 
-  void callback( const std::shared_ptr<std_srvs::srv::Trigger::Request> req, std::shared_ptr<std_srvs::srv::Trigger::Response> resp );
-
+  void callback(
+    const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
+    std::shared_ptr<std_srvs::srv::Trigger::Response> resp);
 
 private:
   const std::string name_;
   const std::string topic_;
 
-  const qi::SessionPtr& session_;
+  const qi::SessionPtr & session_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr service_;
 };
 

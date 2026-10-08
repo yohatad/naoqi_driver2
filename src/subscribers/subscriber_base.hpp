@@ -40,11 +40,11 @@ class BaseSubscriber
 {
 
 public:
-  BaseSubscriber( const std::string& name, const std::string& topic, qi::SessionPtr session ):
-    name_( name ),
-    topic_( topic ),
-    is_initialized_( false ),
-    robot_( helpers::driver::getRobot(session) ),
+  BaseSubscriber(const std::string & name, const std::string & topic, qi::SessionPtr session)
+  : name_(name),
+    topic_(topic),
+    is_initialized_(false),
+    robot_(helpers::driver::getRobot(session) ),
     session_(session)
   {}
 
@@ -71,7 +71,7 @@ protected:
   bool is_initialized_;
 
   /** The type of the robot */
-  const robot::Robot& robot_;
+  const robot::Robot & robot_;
 
   /** Pointer to a session from which we can create proxies */
   qi::SessionPtr session_;

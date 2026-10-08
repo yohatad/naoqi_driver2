@@ -37,11 +37,11 @@ class MemoryBoolPublisher : public BasePublisher<naoqi_bridge_msgs::msg::BoolSta
 {
 
 public:
-  MemoryBoolPublisher( const std::string& topic );
+  MemoryBoolPublisher(const std::string & topic);
 
-  void publish( const naoqi_bridge_msgs::msg::BoolStamped& msg );
+  void publish(const naoqi_bridge_msgs::msg::BoolStamped & msg);
 
-  void reset( rclcpp::Node* node );
+  void reset(rclcpp::Node * node);
 
 }; // class
 

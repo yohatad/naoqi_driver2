@@ -42,11 +42,11 @@ class BasicEventRecorder
 {
 
 public:
-  BasicEventRecorder( const std::string& topic ):
-    topic_( topic ),
-    buffer_duration_( helpers::recorder::bufferDefaultDuration ),
-    is_initialized_( false ),
-    is_subscribed_( false )
+  BasicEventRecorder(const std::string & topic)
+  : topic_(topic),
+    buffer_duration_(helpers::recorder::bufferDefaultDuration),
+    is_initialized_(false),
+    is_subscribed_(false)
   {}
 
   virtual ~BasicEventRecorder() {}
@@ -61,7 +61,7 @@ public:
     return is_initialized_;
   }
 
-  inline void subscribe( bool state)
+  inline void subscribe(bool state)
   {
     is_subscribed_ = state;
   }
@@ -71,35 +71,32 @@ public:
     return is_subscribed_;
   }
 
-  virtual void write(const T& msg)
+  virtual void write(const T & msg)
   {
     if (!helpers::recorder::isZero(msg.header.stamp)) {
       gr_->write(topic_, msg, msg.header.stamp);
-    }
-    else {
+    } else {
       gr_->write(topic_, msg);
     }
   }
 
-  virtual void writeDump(const rclcpp::Time& time)
+  virtual void writeDump(const rclcpp::Time & time)
   {
-    std::lock_guard<std::mutex> lock_write_buffer( mutex_ );
+    std::lock_guard<std::mutex> lock_write_buffer(mutex_);
     removeOlderThan(time);
     typename std::list<T>::iterator it;
-    for (it = buffer_.begin(); it != buffer_.end(); it++)
-    {
+    for (it = buffer_.begin(); it != buffer_.end(); it++) {
       if (!helpers::recorder::isZero(it->header.stamp)) {
         gr_->write(topic_, *it, it->header.stamp);
-      }
-      else {
+      } else {
         gr_->write(topic_, *it);
       }
     }
   }
 
-  virtual void bufferize(const T& msg)
+  virtual void bufferize(const T & msg)
   {
-    std::lock_guard<std::mutex> lock_bufferize( mutex_ );
+    std::lock_guard<std::mutex> lock_bufferize(mutex_);
     typename std::list<T>::iterator it;
     removeOld();
     buffer_.push_back(msg);
@@ -114,26 +111,24 @@ public:
 
   virtual void setBufferDuration(float duration)
   {
-    std::lock_guard<std::mutex> lock_bufferize( mutex_ );
+    std::lock_guard<std::mutex> lock_bufferize(mutex_);
     buffer_duration_ = duration;
   }
 
 protected:
-  bool isTooOld(const T& msg)
+  bool isTooOld(const T & msg)
   {
     rclcpp::Duration d(helpers::Time::now() - msg.header.stamp);
-    if (static_cast<float>(d.seconds()) > buffer_duration_)
-    {
+    if (static_cast<float>(d.seconds()) > buffer_duration_) {
       return true;
     }
     return false;
   }
 
-  bool isOlderThan(const T& msg, const rclcpp::Time& time)
+  bool isOlderThan(const T & msg, const rclcpp::Time & time)
   {
     rclcpp::Duration d(time - msg.header.stamp);
-    if (static_cast<float>(d.seconds()) > buffer_duration_)
-    {
+    if (static_cast<float>(d.seconds()) > buffer_duration_) {
       return true;
     }
     return false;
@@ -141,16 +136,14 @@ protected:
 
   void removeOld()
   {
-    while (buffer_.size() > 0 && isTooOld(buffer_.front()))
-    {
+    while (buffer_.size() > 0 && isTooOld(buffer_.front())) {
       buffer_.pop_front();
     }
   }
 
-  void removeOlderThan(const rclcpp::Time& time)
+  void removeOlderThan(const rclcpp::Time & time)
   {
-    while (buffer_.size() > 0 && isOlderThan(buffer_.front(), time))
-    {
+    while (buffer_.size() > 0 && isOlderThan(buffer_.front(), time)) {
       buffer_.pop_front();
     }
   }

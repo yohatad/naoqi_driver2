@@ -36,31 +36,35 @@ namespace naoqi
 namespace subscriber
 {
 
-class TeleopSubscriber: public BaseSubscriber<TeleopSubscriber>
+class TeleopSubscriber : public BaseSubscriber<TeleopSubscriber>
 {
 public:
-  TeleopSubscriber(const std::string& name,
-                   const std::string& cmd_vel_topic,
-                   const std::string& joint_angles_topic,
-                   const std::string& joint_angle_traj_topic,
-                   const qi::SessionPtr& session);
-  ~TeleopSubscriber(){}
+  TeleopSubscriber(
+    const std::string & name,
+    const std::string & cmd_vel_topic,
+    const std::string & joint_angles_topic,
+    const std::string & joint_angle_traj_topic,
+    const qi::SessionPtr & session);
+  ~TeleopSubscriber() {}
 
-  void reset(rclcpp::Node* node);
+  void reset(rclcpp::Node * node);
   void cmd_vel_callback(const geometry_msgs::msg::Twist::SharedPtr twist_msg);
   void joint_angles_callback(const naoqi_bridge_msgs::msg::JointAnglesWithSpeed::SharedPtr js_msg);
-  void joint_angle_traj_callback(const naoqi_bridge_msgs::msg::JointAnglesTrajectory::SharedPtr traj_msg);
+  void joint_angle_traj_callback(
+    const naoqi_bridge_msgs::msg::JointAnglesTrajectory::SharedPtr traj_msg);
 
 private:
   // Helper methods for trajectory execution
-  void execute_angle_interpolation(const std::vector<std::string>& names,
-                                   const std::vector<float>& angles,
-                                   const std::vector<float>& times,
-                                   bool is_absolute);
-  
-  void execute_bezier_trajectory(const std::vector<std::string>& names,
-                                 const std::vector<float>& angles,
-                                 const std::vector<float>& times);
+  void execute_angle_interpolation(
+    const std::vector<std::string> & names,
+    const std::vector<float> & angles,
+    const std::vector<float> & times,
+    bool is_absolute);
+
+  void execute_bezier_trajectory(
+    const std::vector<std::string> & names,
+    const std::vector<float> & angles,
+    const std::vector<float> & times);
 
   // Member variables
   std::string cmd_vel_topic_;
@@ -73,7 +77,8 @@ private:
   rclcpp::TimerBase::SharedPtr cmd_vel_watchdog_timer_;
   rclcpp::Logger logger_ = rclcpp::get_logger("TeleopSubscriber");
   rclcpp::Subscription<naoqi_bridge_msgs::msg::JointAnglesWithSpeed>::SharedPtr sub_joint_angles_;
-  rclcpp::Subscription<naoqi_bridge_msgs::msg::JointAnglesTrajectory>::SharedPtr sub_joint_angle_traj_;
+  rclcpp::Subscription<naoqi_bridge_msgs::msg::JointAnglesTrajectory>::SharedPtr
+    sub_joint_angle_traj_;
 };
 
 } // namespace subscriber

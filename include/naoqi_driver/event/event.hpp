@@ -44,36 +44,35 @@ class Event
 {
 
 public:
-
   /**
   * @brief Constructor for converter interface
   */
   template<typename T>
-  Event( T event ):
-    eventPtr_( std::make_shared<EventModel<T> >(event) )
+  Event(T event)
+  : eventPtr_(std::make_shared<EventModel<T>>(event) )
   {}
 
-  void resetPublisher( rclcpp::Node* node )
+  void resetPublisher(rclcpp::Node * node)
   {
     eventPtr_->resetPublisher(node);
   }
 
-  void resetRecorder( std::shared_ptr<naoqi::recorder::GlobalRecorder> gr )
+  void resetRecorder(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr)
   {
     eventPtr_->resetRecorder(gr);
   }
 
-  void startProcess( )
+  void startProcess()
   {
     eventPtr_->startProcess();
   }
 
-  void stopProcess( )
+  void stopProcess()
   {
     eventPtr_->stopProcess();
   }
 
-  void writeDump( const rclcpp::Time& time )
+  void writeDump(const rclcpp::Time & time)
   {
     eventPtr_->writeDump(time);
   }
@@ -99,18 +98,17 @@ public:
   }
 
 private:
-
   /**
   * BASE concept struct
   */
   struct EventConcept
   {
-    virtual ~EventConcept(){}
-    virtual void resetPublisher( rclcpp::Node* node ) = 0;
+    virtual ~EventConcept() {}
+    virtual void resetPublisher(rclcpp::Node * node) = 0;
     virtual void resetRecorder(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr) = 0;
     virtual void startProcess() = 0;
     virtual void stopProcess() = 0;
-    virtual void writeDump(const rclcpp::Time& time) = 0;
+    virtual void writeDump(const rclcpp::Time & time) = 0;
     virtual void setBufferDuration(float duration) = 0;
     virtual void isRecording(bool state) = 0;
     virtual void isPublishing(bool state) = 0;
@@ -124,31 +122,31 @@ private:
   template<typename T>
   struct EventModel : public EventConcept
   {
-    EventModel( const T& other ):
-      converter_( other )
+    EventModel(const T & other)
+    : converter_(other)
     {}
 
-    void resetPublisher( rclcpp::Node* node )
+    void resetPublisher(rclcpp::Node * node)
     {
       converter_->resetPublisher(node);
     }
 
-    void resetRecorder( std::shared_ptr<naoqi::recorder::GlobalRecorder> gr )
+    void resetRecorder(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr)
     {
       converter_->resetRecorder(gr);
     }
 
-    void startProcess( )
+    void startProcess()
     {
       converter_->startProcess();
     }
 
-    void stopProcess( )
+    void stopProcess()
     {
       converter_->stopProcess();
     }
 
-    void writeDump( const rclcpp::Time& time )
+    void writeDump(const rclcpp::Time & time)
     {
       converter_->writeDump(time);
     }

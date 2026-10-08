@@ -45,33 +45,39 @@ std::queue<rcl_interfaces::msg::Log> LOGS;
 class LogLevel
 {
 public:
-  LogLevel(qi::LogLevel qi, rcl_interfaces::msg::Log::_level_type ros_msg, int severity) :
-      qi_(qi), ros_msg_(ros_msg), severity_(severity)
+  LogLevel(qi::LogLevel qi, rcl_interfaces::msg::Log::_level_type ros_msg, int severity)
+  : qi_(qi), ros_msg_(ros_msg), severity_(severity)
   {
     all_.push_back(*this);
   }
 
-  static const LogLevel& get_from_qi(qi::LogLevel qi)
+  static const LogLevel & get_from_qi(qi::LogLevel qi)
   {
-    for(const LogLevel& log_level: all_)
-      if (log_level.qi_ == qi)
+    for (const LogLevel & log_level: all_) {
+      if (log_level.qi_ == qi) {
         return log_level;
+      }
+    }
     throw std::invalid_argument("unknown qi log level");
   }
 
-  static const LogLevel& get_from_ros_msg(rcl_interfaces::msg::Log::_level_type ros_msg)
+  static const LogLevel & get_from_ros_msg(rcl_interfaces::msg::Log::_level_type ros_msg)
   {
-    for(const LogLevel& log_level: all_)
-      if (log_level.ros_msg_ == ros_msg)
+    for (const LogLevel & log_level: all_) {
+      if (log_level.ros_msg_ == ros_msg) {
         return log_level;
-      throw std::invalid_argument("unknown ROS message log level type");
+      }
+    }
+    throw std::invalid_argument("unknown ROS message log level type");
   }
 
-  static const LogLevel& get_from_log_severity(int severity)
+  static const LogLevel & get_from_log_severity(int severity)
   {
-    for(const LogLevel& log_level: all_)
-      if (log_level.severity_ == severity)
+    for (const LogLevel & log_level: all_) {
+      if (log_level.severity_ == severity) {
         return log_level;
+      }
+    }
     throw std::invalid_argument("unknown log severity");
   }
 
@@ -87,7 +93,7 @@ std::vector<LogLevel> LogLevel::all_ = std::vector<LogLevel>();
 
 /** Callback called for each libqi log message
  */
-void logCallback(const qi::LogMessage& msg)
+void logCallback(const qi::LogMessage & msg)
 {
   // Convert the NAOqi log to a ROS log
   rcl_interfaces::msg::Log log;
@@ -103,19 +109,20 @@ void logCallback(const qi::LogMessage& msg)
 
   // If we are not publishing, the queue will increase, so we have to prevent an explosion
   // We only keep a log if it's within 5 second of the last publish (totally arbitrary)
-  std::lock_guard<std::mutex> lock( MUTEX_LOGS );
-  while (LOGS.size() > 1000)
-  {
+  std::lock_guard<std::mutex> lock(MUTEX_LOGS);
+  while (LOGS.size() > 1000) {
     LOGS.pop();
   }
   LOGS.push(log);
 }
 
-LogConverter::LogConverter( const std::string& name, float frequency, const qi::SessionPtr& session )
-  : BaseConverter( name, frequency, session ),
-    logger_( session->service("LogManager").value() ),
-    // Default log level is info
-    log_level_(qi::LogLevel_Info)
+LogConverter::LogConverter(
+  const std::string & name, float frequency,
+  const qi::SessionPtr & session)
+: BaseConverter(name, frequency, session),
+  logger_(session->service("LogManager").value() ),
+  // Default log level is info
+  log_level_(qi::LogLevel_Info)
 {
   // Define the log equivalents
   LogLevel(qi::LogLevel_Silent, rcl_interfaces::msg::Log::DEBUG, RCUTILS_LOG_SEVERITY_DEBUG);
@@ -138,25 +145,23 @@ LogConverter::LogConverter( const std::string& name, float frequency, const qi::
   // listener_->onLogMessage.connect(logCallback);
 }
 
-void LogConverter::registerCallback( const message_actions::MessageAction action, Callback_t cb )
+void LogConverter::registerCallback(const message_actions::MessageAction action, Callback_t cb)
 {
   callbacks_[action] = cb;
 }
 
-void LogConverter::callAll( const std::vector<message_actions::MessageAction>& actions )
+void LogConverter::callAll(const std::vector<message_actions::MessageAction> & actions)
 {
   // Take the pending logs under the lock: logCallback() pushes (and trims the
   // queue) from NAOqi threads while we publish.
   std::queue<rcl_interfaces::msg::Log> pending;
   {
-    std::lock_guard<std::mutex> lock( MUTEX_LOGS );
+    std::lock_guard<std::mutex> lock(MUTEX_LOGS);
     std::swap(pending, LOGS);
   }
-  while ( !pending.empty() )
-  {
-    rcl_interfaces::msg::Log& log_msg = pending.front();
-    for( const message_actions::MessageAction& action: actions)
-    {
+  while (!pending.empty() ) {
+    rcl_interfaces::msg::Log & log_msg = pending.front();
+    for (const message_actions::MessageAction & action: actions) {
       callbacks_[action](log_msg);
     }
     pending.pop();
@@ -164,19 +169,20 @@ void LogConverter::callAll( const std::vector<message_actions::MessageAction>& a
   set_qi_logger_level();
 }
 
-void LogConverter::reset( )
+void LogConverter::reset()
 {
 }
 
-void LogConverter::set_qi_logger_level( )
+void LogConverter::set_qi_logger_level()
 {
   // Check that the log level is above or equal to the current one
   int severity = rcutils_logging_get_logger_effective_level(helpers::Node::get_logger().get_name());
   qi::LogLevel new_level = LogLevel::get_from_log_severity(severity).qi_;
 
   // Only change the log level if it has changed (otherwise, there is a flood of warnings)
-  if (new_level == log_level_)
-      return;
+  if (new_level == log_level_) {
+    return;
+  }
 
   log_level_ = new_level;
   qi::log::setLogLevel(log_level_);

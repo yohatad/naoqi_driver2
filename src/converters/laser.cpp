@@ -34,7 +34,7 @@ namespace naoqi
 namespace converter
 {
 
-static const char* laserMemoryKeys[] = {
+static const char * laserMemoryKeys[] = {
   // RIGHT LASER
   "Device/SubDeviceList/Platform/LaserSensor/Right/Horizontal/Seg01/X/Sensor/Value",
   "Device/SubDeviceList/Platform/LaserSensor/Right/Horizontal/Seg01/Y/Sensor/Value",
@@ -142,13 +142,14 @@ static const char* laserMemoryKeys[] = {
  * is meaningless. Only advance is meaningful, and FrameCount says the same
  * thing more directly.
  */
-static const char* laserLivenessKeys[] = {
+static const char * laserLivenessKeys[] = {
   "Device/SubDeviceList/Platform/LaserSensor/Right/Reg/FrameCount/Sensor/Value",
   "Device/SubDeviceList/Platform/LaserSensor/Front/Reg/FrameCount/Sensor/Value",
   "Device/SubDeviceList/Platform/LaserSensor/Left/Reg/FrameCount/Sensor/Value",
 };
 
-namespace {
+namespace
+{
 
 /** Scan values and liveness counters in a single getListData round trip. */
 std::vector<std::string> buildQueryKeys()
@@ -166,8 +167,8 @@ std::vector<std::string> buildQueryKeys()
  */
 inline float encodeRange(float dist, float range_min, float range_max)
 {
-  if (dist > range_max) return std::numeric_limits<float>::infinity();
-  if (dist < range_min) return std::numeric_limits<float>::quiet_NaN();
+  if (dist > range_max) {return std::numeric_limits<float>::infinity();}
+  if (dist < range_min) {return std::numeric_limits<float>::quiet_NaN();}
   return dist;
 }
 
@@ -175,8 +176,10 @@ const float kUnknownRange = std::numeric_limits<float>::quiet_NaN();
 
 }  // namespace
 
-LaserConverter::LaserConverter( const std::string& name, const float& frequency, const qi::SessionPtr& session ):
-  BaseConverter( name, frequency, session ),
+LaserConverter::LaserConverter(
+  const std::string & name, const float & frequency,
+  const qi::SessionPtr & session)
+: BaseConverter(name, frequency, session),
   p_memory_(session->service("ALMemory").value()),
   range_min_(0.1f),
   range_max_(3.0f),
@@ -184,20 +187,20 @@ LaserConverter::LaserConverter( const std::string& name, const float& frequency,
 {
 }
 
-void LaserConverter::registerCallback( message_actions::MessageAction action, Callback_t cb )
+void LaserConverter::registerCallback(message_actions::MessageAction action, Callback_t cb)
 {
   callbacks_[action] = cb;
 }
 
-void LaserConverter::callAll( const std::vector<message_actions::MessageAction>& actions )
+void LaserConverter::callAll(const std::vector<message_actions::MessageAction> & actions)
 {
   static const std::vector<std::string> laser_keys_value = buildQueryKeys();
 
   std::vector<float> result_value;
   try {
-      qi::AnyValue anyvalues = p_memory_.call<qi::AnyValue>("getListData", laser_keys_value);
-      tools::fromAnyValueToFloatVector(anyvalues, result_value);
-  } catch (const std::exception& e) {
+    qi::AnyValue anyvalues = p_memory_.call<qi::AnyValue>("getListData", laser_keys_value);
+    tools::fromAnyValueToFloatVector(anyvalues, result_value);
+  } catch (const std::exception & e) {
     std::cerr << "Exception caught in LaserConverter: " << e.what() << std::endl;
     return;
   }
@@ -205,8 +208,7 @@ void LaserConverter::callAll( const std::vector<message_actions::MessageAction>&
   // The loops below index up to 88 and the liveness counters sit at 90-92, so
   // bail out rather than read out of bounds if the robot returned a short list
   // (e.g. an unknown memory key).
-  if ( result_value.size() < laser_keys_value.size() )
-  {
+  if (result_value.size() < laser_keys_value.size() ) {
     std::cerr << "LaserConverter: expected " << laser_keys_value.size()
               << " values from ALMemory, got " << result_value.size()
               << std::endl;
@@ -217,9 +219,8 @@ void LaserConverter::callAll( const std::vector<message_actions::MessageAction>&
 
   bool live[kBankCount];
   bool any_live = false;
-  for ( size_t b = 0; b < kBankCount; ++b )
-  {
-    live[b] = liveness_[b].update( result_value[kScanValueCount + b], now_s );
+  for (size_t b = 0; b < kBankCount; ++b) {
+    live[b] = liveness_[b].update(result_value[kScanValueCount + b], now_s);
     any_live = any_live || live[b];
   }
 
@@ -228,10 +229,8 @@ void LaserConverter::callAll( const std::vector<message_actions::MessageAction>&
   // the topic keeps its rate, the stamps stay fresh, and every staleness guard
   // in the stack passes. A gap in the topic is the one failure mode consumers
   // can actually see, so produce that instead.
-  if ( !any_live )
-  {
-    if ( now_s - last_warn_s_ > 5.0 )
-    {
+  if (!any_live) {
+    if (now_s - last_warn_s_ > 5.0) {
       last_warn_s_ = now_s;
       std::cerr << "LaserConverter: no laser board has advanced its frame "
                 << "counter in " << kFrameStaleSeconds << " s -- not "
@@ -254,74 +253,73 @@ void LaserConverter::callAll( const std::vector<message_actions::MessageAction>&
    * we transform (statically) from laser frame into base_footprint
    */
   // ranges between 0-29
-  for( size_t i=0; i<30; i=i+2, ++pos)
-  {
-    const float lx = result_value[28-i]; // segments are internally flipped
-    const float ly = result_value[28-i+1]; // segments are internally flipped
-    float bx = lx*std::cos(-1.757) - ly*std::sin(-1.757) - 0.018;
-    float by = lx*std::sin(-1.757) + ly*std::cos(-1.757) - 0.090;
-    float dist = std::sqrt( std::pow(bx,2) + std::pow(by,2) );
-    msg_.ranges[pos] = live[0] ? encodeRange(dist, range_min_, range_max_)
-                               : kUnknownRange;
+  for (size_t i = 0; i < 30; i = i + 2, ++pos) {
+    const float lx = result_value[28 - i]; // segments are internally flipped
+    const float ly = result_value[28 - i + 1]; // segments are internally flipped
+    float bx = lx * std::cos(-1.757) - ly * std::sin(-1.757) - 0.018;
+    float by = lx * std::sin(-1.757) + ly * std::cos(-1.757) - 0.090;
+    float dist = std::sqrt(std::pow(bx, 2) + std::pow(by, 2) );
+    msg_.ranges[pos] = live[0] ? encodeRange(dist, range_min_, range_max_) :
+      kUnknownRange;
   }
 
-  pos = pos+8; // leave out 8 blanks ==> pos = 15+8
+  pos = pos + 8; // leave out 8 blanks ==> pos = 15+8
 
   // ranges between 30-59
-  for( size_t i=0; i<30; i=i+2, ++pos)
-  {
-    const float lx = result_value[58-i];
-    const float ly = result_value[58-i+1];
-    float bx = lx + 0.056 ;
+  for (size_t i = 0; i < 30; i = i + 2, ++pos) {
+    const float lx = result_value[58 - i];
+    const float ly = result_value[58 - i + 1];
+    float bx = lx + 0.056;
     float by = ly;
-    float dist = std::sqrt( std::pow(bx,2) + std::pow(by,2) );
-    msg_.ranges[pos] = live[1] ? encodeRange(dist, range_min_, range_max_)
-                               : kUnknownRange;
+    float dist = std::sqrt(std::pow(bx, 2) + std::pow(by, 2) );
+    msg_.ranges[pos] = live[1] ? encodeRange(dist, range_min_, range_max_) :
+      kUnknownRange;
   }
 
-  pos = pos+8; // leave out again 8 blanks ==> pos = 15+8+15+8
+  pos = pos + 8; // leave out again 8 blanks ==> pos = 15+8+15+8
 
-  for( size_t i=0; i<30; i=i+2, ++pos)
-  {
-    const float lx = result_value[88-i];
-    const float ly = result_value[88-i+1];
-    float bx = lx*std::cos(1.757) - ly*std::sin(1.757) - 0.018;
-    float by = lx*std::sin(1.757) + ly*std::cos(1.757) + 0.090;
-    float dist = std::sqrt( std::pow(bx,2) + std::pow(by,2) );
-    msg_.ranges[pos] = live[2] ? encodeRange(dist, range_min_, range_max_)
-                               : kUnknownRange;
+  for (size_t i = 0; i < 30; i = i + 2, ++pos) {
+    const float lx = result_value[88 - i];
+    const float ly = result_value[88 - i + 1];
+    float bx = lx * std::cos(1.757) - ly * std::sin(1.757) - 0.018;
+    float by = lx * std::sin(1.757) + ly * std::cos(1.757) + 0.090;
+    float dist = std::sqrt(std::pow(bx, 2) + std::pow(by, 2) );
+    msg_.ranges[pos] = live[2] ? encodeRange(dist, range_min_, range_max_) :
+      kUnknownRange;
   }
 
-  for( message_actions::MessageAction action: actions )
-  {
+  for (message_actions::MessageAction action: actions) {
     callbacks_[action](msg_);
   }
 }
 
-void LaserConverter::reset( )
+void LaserConverter::reset()
 {
   msg_.header.frame_id = "base_footprint";
   msg_.angle_min = -2.0944;   // -120
   msg_.angle_max = 2.0944;    // +120
-  msg_.angle_increment = (2*2.0944) / (15+15+15+8+8); // 240 deg FoV / 61 points (blind zones inc)
+  msg_.angle_increment = (2 * 2.0944) / (15 + 15 + 15 + 8 + 8); // 240 deg FoV / 61 points (blind zones inc)
   msg_.range_min = this->range_min_; // in m
   msg_.range_max = this->range_max_; // in m
   msg_.ranges = std::vector<float>(61, -1.0f);
 }
 
 void LaserConverter::setLaserRanges(
-    const float &range_min,
-    const float &range_max) {
+  const float & range_min,
+  const float & range_max)
+{
 
-  if (range_min > 0)
+  if (range_min > 0) {
     this->range_min_ = range_min;
-  else
+  } else {
     this->range_min_ = 0.1;
+  }
 
-  if (range_max > this->range_min_)
+  if (range_max > this->range_min_) {
     this->range_max_ = range_max;
-  else
+  } else {
     this->range_max_ = 3.0;
+  }
 }
 
 } //converter

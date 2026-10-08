@@ -41,13 +41,12 @@ class Publisher
 {
 
 public:
-
   /**
   * @brief Constructor for publisher interface
   */
   template<typename T>
-  Publisher( const T& pub ):
-    pubPtr_( std::make_shared<PublisherModel<T> >(pub) )
+  Publisher(const T & pub)
+  : pubPtr_(std::make_shared<PublisherModel<T>>(pub) )
   {}
 
   /**
@@ -73,10 +72,10 @@ public:
   * this will be called at first for initialization
   * @param node rclcpp::Node pointer from which the publisher is created
   */
-  void reset( rclcpp::Node* node )
+  void reset(rclcpp::Node * node)
   {
     std::cout << topic() << " is resetting" << std::endl;
-    pubPtr_->reset( node );
+    pubPtr_->reset(node);
     std::cout << topic() << " reset" << std::endl;
   }
 
@@ -89,30 +88,32 @@ public:
     return pubPtr_->topic();
   }
 
-  friend bool operator==( const Publisher& lhs, const Publisher& rhs )
+  friend bool operator==(const Publisher & lhs, const Publisher & rhs)
   {
     // decision made for OR-comparison since we want to be more restrictive
-    if ( lhs.topic() == rhs.topic() )
+    if (lhs.topic() == rhs.topic() ) {
       return true;
+    }
     return false;
   }
 
-  friend bool operator==( const std::shared_ptr<Publisher>& lhs, const std::shared_ptr<Publisher>& rhs )
+  friend bool operator==(
+    const std::shared_ptr<Publisher> & lhs,
+    const std::shared_ptr<Publisher> & rhs)
   {
-    return operator==( *lhs, *rhs );
+    return operator==(*lhs, *rhs);
   }
 
 private:
-
   /**
   * BASE concept struct
   */
   struct PublisherConcept
   {
-    virtual ~PublisherConcept(){}
+    virtual ~PublisherConcept() {}
     virtual bool isInitialized() const = 0;
     virtual bool isSubscribed() const = 0;
-    virtual void reset( rclcpp::Node* node ) = 0;
+    virtual void reset(rclcpp::Node * node) = 0;
     virtual std::string topic() const = 0;
   };
 
@@ -123,8 +124,8 @@ private:
   template<typename T>
   struct PublisherModel : public PublisherConcept
   {
-    PublisherModel( const T& other ):
-      publisher_( other )
+    PublisherModel(const T & other)
+    : publisher_(other)
     {}
 
     std::string topic() const
@@ -142,9 +143,9 @@ private:
       return publisher_->isSubscribed();
     }
 
-    void reset( rclcpp::Node* node )
+    void reset(rclcpp::Node * node)
     {
-      publisher_->reset( node );
+      publisher_->reset(node);
     }
 
     T publisher_;

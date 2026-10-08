@@ -41,13 +41,12 @@ class Service
 {
 
 public:
-
   /**
   * @brief Constructor for service interface
   */
   template<typename T>
-  Service( T srv ):
-    srvPtr_( std::make_shared<ServiceModel<T> >(srv) )
+  Service(T srv)
+  : srvPtr_(std::make_shared<ServiceModel<T>>(srv) )
   {}
 
   /**
@@ -55,10 +54,10 @@ public:
   * this will be called at first for initialization
   * @param node rclcpp::Node pointer used to create the service
   */
-  void reset( rclcpp::Node* node )
+  void reset(rclcpp::Node * node)
   {
     std::cout << name() << " is resetting" << std::endl;
-    srvPtr_->reset( node );
+    srvPtr_->reset(node);
     std::cout << name() << " reset" << std::endl;
   }
 
@@ -81,14 +80,13 @@ public:
   }
 
 private:
-
   /**
   * BASE concept struct
   */
   struct ServiceConcept
   {
-    virtual ~ServiceConcept(){}
-    virtual void reset( rclcpp::Node* node ) = 0;
+    virtual ~ServiceConcept() {}
+    virtual void reset(rclcpp::Node * node) = 0;
     virtual std::string name() const = 0;
     virtual std::string topic() const = 0;
   };
@@ -100,8 +98,8 @@ private:
   template<typename T>
   struct ServiceModel : public ServiceConcept
   {
-    ServiceModel( const T& other ):
-      service_( other )
+    ServiceModel(const T & other)
+    : service_(other)
     {}
 
     std::string name() const
@@ -119,9 +117,9 @@ private:
       return service_->isInitialized();
     }
 
-    void reset( rclcpp::Node* node )
+    void reset(rclcpp::Node * node)
     {
-      service_->reset( node );
+      service_->reset(node);
     }
 
     T service_;

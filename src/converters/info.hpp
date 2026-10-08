@@ -40,16 +40,16 @@ namespace converter
 class InfoConverter : public BaseConverter<InfoConverter>
 {
 
-  typedef std::function<void(naoqi_bridge_msgs::msg::StringStamped)> Callback_t;
+  typedef std::function<void (naoqi_bridge_msgs::msg::StringStamped)> Callback_t;
 
 public:
-  InfoConverter( const std::string& name, float frequency, const qi::SessionPtr& sessions );
+  InfoConverter(const std::string & name, float frequency, const qi::SessionPtr & sessions);
 
   void reset();
 
-  void registerCallback( const message_actions::MessageAction action, Callback_t cb );
+  void registerCallback(const message_actions::MessageAction action, Callback_t cb);
 
-  void callAll( const std::vector<message_actions::MessageAction>& actions );
+  void callAll(const std::vector<message_actions::MessageAction> & actions);
 
 private:
   /** Memory (Proxy) configurations */

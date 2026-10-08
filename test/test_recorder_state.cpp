@@ -18,8 +18,8 @@ class RecorderStateTest : public naoqi_test::RosTest {};
 
 TEST_F(RecorderStateTest, StopRecordWorksWithoutHome)
 {
-  naoqi_test::TempDir dir(/*chdir_into=*/true);
-  const char* old_home = std::getenv("HOME");
+  naoqi_test::TempDir dir(/*chdir_into=*/ true);
+  const char * old_home = std::getenv("HOME");
   const std::string saved = old_home ? old_home : "";
   ::unsetenv("HOME");
 
@@ -29,31 +29,31 @@ TEST_F(RecorderStateTest, StopRecordWorksWithoutHome)
   EXPECT_NO_THROW(bag = global.stopRecord());
   EXPECT_NE(bag.find("nohome_"), std::string::npos);
 
-  if (old_home)
+  if (old_home) {
     ::setenv("HOME", saved.c_str(), 1);
+  }
 }
 
 TEST_F(RecorderStateTest, IsStartedCanBePolledWhileStartingAndStopping)
 {
-  naoqi_test::TempDir dir(/*chdir_into=*/true);
+  naoqi_test::TempDir dir(/*chdir_into=*/ true);
   GlobalRecorder global("naoqi_driver");
 
   std::atomic<bool> stop{false};
   std::atomic<bool> polling{false};
   std::atomic<long> polls{0};
   std::thread poller([&] {
-    while (!stop)
-    {
-      (void)global.isStarted();
-      ++polls;
-      polling = true;
-    }
-  });
+      while (!stop) {
+        (void)global.isStarted();
+        ++polls;
+        polling = true;
+      }
+    });
   // Only start toggling once the poller is running, so the two really overlap.
-  while (!polling)
+  while (!polling) {
     std::this_thread::yield();
-  for (int i = 0; i < 200; ++i)
-  {
+  }
+  for (int i = 0; i < 200; ++i) {
     global.startRecord("poll");
     global.stopRecord();
   }

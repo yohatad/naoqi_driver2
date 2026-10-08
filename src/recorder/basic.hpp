@@ -41,11 +41,11 @@ class BasicRecorder
 {
 
 public:
-  BasicRecorder( const std::string& topic, float buffer_frequency = 0 ):
-    topic_( topic ),
-    buffer_duration_( helpers::recorder::bufferDefaultDuration ),
-    is_initialized_( false ),
-    is_subscribed_( false ),
+  BasicRecorder(const std::string & topic, float buffer_frequency = 0)
+  : topic_(topic),
+    buffer_duration_(helpers::recorder::bufferDefaultDuration),
+    is_initialized_(false),
+    is_subscribed_(false),
     buffer_frequency_(buffer_frequency),
     counter_(1)
   {}
@@ -62,7 +62,7 @@ public:
     return is_initialized_;
   }
 
-  inline void subscribe( bool state)
+  inline void subscribe(bool state)
   {
     is_subscribed_ = state;
   }
@@ -72,40 +72,34 @@ public:
     return is_subscribed_;
   }
 
-  virtual void write(const T& msg)
+  virtual void write(const T & msg)
   {
     if (!helpers::recorder::isZero(msg.header.stamp)) {
       gr_->write(topic_, msg, msg.header.stamp);
-    }
-    else {
+    } else {
       gr_->write(topic_, msg);
     }
   }
 
-  virtual void writeDump(const rclcpp::Time& time)
+  virtual void writeDump(const rclcpp::Time & time)
   {
-    std::lock_guard<std::mutex> lock_write_buffer( mutex_ );
+    std::lock_guard<std::mutex> lock_write_buffer(mutex_);
     typename boost::circular_buffer<T>::iterator it;
-    for (it = buffer_.begin(); it != buffer_.end(); it++)
-    {
+    for (it = buffer_.begin(); it != buffer_.end(); it++) {
       if (!helpers::recorder::isZero(it->header.stamp)) {
         gr_->write(topic_, *it, it->header.stamp);
-      }
-      else {
+      } else {
         gr_->write(topic_, *it);
       }
     }
   }
 
-  virtual void bufferize(const T& msg)
+  virtual void bufferize(const T & msg)
   {
-    std::lock_guard<std::mutex> lock_bufferize( mutex_ );
-    if (counter_ < max_counter_)
-    {
+    std::lock_guard<std::mutex> lock_bufferize(mutex_);
+    if (counter_ < max_counter_) {
       counter_++;
-    }
-    else
-    {
+    } else {
       counter_ = 1;
       buffer_.push_back(msg);
     }
@@ -115,15 +109,12 @@ public:
   {
     gr_ = gr;
     conv_frequency_ = conv_frequency;
-    if (buffer_frequency_ != 0)
-    {
-      max_counter_ = static_cast<int>(conv_frequency/buffer_frequency_);
-      buffer_size_ = static_cast<size_t>(buffer_duration_*(conv_frequency/max_counter_));
-    }
-    else
-    {
+    if (buffer_frequency_ != 0) {
+      max_counter_ = static_cast<int>(conv_frequency / buffer_frequency_);
+      buffer_size_ = static_cast<size_t>(buffer_duration_ * (conv_frequency / max_counter_));
+    } else {
       max_counter_ = 1;
-      buffer_size_ = static_cast<size_t>(buffer_duration_*conv_frequency);
+      buffer_size_ = static_cast<size_t>(buffer_duration_ * conv_frequency);
     }
     buffer_.resize(buffer_size_);
     is_initialized_ = true;
@@ -131,8 +122,8 @@ public:
 
   virtual void setBufferDuration(float duration)
   {
-    std::lock_guard<std::mutex> lock_bufferize( mutex_ );
-    buffer_size_ = static_cast<size_t>(duration*(conv_frequency_/max_counter_));
+    std::lock_guard<std::mutex> lock_bufferize(mutex_);
+    buffer_size_ = static_cast<size_t>(duration * (conv_frequency_ / max_counter_));
     buffer_duration_ = duration;
     buffer_.set_capacity(buffer_size_);
   }

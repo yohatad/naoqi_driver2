@@ -35,14 +35,15 @@ namespace naoqi
 namespace subscriber
 {
 
-MovetoSubscriber::MovetoSubscriber( const std::string& name, const std::string& topic, const qi::SessionPtr& session,
-                                    const std::shared_ptr<tf2_ros::Buffer>& tf2_buffer):
-  BaseSubscriber( name, topic, session ),
-  p_motion_( session->service("ALMotion").value() ),
-  tf2_buffer_( tf2_buffer )
+MovetoSubscriber::MovetoSubscriber(
+  const std::string & name, const std::string & topic, const qi::SessionPtr & session,
+  const std::shared_ptr<tf2_ros::Buffer> & tf2_buffer)
+: BaseSubscriber(name, topic, session),
+  p_motion_(session->service("ALMotion").value() ),
+  tf2_buffer_(tf2_buffer)
 {}
 
-void MovetoSubscriber::reset( rclcpp::Node* node )
+void MovetoSubscriber::reset(rclcpp::Node * node)
 {
   sub_moveto_ = node->create_subscription<geometry_msgs::msg::PoseStamped>(
     topic_,
@@ -52,7 +53,7 @@ void MovetoSubscriber::reset( rclcpp::Node* node )
   is_initialized_ = true;
 }
 
-void MovetoSubscriber::callback( const geometry_msgs::msg::PoseStamped::SharedPtr pose_msg )
+void MovetoSubscriber::callback(const geometry_msgs::msg::PoseStamped::SharedPtr pose_msg)
 {
   if (pose_msg->header.frame_id == "odom") {
     geometry_msgs::msg::PoseStamped pose_msg_bf;
@@ -66,7 +67,7 @@ void MovetoSubscriber::callback( const geometry_msgs::msg::PoseStamped::SharedPt
 
       double yaw = helpers::transform::getYaw(pose_msg_bf.pose);
 
-      std::cout << "odom to move x: " <<  pose_msg_bf.pose.position.x
+      std::cout << "odom to move x: " << pose_msg_bf.pose.position.x
                 << " y: " << pose_msg_bf.pose.position.y
                 << " yaw: " << yaw << std::endl;
 
@@ -81,19 +82,18 @@ void MovetoSubscriber::callback( const geometry_msgs::msg::PoseStamped::SharedPt
         pose_msg_bf.pose.position.y,
         yaw);
 
-    } catch( const tf2::TransformException& e) {
+    } catch (const tf2::TransformException & e) {
       std::cout << e.what() << std::endl;
       std::cout << "moveto position in frame_id "
                 << pose_msg->header.frame_id
                 << "is not supported in any other base frame than "
-                   "basefootprint"
+        "basefootprint"
                 << std::endl;
     }
-  }
-  else if (pose_msg->header.frame_id == "base_footprint"){
+  } else if (pose_msg->header.frame_id == "base_footprint") {
     double yaw = helpers::transform::getYaw(pose_msg->pose);
     std::cout << "going to move x: "
-              <<  pose_msg->pose.position.x
+              << pose_msg->pose.position.x
               << " y: " << pose_msg->pose.position.y
               << " yaw: " << yaw << std::endl;
 
@@ -107,14 +107,13 @@ void MovetoSubscriber::callback( const geometry_msgs::msg::PoseStamped::SharedPt
       pose_msg->pose.position.x,
       pose_msg->pose.position.y,
       yaw);
-  }
-
-  else
+  } else {
     std::cout << "Cannot reach position expressed in the "
               << pose_msg->header.frame_id
               << " frame, enter a valid frame id in the pose's header"
-                 " (base_footprint or odom)"
+      " (base_footprint or odom)"
               << std::endl;
+  }
 }
 
 } //publisher

@@ -59,34 +59,33 @@ class GlobalRecorder
 {
 
 public:
-
   /**
   * @brief Constructor for recorder interface
   */
-  GlobalRecorder(const std::string& prefix_topic);
+  GlobalRecorder(const std::string & prefix_topic);
 
   /**
   * @brief Initialize the recording of the ROSbag
   */
-  void startRecord(const std::string& prefix_bag = "");
+  void startRecord(const std::string & prefix_bag = "");
 
   /**
   * @brief Terminate the recording of the ROSbag
   */
-  std::string stopRecord(const std::string& robot_ip = "<ROBOT_IP>");
+  std::string stopRecord(const std::string & robot_ip = "<ROBOT_IP>");
 
   /**
   * @brief Insert data into the ROSbag
   */
-  template <class T>
-  void write(const std::string& topic, const T& msg, const rclcpp::Time& time = helpers::Time::now() ) {
+  template<class T>
+  void write(
+    const std::string & topic, const T & msg,
+    const rclcpp::Time & time = helpers::Time::now() )
+  {
     std::string ros_topic;
-    if (topic[0]!='/')
-    {
-      ros_topic = _prefix_topic+topic;
-    }
-    else
-    {
+    if (topic[0] != '/') {
+      ros_topic = _prefix_topic + topic;
+    } else {
       ros_topic = topic;
     }
     rclcpp::Time time_msg = time;
@@ -107,14 +106,16 @@ public:
     // bag_message.topic = topic;
 
     // setup the bag
-    std::lock_guard<std::mutex> writeLock( _processMutex );
+    std::lock_guard<std::mutex> writeLock(_processMutex);
     if (_isStarted) {
       // _bag.write(ros_topic, time_msg, msg);
       // this->_writer.write(bag_message);
     }
   }
 
-  void write(const std::string& topic, const std::vector<geometry_msgs::msg::TransformStamped>& msgtf);
+  void write(
+    const std::string & topic,
+    const std::vector<geometry_msgs::msg::TransformStamped> & msgtf);
 
   /**
   * @brief Check if the ROSbag is opened

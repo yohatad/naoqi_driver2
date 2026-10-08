@@ -25,18 +25,18 @@ namespace naoqi
 namespace publisher
 {
 
-MemoryIntPublisher::MemoryIntPublisher( const std::string& topic ):
-  BasePublisher( topic )
+MemoryIntPublisher::MemoryIntPublisher(const std::string & topic)
+: BasePublisher(topic)
 {}
 
-void MemoryIntPublisher::publish(const naoqi_bridge_msgs::msg::IntStamped& msg )
+void MemoryIntPublisher::publish(const naoqi_bridge_msgs::msg::IntStamped & msg)
 {
-  pub_->publish( msg );
+  pub_->publish(msg);
 }
 
-void MemoryIntPublisher::reset( rclcpp::Node* node )
+void MemoryIntPublisher::reset(rclcpp::Node * node)
 {
-  pub_ = node->create_publisher< naoqi_bridge_msgs::msg::IntStamped >( topic_, 10 );
+  pub_ = node->create_publisher<naoqi_bridge_msgs::msg::IntStamped>(topic_, 10);
   is_initialized_ = true;
 }
 

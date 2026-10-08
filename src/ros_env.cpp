@@ -29,18 +29,21 @@ static std::string g_prefix = "";
 
 std::string getROSIP(std::string network_interface)
 {
-  if (network_interface.empty())
+  if (network_interface.empty()) {
     network_interface = "eth0";
+  }
 
-  typedef std::map< std::string, std::vector<std::string> > Map_IP;
+  typedef std::map<std::string, std::vector<std::string>> Map_IP;
   Map_IP map_ip = static_cast<Map_IP>(qi::os::hostIPAddrs());
-  
-  if ( map_ip.find(network_interface) == map_ip.end() ) {
-    std::cerr << "Could not find network interface named " << network_interface << ", possible interfaces are ... ";
-    for (Map_IP::iterator it=map_ip.begin(); it!=map_ip.end(); ++it) 
-      std::cerr << it->first <<  " ";
+
+  if (map_ip.find(network_interface) == map_ip.end() ) {
+    std::cerr << "Could not find network interface named " << network_interface <<
+      ", possible interfaces are ... ";
+    for (Map_IP::iterator it = map_ip.begin(); it != map_ip.end(); ++it) {
+      std::cerr << it->first << " ";
+    }
     std::cerr << std::endl;
-    
+
     // Throw exception instead of calling exit()
     throw std::runtime_error("Network interface '" + network_interface + "' not found");
   }
@@ -48,7 +51,7 @@ std::string getROSIP(std::string network_interface)
   return map_ip[network_interface][0];
 }
 
-void setPrefix( std::string s )
+void setPrefix(std::string s)
 {
   g_prefix = s;
   std::cout << "set prefix successfully to " << g_prefix << std::endl;

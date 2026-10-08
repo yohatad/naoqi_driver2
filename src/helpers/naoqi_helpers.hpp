@@ -31,14 +31,11 @@ static dataType::DataType getDataType(qi::AnyValue value)
   dataType::DataType type;
   if (value.kind() == qi::TypeKind_Int) {
     type = dataType::Int;
-  }
-  else if (value.kind() == qi::TypeKind_Float) {
+  } else if (value.kind() == qi::TypeKind_Float) {
     type = dataType::Float;
-  }
-  else if (value.kind() == qi::TypeKind_String) {
+  } else if (value.kind() == qi::TypeKind_String) {
     type = dataType::String;
-  }
-  else {
+  } else {
     throw std::runtime_error("Cannot get a valid type.");
   }
   return type;

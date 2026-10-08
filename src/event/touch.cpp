@@ -39,25 +39,31 @@ TouchEventRegister<T>::TouchEventRegister()
 }
 
 template<class T>
-TouchEventRegister<T>::TouchEventRegister( const std::string& name, const std::vector<std::string> keys, const float& frequency, const qi::SessionPtr& session )
-  : p_memory_( session->service("ALMemory").value()),
-    isStarted_(false),
-    isPublishing_(false),
-    isRecording_(false),
-    isDumping_(false)
+TouchEventRegister<T>::TouchEventRegister(
+  const std::string & name,
+  const std::vector<std::string> keys,
+  const float & frequency, const qi::SessionPtr & session)
+: p_memory_(session->service("ALMemory").value()),
+  isStarted_(false),
+  isPublishing_(false),
+  isRecording_(false),
+  isDumping_(false)
 {
-  publisher_ = std::make_shared<publisher::BasicPublisher<T> >( name );
+  publisher_ = std::make_shared<publisher::BasicPublisher<T>>(name);
   //recorder_ = std::make_shared<recorder::BasicEventRecorder<T> >( name );
-  converter_ = std::make_shared<converter::TouchEventConverter<T> >( name, frequency, session );
+  converter_ = std::make_shared<converter::TouchEventConverter<T>>(name, frequency, session);
 
-  converter_->registerCallback( message_actions::PUBLISH, std::bind(&publisher::BasicPublisher<T>::publish, publisher_, std::placeholders::_1) );
+  converter_->registerCallback(
+    message_actions::PUBLISH,
+    std::bind(&publisher::BasicPublisher<T>::publish, publisher_, std::placeholders::_1) );
   //converter_->registerCallback( message_actions::RECORD, std::bind(&recorder::BasicEventRecorder<T>::write, recorder_, _1) );
   //converter_->registerCallback( message_actions::LOG, std::bind(&recorder::BasicEventRecorder<T>::bufferize, recorder_, _1) );
 
   keys_.resize(keys.size());
   size_t i = 0;
-  for(std::vector<std::string>::const_iterator it = keys.begin(); it != keys.end(); ++it, ++i)
+  for (std::vector<std::string>::const_iterator it = keys.begin(); it != keys.end(); ++it, ++i) {
     keys_[i] = *it;
+  }
 
   name_ = name;
 }
@@ -69,13 +75,13 @@ TouchEventRegister<T>::~TouchEventRegister()
 }
 
 template<class T>
-void TouchEventRegister<T>::resetPublisher(rclcpp::Node* node)
+void TouchEventRegister<T>::resetPublisher(rclcpp::Node * node)
 {
   publisher_->reset(node);
 }
 
 template<class T>
-void TouchEventRegister<T>::resetRecorder( std::shared_ptr<naoqi::recorder::GlobalRecorder> gr )
+void TouchEventRegister<T>::resetRecorder(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr)
 {
   //recorder_->reset(gr, converter_->frequency());
 }
@@ -84,13 +90,14 @@ template<class T>
 void TouchEventRegister<T>::startProcess()
 {
   std::lock_guard<std::mutex> start_lock(mutex_);
-  if (!isStarted_)
-  {
-    if (subscriptions_.empty())
-    {
-      for (const auto& key : keys_) {
+  if (!isStarted_) {
+    if (subscriptions_.empty()) {
+      for (const auto & key : keys_) {
         auto subscriber = p_memory_.call<qi::AnyObject>("subscriber", key);
-        qi::SignalLink subscription = subscriber.connect("signal", [=](const qi::AnyValue& v){ touchCallback(key, v); }).value();
+        qi::SignalLink subscription = subscriber.connect(
+          "signal", [ = ](const qi::AnyValue & v) {
+            touchCallback(key, v);
+          }).value();
         subscriptions_.emplace_back(std::move(subscriber), std::move(subscription));
       }
     }
@@ -102,14 +109,14 @@ template<class T>
 void TouchEventRegister<T>::stopProcess()
 {
   std::lock_guard<std::mutex> stop_lock(mutex_);
-  if (isStarted_)
-  {
-    if (!subscriptions_.empty()){
-      for (const auto& subscription : subscriptions_) {
+  if (isStarted_) {
+    if (!subscriptions_.empty()) {
+      for (const auto & subscription : subscriptions_) {
         try {
           subscription.subscriber.disconnect(subscription.link).value();
-        } catch (const std::exception& e) {
-          std::cerr << "Error attempting to clean-up ALMemory subscription: " << e.what() << std::endl;
+        } catch (const std::exception & e) {
+          std::cerr << "Error attempting to clean-up ALMemory subscription: " << e.what() <<
+            std::endl;
         }
       }
       subscriptions_.clear();
@@ -119,10 +126,9 @@ void TouchEventRegister<T>::stopProcess()
 }
 
 template<class T>
-void TouchEventRegister<T>::writeDump(const rclcpp::Time& time)
+void TouchEventRegister<T>::writeDump(const rclcpp::Time & time)
 {
-  if (isStarted_)
-  {
+  if (isStarted_) {
     //recorder_->writeDump(time);
   }
 }
@@ -165,10 +171,10 @@ void TouchEventRegister<T>::unregisterCallback()
 }
 
 template<class T>
-void TouchEventRegister<T>::touchCallback(const std::string &key, const qi::AnyValue& value)
+void TouchEventRegister<T>::touchCallback(const std::string & key, const qi::AnyValue & value)
 {
   T msg = T();
-  bool state =  value.toFloat() > 0.5f;
+  bool state = value.toFloat() > 0.5f;
 
   touchCallbackMessage(key, state, msg);
 
@@ -176,61 +182,66 @@ void TouchEventRegister<T>::touchCallback(const std::string &key, const qi::AnyV
   std::lock_guard<std::mutex> callback_lock(mutex_);
   if (isStarted_) {
     // CHECK FOR PUBLISH
-    if ( isPublishing_ && publisher_->isSubscribed() )
-    {
+    if (isPublishing_ && publisher_->isSubscribed() ) {
       actions.push_back(message_actions::PUBLISH);
     }
     // CHECK FOR RECORD
-    if ( isRecording_ )
-    {
+    if (isRecording_) {
       //actions.push_back(message_actions::RECORD);
     }
-    if ( !isDumping_ )
-    {
+    if (!isDumping_) {
       //actions.push_back(message_actions::LOG);
     }
-    if (actions.size() >0)
-    {
-      converter_->callAll( actions, msg );
+    if (actions.size() > 0) {
+      converter_->callAll(actions, msg);
     }
   }
 }
 
 template<class T>
-void TouchEventRegister<T>::touchCallbackMessage(const std::string &key, bool &state, naoqi_bridge_msgs::msg::Bumper &msg)
+void TouchEventRegister<T>::touchCallbackMessage(
+  const std::string & key, bool & state,
+  naoqi_bridge_msgs::msg::Bumper & msg)
 {
   int i = 0;
-  for(std::vector<std::string>::const_iterator it = keys_.begin(); it != keys_.end(); ++it, ++i)
-  {
-    if ( key == it->c_str() ) {
+  for (std::vector<std::string>::const_iterator it = keys_.begin(); it != keys_.end(); ++it, ++i) {
+    if (key == it->c_str() ) {
       msg.bumper = i;
-      msg.state = state?(naoqi_bridge_msgs::msg::Bumper::STATE_PRESSED):(naoqi_bridge_msgs::msg::Bumper::STATE_RELEASED);
+      msg.state =
+        state ? (naoqi_bridge_msgs::msg::Bumper::STATE_PRESSED) : (naoqi_bridge_msgs::msg::Bumper
+        ::STATE_RELEASED);
     }
   }
 }
 
 template<class T>
-void TouchEventRegister<T>::touchCallbackMessage(const std::string &key, bool &state, naoqi_bridge_msgs::msg::HandTouch &msg)
+void TouchEventRegister<T>::touchCallbackMessage(
+  const std::string & key, bool & state,
+  naoqi_bridge_msgs::msg::HandTouch & msg)
 {
   int i = 0;
-  for(std::vector<std::string>::const_iterator it = keys_.begin(); it != keys_.end(); ++it, ++i)
-  {
-    if ( key == it->c_str() ) {
+  for (std::vector<std::string>::const_iterator it = keys_.begin(); it != keys_.end(); ++it, ++i) {
+    if (key == it->c_str() ) {
       msg.hand = i;
-      msg.state = state?(naoqi_bridge_msgs::msg::HandTouch::STATE_PRESSED):(naoqi_bridge_msgs::msg::HandTouch::STATE_RELEASED);
+      msg.state =
+        state ? (naoqi_bridge_msgs::msg::HandTouch::STATE_PRESSED) : (naoqi_bridge_msgs::msg::
+        HandTouch::STATE_RELEASED);
     }
   }
 }
 
 template<class T>
-void TouchEventRegister<T>::touchCallbackMessage(const std::string &key, bool &state, naoqi_bridge_msgs::msg::HeadTouch &msg)
+void TouchEventRegister<T>::touchCallbackMessage(
+  const std::string & key, bool & state,
+  naoqi_bridge_msgs::msg::HeadTouch & msg)
 {
   int i = 0;
-  for(std::vector<std::string>::const_iterator it = keys_.begin(); it != keys_.end(); ++it, ++i)
-  {
-    if ( key == it->c_str() ) {
+  for (std::vector<std::string>::const_iterator it = keys_.begin(); it != keys_.end(); ++it, ++i) {
+    if (key == it->c_str() ) {
       msg.button = i;
-      msg.state = state?(naoqi_bridge_msgs::msg::HeadTouch::STATE_PRESSED):(naoqi_bridge_msgs::msg::HeadTouch::STATE_RELEASED);
+      msg.state =
+        state ? (naoqi_bridge_msgs::msg::HeadTouch::STATE_PRESSED) : (naoqi_bridge_msgs::msg::
+        HeadTouch::STATE_RELEASED);
     }
   }
 }

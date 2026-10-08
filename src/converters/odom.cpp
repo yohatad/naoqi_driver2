@@ -38,27 +38,30 @@ float OdomConverter::orientation_offset_wx_ = 0.0f;
 float OdomConverter::orientation_offset_wy_ = 0.0f;
 float OdomConverter::orientation_offset_wz_ = 0.0f;
 
-OdomConverter::OdomConverter( const std::string& name, const float& frequency, const qi::SessionPtr& session ):
-  BaseConverter( name, frequency, session ),
-  p_motion_( session->service("ALMotion").value() )
-
+OdomConverter::OdomConverter(
+  const std::string & name, const float & frequency,
+  const qi::SessionPtr & session)
+: BaseConverter(name, frequency, session),
+  p_motion_(session->service("ALMotion").value() )
 {
 }
 
-void OdomConverter::registerCallback( message_actions::MessageAction action, Callback_t cb )
+void OdomConverter::registerCallback(message_actions::MessageAction action, Callback_t cb)
 {
   callbacks_[action] = cb;
 }
 
-void OdomConverter::callAll( const std::vector<message_actions::MessageAction>& actions )
+void OdomConverter::callAll(const std::vector<message_actions::MessageAction> & actions)
 {
   bool use_sensor = true;
 
   // Get robot base position in world frame (X, Y, Theta)
-  std::vector<float> al_position_data = p_motion_.call<std::vector<float> >( "getRobotPosition", use_sensor );
+  std::vector<float> al_position_data = p_motion_.call<std::vector<float>>(
+    "getRobotPosition",
+    use_sensor);
 
-  const rclcpp::Time& odom_stamp = helpers::Time::now();
-  std::vector<float> al_speed_data = p_motion_.call<std::vector<float> >( "getRobotVelocity" );
+  const rclcpp::Time & odom_stamp = helpers::Time::now();
+  std::vector<float> al_speed_data = p_motion_.call<std::vector<float>>("getRobotVelocity");
 
   // Raw data from NAOqi
   float raw_x = al_position_data[0];      // X position in world frame
@@ -92,14 +95,14 @@ void OdomConverter::callAll( const std::vector<message_actions::MessageAction>& 
   const float odomTheta = raw_theta - offset_wz;
 
   // Velocity is already in FRAME_ROBOT (base_link) - perfect for odometry
-  const float& dX = al_speed_data[0];
-  const float& dY = al_speed_data[1];
-  const float& dWZ = al_speed_data[2];
+  const float & dX = al_speed_data[0];
+  const float & dY = al_speed_data[1];
+  const float & dWZ = al_speed_data[2];
 
   // Create quaternion from yaw angle
   tf2::Quaternion tf_quat;
   tf_quat.setRPY(0.0, 0.0, odomTheta);
-  geometry_msgs::msg::Quaternion odom_quat = tf2::toMsg( tf_quat );
+  geometry_msgs::msg::Quaternion odom_quat = tf2::toMsg(tf_quat);
 
   static nav_msgs::msg::Odometry msg_odom;
   msg_odom.header.frame_id = "pepper_odom";
@@ -126,13 +129,12 @@ void OdomConverter::callAll( const std::vector<message_actions::MessageAction>& 
   msg_odom.twist.covariance[7] = 0.01;
   msg_odom.twist.covariance[35] = 0.1;
 
-  for( message_actions::MessageAction action: actions )
-  {
+  for (message_actions::MessageAction action: actions) {
     callbacks_[action](msg_odom);
   }
 }
 
-void OdomConverter::reset( )
+void OdomConverter::reset()
 {
   // Call the static reset method
   resetOdometry();
@@ -143,7 +145,9 @@ void OdomConverter::resetOdometry()
   try {
     // Get current position using same API as odometry measurement
     bool use_sensor = true;
-    std::vector<float> current_pos = p_motion_.call<std::vector<float> >( "getRobotPosition", use_sensor );
+    std::vector<float> current_pos = p_motion_.call<std::vector<float>>(
+      "getRobotPosition",
+      use_sensor);
 
     // getRobotPosition returns 3 values: [X, Y, Theta]
     {
@@ -160,13 +164,12 @@ void OdomConverter::resetOdometry()
     std::cout << "New offsets - X: " << current_pos[0]
               << " Y: " << current_pos[1]
               << " Theta: " << current_pos[2] << std::endl;
-  }
-  catch (const std::exception& e) {
+  } catch (const std::exception & e) {
     std::cerr << "Failed to reset odometry: " << e.what() << std::endl;
   }
 }
 
-void OdomConverter::getOffsets(float& x, float& y, float& z, float& wx, float& wy, float& wz)
+void OdomConverter::getOffsets(float & x, float & y, float & z, float & wx, float & wy, float & wz)
 {
   std::lock_guard<std::mutex> lock(offsets_mutex_);
   x = position_offset_x_;

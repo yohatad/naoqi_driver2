@@ -55,21 +55,20 @@ static const double kFrameStaleSeconds = 1.0;
 class LaserConverter : public BaseConverter<LaserConverter>
 {
 
-  typedef std::function<void(sensor_msgs::msg::LaserScan&)> Callback_t;
+  typedef std::function<void (sensor_msgs::msg::LaserScan &)> Callback_t;
 
 public:
-  LaserConverter( const std::string& name, const float& frequency, const qi::SessionPtr& session );
+  LaserConverter(const std::string & name, const float & frequency, const qi::SessionPtr & session);
 
-  void registerCallback( message_actions::MessageAction action, Callback_t cb );
+  void registerCallback(message_actions::MessageAction action, Callback_t cb);
 
-  void callAll( const std::vector<message_actions::MessageAction>& actions );
+  void callAll(const std::vector<message_actions::MessageAction> & actions);
 
-  void reset( );
+  void reset();
 
-  void setLaserRanges(const float &range_min, const float &range_max);
+  void setLaserRanges(const float & range_min, const float & range_max);
 
 private:
-
   /** Advance-based liveness for one laser board.
    *
    * The boards stop sampling entirely whenever the robot is at rest, and a
@@ -84,31 +83,29 @@ private:
    */
   struct BankLiveness
   {
-    float  last_count;
+    float last_count;
     double last_change_s;
-    bool   seen;
-    bool   proven;
+    bool seen;
+    bool proven;
 
-    BankLiveness() : last_count(0.0f), last_change_s(0.0), seen(false), proven(false) {}
+    BankLiveness()
+    : last_count(0.0f), last_change_s(0.0), seen(false), proven(false) {}
 
     bool update(float count, double now_s)
     {
-      if (!seen)
-      {
+      if (!seen) {
         seen = true;
         last_count = count;
         last_change_s = now_s;
         return false;
       }
-      if (count != last_count)
-      {
+      if (count != last_count) {
         last_count = count;
         last_change_s = now_s;
         proven = true;
         return true;
       }
-      if (!proven)
-      {
+      if (!proven) {
         return false;
       }
       return (now_s - last_change_s) < kFrameStaleSeconds;

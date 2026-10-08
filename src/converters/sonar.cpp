@@ -27,14 +27,15 @@ namespace naoqi
 namespace converter
 {
 
-SonarConverter::SonarConverter( const std::string& name, const float& frequency, const qi::SessionPtr& session )
-  : BaseConverter( name, frequency, session ),
-    p_memory_( session->service("ALMemory").value() ),
-    is_subscribed_(false)
+SonarConverter::SonarConverter(
+  const std::string & name, const float & frequency,
+  const qi::SessionPtr & session)
+: BaseConverter(name, frequency, session),
+  p_memory_(session->service("ALMemory").value() ),
+  is_subscribed_(false)
 {
   // Only create a sonar proxy if NAOqi < 2.9
-  if (helpers::driver::isNaoqiVersionLesser(naoqi_version_, 2, 9))
-  {
+  if (helpers::driver::isNaoqiVersionLesser(naoqi_version_, 2, 9)) {
     p_sonar_ = session->service("ALSonar").value();
   }
 
@@ -57,71 +58,66 @@ SonarConverter::SonarConverter( const std::string& name, const float& frequency,
 
   // Prepare the messages
   msgs_.resize(frames_.size());
-  for(size_t i = 0; i < msgs_.size(); ++i)
-    {
-      msgs_[i].header.frame_id = frames_[i];
-      msgs_[i].min_range = 0.25;
-      msgs_[i].max_range = 2.55;
-      msgs_[i].field_of_view = 0.523598776;
-      msgs_[i].radiation_type = sensor_msgs::msg::Range::ULTRASOUND;
-    }
+  for (size_t i = 0; i < msgs_.size(); ++i) {
+    msgs_[i].header.frame_id = frames_[i];
+    msgs_[i].min_range = 0.25;
+    msgs_[i].max_range = 2.55;
+    msgs_[i].field_of_view = 0.523598776;
+    msgs_[i].radiation_type = sensor_msgs::msg::Range::ULTRASOUND;
+  }
 
   keys_.resize(keys.size());
   size_t i = 0;
-  for(std::vector<std::string>::const_iterator it = keys.begin(); it != keys.end(); ++it, ++i)
+  for (std::vector<std::string>::const_iterator it = keys.begin(); it != keys.end(); ++it, ++i) {
     keys_[i] = *it;
+  }
 }
 
 SonarConverter::~SonarConverter()
 {
   // Only called if subscribed and NAOqi < 2.9
-  if (is_subscribed_ && helpers::driver::isNaoqiVersionLesser(naoqi_version_, 2, 9))
-  {
+  if (is_subscribed_ && helpers::driver::isNaoqiVersionLesser(naoqi_version_, 2, 9)) {
     p_sonar_.call<void>("unsubscribe", "ROS");
     is_subscribed_ = false;
   }
 }
 
-void SonarConverter::registerCallback( message_actions::MessageAction action, Callback_t cb )
+void SonarConverter::registerCallback(message_actions::MessageAction action, Callback_t cb)
 {
   callbacks_[action] = cb;
 }
 
-void SonarConverter::callAll( const std::vector<message_actions::MessageAction>& actions )
+void SonarConverter::callAll(const std::vector<message_actions::MessageAction> & actions)
 {
   // No need to subscribe if NAOqi > 2.9
-  if (!is_subscribed_ && helpers::driver::isNaoqiVersionLesser(naoqi_version_, 2, 9))
-  {
+  if (!is_subscribed_ && helpers::driver::isNaoqiVersionLesser(naoqi_version_, 2, 9)) {
     p_sonar_.call<void>("subscribe", "ROS");
     is_subscribed_ = true;
   }
 
   std::vector<float> values;
   try {
-      qi::AnyValue anyvalues = p_memory_.call<qi::AnyValue>("getListData", keys_);
-      tools::fromAnyValueToFloatVector(anyvalues, values);
-  } catch (const std::exception& e) {
+    qi::AnyValue anyvalues = p_memory_.call<qi::AnyValue>("getListData", keys_);
+    tools::fromAnyValueToFloatVector(anyvalues, values);
+  } catch (const std::exception & e) {
     std::cerr << "Exception caught in SonarConverter: " << e.what() << std::endl;
     return;
   }
   rclcpp::Time now = helpers::Time::now();
-  for(size_t i = 0; i < msgs_.size(); ++i)
-  {
+  for (size_t i = 0; i < msgs_.size(); ++i) {
     msgs_[i].header.stamp = now;
     msgs_[i].range = float(values[i]);
   }
 
-  for( message_actions::MessageAction action: actions )
-  {
-    callbacks_[action]( msgs_ );
+  for (message_actions::MessageAction action: actions) {
+    callbacks_[action](msgs_);
   }
 }
 
-void SonarConverter::reset( )
+void SonarConverter::reset()
 {
   // No need to unsubscribe if NAOqi > 2.9
-  if (is_subscribed_ && helpers::driver::isNaoqiVersionLesser(naoqi_version_, 2, 9))
-  {
+  if (is_subscribed_ && helpers::driver::isNaoqiVersionLesser(naoqi_version_, 2, 9)) {
     p_sonar_.call<void>("unsubscribe", "ROS");
     is_subscribed_ = false;
   }

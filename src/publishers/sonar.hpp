@@ -34,7 +34,7 @@ namespace publisher
 class SonarPublisher
 {
 public:
-  SonarPublisher( const std::vector<std::string>& topics );
+  SonarPublisher(const std::vector<std::string> & topics);
 
   inline std::string topic() const
   {
@@ -46,16 +46,21 @@ public:
     return is_initialized_;
   }
 
-  void publish( const std::vector<sensor_msgs::msg::Range>& sonar_msgs );
+  void publish(const std::vector<sensor_msgs::msg::Range> & sonar_msgs);
 
-  void reset( rclcpp::Node* node );
+  void reset(rclcpp::Node * node);
 
   inline bool isSubscribed() const
   {
-    if (is_initialized_ == false) return false;
-    for(std::vector<rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr>::const_iterator it = pubs_.begin(); it != pubs_.end(); ++it)
-      if (helpers::Node::count_subscribers((*it)->get_topic_name()))
+    if (is_initialized_ == false) {return false;}
+    for (std::vector<rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr>::const_iterator it =
+      pubs_.begin();
+      it != pubs_.end(); ++it)
+    {
+      if (helpers::Node::count_subscribers((*it)->get_topic_name())) {
         return true;
+      }
+    }
     return false;
   }
 

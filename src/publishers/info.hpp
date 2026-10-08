@@ -36,7 +36,8 @@ namespace publisher
 class InfoPublisher : public BasicPublisher<naoqi_bridge_msgs::msg::StringStamped>
 {
 public:
-  InfoPublisher(const std::string& topic) : BasicPublisher(topic)
+  InfoPublisher(const std::string & topic)
+  : BasicPublisher(topic)
   {
   }
 

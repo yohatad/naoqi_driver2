@@ -37,22 +37,23 @@ class JointStatePublisher
 {
 
 public:
-  JointStatePublisher( const std::string& topic = "/joint_states" );
+  JointStatePublisher(const std::string & topic = "/joint_states");
 
   inline std::string topic() const
   {
-  return topic_;
+    return topic_;
   }
 
   inline bool isInitialized() const
   {
-  return is_initialized_;
+    return is_initialized_;
   }
 
-  virtual void publish( const sensor_msgs::msg::JointState& js_msg,
-                        const std::vector<geometry_msgs::msg::TransformStamped>& tf_transforms );
+  virtual void publish(
+    const sensor_msgs::msg::JointState & js_msg,
+    const std::vector<geometry_msgs::msg::TransformStamped> & tf_transforms);
 
-  virtual void reset( rclcpp::Node* node );
+  virtual void reset(rclcpp::Node * node);
 
   virtual bool isSubscribed() const;
 

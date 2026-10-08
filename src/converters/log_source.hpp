@@ -37,20 +37,18 @@ struct LogSource
  * file ends at the first colon and the line starts after the last one.
  * Sources with fewer fields are accepted; missing parts stay empty / zero.
  */
-inline LogSource parseLogSource(const std::string& source)
+inline LogSource parseLogSource(const std::string & source)
 {
   LogSource out;
   const auto first = source.find(':');
-  if (first == std::string::npos)
-  {
+  if (first == std::string::npos) {
     out.file = source;
     return out;
   }
   out.file = source.substr(0, first);
 
   const auto last = source.rfind(':');
-  if (last == first)
-  {
+  if (last == first) {
     out.function = source.substr(first + 1);
     return out;
   }

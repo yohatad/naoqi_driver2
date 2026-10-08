@@ -28,7 +28,8 @@
 /**
 * @brief starter code for registrating the naoqi_driver module via the autoload.ini.
 */
-void registerRosDriver(qi::ModuleBuilder* mb) {
+void registerRosDriver(qi::ModuleBuilder * mb)
+{
   mb->advertiseFactory<naoqi::Driver, qi::SessionPtr, std::string>("ROS-Driver");
 }
 QI_REGISTER_MODULE("naoqi_driver_module", &registerRosDriver);

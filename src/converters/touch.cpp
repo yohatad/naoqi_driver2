@@ -21,37 +21,45 @@
 #include "touch.hpp"
 
 
-namespace naoqi{
+namespace naoqi
+{
 
-namespace converter{
+namespace converter
+{
 
-template <class T>
-TouchEventConverter<T>::TouchEventConverter(const std::string& name, const float& frequency, const qi::SessionPtr& session)
-  : BaseConverter<TouchEventConverter<T> >(name, frequency, session)
+template<class T>
+TouchEventConverter<T>::TouchEventConverter(
+  const std::string & name, const float & frequency,
+  const qi::SessionPtr & session)
+: BaseConverter<TouchEventConverter<T>>(name, frequency, session)
 {
 }
 
-template <class T>
-TouchEventConverter<T>::~TouchEventConverter() {
+template<class T>
+TouchEventConverter<T>::~TouchEventConverter()
+{
 }
 
-template <class T>
+template<class T>
 void TouchEventConverter<T>::reset()
 {
 }
 
-template <class T>
-void TouchEventConverter<T>::registerCallback( const message_actions::MessageAction action, Callback_t cb )
+template<class T>
+void TouchEventConverter<T>::registerCallback(
+  const message_actions::MessageAction action,
+  Callback_t cb)
 {
   callbacks_[action] = cb;
 }
 
-template <class T>
-void TouchEventConverter<T>::callAll(const std::vector<message_actions::MessageAction>& actions, T& msg)
+template<class T>
+void TouchEventConverter<T>::callAll(
+  const std::vector<message_actions::MessageAction> & actions,
+  T & msg)
 {
   msg_ = msg;
-  for( message_actions::MessageAction action: actions )
-  {
+  for (message_actions::MessageAction action: actions) {
     callbacks_[action](msg_);
   }
 }

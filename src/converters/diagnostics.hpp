@@ -44,16 +44,16 @@ namespace converter
 class DiagnosticsConverter : public BaseConverter<DiagnosticsConverter>
 {
 
-  typedef std::function<void(diagnostic_msgs::msg::DiagnosticArray&) > Callback_t;
+  typedef std::function<void (diagnostic_msgs::msg::DiagnosticArray &)> Callback_t;
 
 public:
-  DiagnosticsConverter(const std::string& name, float frequency, const qi::SessionPtr &session );
+  DiagnosticsConverter(const std::string & name, float frequency, const qi::SessionPtr & session);
 
   void reset();
 
-  void callAll( const std::vector<message_actions::MessageAction>& actions );
+  void callAll(const std::vector<message_actions::MessageAction> & actions);
 
-  void registerCallback( const message_actions::MessageAction action, Callback_t cb );
+  void registerCallback(const message_actions::MessageAction action, Callback_t cb);
 
 private:
   /** The names of the joints in the order given by the motion proxy */
@@ -63,7 +63,7 @@ private:
   /** Keys for the battery status */
   std::vector<std::string> battery_status_keys_;
   /** Map storing the joints informations */
-  std::map<std::string, std::vector<double> > joint_limit_map_;
+  std::map<std::string, std::vector<double>> joint_limit_map_;
   /** Proxy to ALMemory */
   qi::AnyObject p_memory_;
   /** Proxy to ALMotion */
