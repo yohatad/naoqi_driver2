@@ -8,6 +8,7 @@
 
 #include <naoqi_driver/naoqi_driver.hpp>
 
+#include "fake_naoqi.hpp"
 #include "test_utils.hpp"
 
 class DriverShutdownTest : public naoqi_test::RosTest {};
@@ -24,4 +25,18 @@ TEST_F(DriverShutdownTest, StopIsIdempotent)
   driver->requestStop();
   EXPECT_NO_THROW(driver->stop());
   EXPECT_NO_THROW(driver->stop());
+}
+
+TEST_F(DriverShutdownTest, StopHaltsMotionSpeechAndAudioThroughNaoqi)
+{
+  // Ctrl+C runs Driver::stop(); ALMotion.move() would otherwise keep the last velocity.
+  naoqi_test::FakeNaoqi fake;
+  auto driver = std::make_shared<naoqi::Driver>();
+  driver->setQiSession(fake.session);
+  driver->stop();
+
+  EXPECT_EQ(fake.log.count("stopMove()"), 1u);
+  EXPECT_EQ(fake.log.count("ALAnimatedSpeech.stopAll()"), 1u);
+  EXPECT_EQ(fake.log.count("ALTextToSpeech.stopAll()"), 1u);
+  EXPECT_EQ(fake.log.count("ALAudioPlayer.stopAll()"), 1u);
 }

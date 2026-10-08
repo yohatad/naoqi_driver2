@@ -2,6 +2,12 @@
 #define NAOQI_DRIVER_TEST_UTILS_HPP
 
 #include <atomic>
+#include <chrono>
+#include <cstdarg>
+#include <cstdio>
+#include <mutex>
+#include <thread>
+#include <vector>
 #include <filesystem>
 #include <fstream>
 #include <memory>
@@ -9,6 +15,7 @@
 
 #include <gtest/gtest.h>
 #include <rclcpp/rclcpp.hpp>
+#include <rcutils/logging.h>
 
 #include <naoqi_driver/ros_helpers.hpp>
 
@@ -89,6 +96,81 @@ private:
   std::filesystem::path path_;
   std::filesystem::path previous_cwd_;
   bool chdir_into_;
+};
+
+/**
+ * @brief Captures every rcutils/rclcpp log message while alive, to check that a
+ * warning was emitted. Only one instance may exist at a time.
+ */
+class LogCapture
+{
+public:
+  LogCapture()
+  : previous_(rcutils_logging_get_output_handler())
+  {
+    current() = this;
+    rcutils_logging_set_output_handler(&LogCapture::handler);
+  }
+
+  ~LogCapture()
+  {
+    rcutils_logging_set_output_handler(previous_);
+    current() = nullptr;
+  }
+
+  LogCapture(const LogCapture &) = delete;
+  LogCapture & operator=(const LogCapture &) = delete;
+
+  bool contains(const std::string & text) const
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    for (const auto & m : messages_) {
+      if (m.find(text) != std::string::npos) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool waitFor(
+    const std::string & text,
+    std::chrono::milliseconds timeout = std::chrono::seconds(2))
+  {
+    const auto end = std::chrono::steady_clock::now() + timeout;
+    while (std::chrono::steady_clock::now() < end) {
+      if (contains(text)) {
+        return true;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    return contains(text);
+  }
+
+private:
+  static LogCapture * & current()
+  {
+    static LogCapture * instance = nullptr;
+    return instance;
+  }
+
+  static void handler(
+    const rcutils_log_location_t *, int, const char *, rcutils_time_point_value_t,
+    const char * format, va_list * args)
+  {
+    char buffer[2048];
+    va_list copy;
+    va_copy(copy, *args);
+    std::vsnprintf(buffer, sizeof(buffer), format, copy);
+    va_end(copy);
+    if (LogCapture * self = current()) {
+      std::lock_guard<std::mutex> lock(self->mutex_);
+      self->messages_.emplace_back(buffer);
+    }
+  }
+
+  rcutils_logging_output_handler_t previous_;
+  mutable std::mutex mutex_;
+  std::vector<std::string> messages_;
 };
 
 }  // namespace naoqi_test

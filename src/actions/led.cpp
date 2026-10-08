@@ -1,4 +1,5 @@
 #include "led.hpp"
+#include "led_validation.hpp"
 #include <rclcpp/rclcpp.hpp>
 #include <mutex>
 #include <thread>
@@ -34,9 +35,14 @@ rclcpp_action::GoalResponse handleGoal(
   const rclcpp_action::GoalUUID & uuid,
   const std::shared_ptr<const RunLed::Goal> goal)
 {
-  (void)goal;
   std::string goal_id = rclcpp_action::to_string(uuid);
   RCLCPP_DEBUG(state->logger, "Received RunLed goal request %s", goal_id.c_str());
+
+  const std::string error = validateLedGoal(*goal);
+  if (!error.empty()) {
+    RCLCPP_WARN(state->logger, "Rejected RunLed request %s: %s", goal_id.c_str(), error.c_str());
+    return rclcpp_action::GoalResponse::REJECT;
+  }
 
   std::lock_guard<std::mutex> lock(state->mutex);
   if (state->current_goal) {

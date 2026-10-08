@@ -20,6 +20,8 @@
  */
 #include "teleop.hpp"
 #include "motion_validation.hpp"
+#include "helpers/async_helpers.hpp"
+#include "helpers/parameter_helpers.hpp"
 
 namespace naoqi
 {
@@ -43,23 +45,13 @@ void TeleopSubscriber::reset(rclcpp::Node * node)
 {
   logger_ = node->get_logger();
 
-  // Stop the base when /cmd_vel goes silent while moving (0 disables).
-  // Dynamically typed so that both 0 and 0.5 are accepted from the command line.
-  if (!node->has_parameter("cmd_vel_timeout")) {
-    rcl_interfaces::msg::ParameterDescriptor descriptor;
-    descriptor.description = "Seconds without /cmd_vel before a moving base is stopped; 0 disables";
-    descriptor.dynamic_typing = true;
-    node->declare_parameter("cmd_vel_timeout", rclcpp::ParameterValue(0.5), descriptor);
-  }
-  const rclcpp::Parameter timeout_param = node->get_parameter("cmd_vel_timeout");
-  double timeout_s = 0.5;
-  if (timeout_param.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE) {
-    timeout_s = timeout_param.as_double();
-  } else if (timeout_param.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER) {
-    timeout_s = static_cast<double>(timeout_param.as_int());
-  } else {
-    RCLCPP_WARN(logger_, "cmd_vel_timeout must be a number, using %.1f s", timeout_s);
-  }
+  const double timeout_s = helpers::declareNumberParameter(
+    node, "cmd_vel_timeout", 0.5,
+    "Seconds without /cmd_vel before a moving base is stopped; 0 disables");
+  max_linear_speed_ = helpers::declareNumberParameter(
+    node, "max_linear_speed", 0.0, "Cap on the /cmd_vel linear speed in m/s; 0 means no cap");
+  max_angular_speed_ = helpers::declareNumberParameter(
+    node, "max_angular_speed", 0.0, "Cap on the /cmd_vel angular speed in rad/s; 0 means no cap");
   cmd_vel_watchdog_ = std::make_shared<CmdVelWatchdog>(
     std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(timeout_s)));
   cmd_vel_watchdog_timer_.reset();
@@ -69,7 +61,8 @@ void TeleopSubscriber::reset(rclcpp::Node * node)
       {
         if (cmd_vel_watchdog_->expired(CmdVelWatchdog::Clock::now())) {
           RCLCPP_WARN(logger_, "No /cmd_vel for the configured timeout, stopping the base");
-          p_motion_.async<void>("move", 0.0f, 0.0f, 0.0f);
+          helpers::warnOnAsyncError(
+            p_motion_.async<void>("move", 0.0f, 0.0f, 0.0f), logger_, "ALMotion.move (stop)");
         }
       });
   }
@@ -101,9 +94,12 @@ void TeleopSubscriber::cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr
     return;
   }
 
-  const float vel_x = twist_msg->linear.x;
-  const float vel_y = twist_msg->linear.y;
-  const float vel_th = twist_msg->angular.z;
+  const auto limited = validation::limitVelocity(
+    twist_msg->linear.x, twist_msg->linear.y, twist_msg->angular.z,
+    max_linear_speed_, max_angular_speed_);
+  const float vel_x = limited.x;
+  const float vel_y = limited.y;
+  const float vel_th = limited.theta;
 
   RCLCPP_DEBUG(logger_, "going to move x: %f y: %f th: %f", vel_x, vel_y, vel_th);
   if (cmd_vel_watchdog_) {
@@ -111,7 +107,8 @@ void TeleopSubscriber::cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr
       vel_x == 0.f && vel_y == 0.f && vel_th == 0.f,
       CmdVelWatchdog::Clock::now());
   }
-  p_motion_.async<void>("move", vel_x, vel_y, vel_th);
+  helpers::warnOnAsyncError(
+    p_motion_.async<void>("move", vel_x, vel_y, vel_th), logger_, "ALMotion.move");
 }
 
 void TeleopSubscriber::jointAnglesCallback(
@@ -125,9 +122,15 @@ void TeleopSubscriber::jointAnglesCallback(
   }
 
   if (js_msg->relative == 0) {
-    p_motion_.async<void>("setAngles", js_msg->joint_names, js_msg->joint_angles, js_msg->speed);
+    helpers::warnOnAsyncError(
+      p_motion_.async<void>("setAngles", js_msg->joint_names, js_msg->joint_angles, js_msg->speed),
+      logger_, "ALMotion.setAngles");
   } else {
-    p_motion_.async<void>("changeAngles", js_msg->joint_names, js_msg->joint_angles, js_msg->speed);
+    helpers::warnOnAsyncError(
+      p_motion_.async<void>(
+        "changeAngles", js_msg->joint_names, js_msg->joint_angles,
+        js_msg->speed),
+      logger_, "ALMotion.changeAngles");
   }
 }
 
@@ -189,7 +192,9 @@ void TeleopSubscriber::executeAngleInterpolation(
 {
   if (names.size() == 1) {
     // Single joint/chain with multiple waypoints
-    p_motion_.async<void>("angleInterpolation", names[0], angles, times, is_absolute);
+    helpers::warnOnAsyncError(
+      p_motion_.async<void>("angleInterpolation", names[0], angles, times, is_absolute), logger_,
+      "ALMotion.angleInterpolation");
   } else if (names.size() == angles.size()) {
     // One waypoint per joint -> all reach their target at the same per-joint time
     std::vector<std::vector<float>> angleLists;
@@ -201,7 +206,11 @@ void TeleopSubscriber::executeAngleInterpolation(
       angleLists.push_back(std::vector<float>{angles[i]});
       timeLists.push_back(std::vector<float>{times[i]});
     }
-    p_motion_.async<void>("angleInterpolation", names, angleLists, timeLists, is_absolute);
+    helpers::warnOnAsyncError(
+      p_motion_.async<void>(
+        "angleInterpolation", names, angleLists, timeLists,
+        is_absolute), logger_,
+      "ALMotion.angleInterpolation");
   } else {
     RCLCPP_WARN(
       rclcpp::get_logger("TeleopSubscriber"),
@@ -252,7 +261,9 @@ void TeleopSubscriber::executeBezierTrajectory(
     timeLists.push_back(joint_times);
   }
 
-  p_motion_.async<void>("angleInterpolationBezier", names, timeLists, angleLists);
+  helpers::warnOnAsyncError(
+    p_motion_.async<void>("angleInterpolationBezier", names, timeLists, angleLists), logger_,
+    "ALMotion.angleInterpolationBezier");
 
   RCLCPP_INFO(
     rclcpp::get_logger("TeleopSubscriber"),

@@ -16,7 +16,9 @@
 #ifndef MOTION_VALIDATION_HPP
 #define MOTION_VALIDATION_HPP
 
+#include <algorithm>
 #include <cmath>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -101,6 +103,50 @@ inline std::string validateTrajectory(
       }
       previous = t;
     }
+  }
+  return "";
+}
+
+struct Velocity
+{
+  double x;
+  double y;
+  double theta;
+};
+
+/**
+ * @brief Scales (x, y) down to max_linear, keeping its direction, and clamps theta to
+ * +-max_angular. A limit of 0 or less means "no limit".
+ */
+inline Velocity limitVelocity(
+  double x, double y, double theta, double max_linear,
+  double max_angular)
+{
+  Velocity v{x, y, theta};
+  const double linear = std::hypot(x, y);
+  if (max_linear > 0.0 && linear > max_linear) {
+    const double scale = max_linear / linear;
+    v.x *= scale;
+    v.y *= scale;
+  }
+  if (max_angular > 0.0) {
+    v.theta = std::clamp(theta, -max_angular, max_angular);
+  }
+  return v;
+}
+
+/** Validates a moveto goal in base_footprint. A max_distance of 0 or less disables the cap. */
+inline std::string validateMoveTo(double x, double y, double max_distance)
+{
+  if (!std::isfinite(x) || !std::isfinite(y)) {
+    return "goal position contains NaN or infinity";
+  }
+  const double distance = std::hypot(x, y);
+  if (max_distance > 0.0 && distance > max_distance) {
+    std::ostringstream out;
+    out << "goal is " << distance << " m away, more than moveto_max_distance (" <<
+      max_distance << " m)";
+    return out.str();
   }
   return "";
 }

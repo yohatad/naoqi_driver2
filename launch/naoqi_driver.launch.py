@@ -52,6 +52,18 @@ def generate_launch_description():
             default_value="0.5",
             description='Seconds without /cmd_vel before a moving base is stopped. '
                         '0 disables the watchdog (the base then keeps the last velocity).'),
+        launch.actions.DeclareLaunchArgument(
+            'moveto_max_distance',
+            default_value="3.0",
+            description='moveto goals farther than this (m) are rejected; 0 disables the check.'),
+        launch.actions.DeclareLaunchArgument(
+            'max_linear_speed',
+            default_value="0.0",
+            description='Cap on the /cmd_vel linear speed (m/s); 0 means no cap.'),
+        launch.actions.DeclareLaunchArgument(
+            'max_angular_speed',
+            default_value="0.0",
+            description='Cap on the /cmd_vel angular speed (rad/s); 0 means no cap.'),
         launch_ros.actions.Node(
             package='naoqi_driver',
             executable='naoqi_driver_node',
@@ -66,6 +78,12 @@ def generate_launch_description():
                 'publish_wheel_odom_tf': launch.substitutions.LaunchConfiguration('publish_wheel_odom_tf'),
                 'cmd_vel_timeout': launch_ros.parameter_descriptions.ParameterValue(
                     launch.substitutions.LaunchConfiguration('cmd_vel_timeout'), value_type=float),
+                'moveto_max_distance': launch_ros.parameter_descriptions.ParameterValue(
+                    launch.substitutions.LaunchConfiguration('moveto_max_distance'), value_type=float),
+                'max_linear_speed': launch_ros.parameter_descriptions.ParameterValue(
+                    launch.substitutions.LaunchConfiguration('max_linear_speed'), value_type=float),
+                'max_angular_speed': launch_ros.parameter_descriptions.ParameterValue(
+                    launch.substitutions.LaunchConfiguration('max_angular_speed'), value_type=float),
             }],
             output="screen"),
     ])

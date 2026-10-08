@@ -1,6 +1,7 @@
 // Safety checks applied to motion commands before they reach ALMotion.
 
 #include <chrono>
+#include <cmath>
 #include <limits>
 #include <string>
 #include <vector>
@@ -8,6 +9,7 @@
 #include <gtest/gtest.h>
 
 #include "subscribers/cmd_vel_watchdog.hpp"
+#include "actions/led_validation.hpp"
 #include "subscribers/motion_validation.hpp"
 
 using naoqi::subscriber::CmdVelWatchdog;
@@ -162,4 +164,75 @@ TEST(MotionValidation, TrajectoryRejectsNonIncreasingTimes)
     val::validateTrajectory(
       {"A", "B"}, {0.f, 0.f, 0.f, 0.f}, {1.f, 2.f, 0.5f, 1.f}, true,
       true), "");
+}
+
+// ---------------------------------------------------------------- speed caps
+
+TEST(MotionValidation, LimitVelocityKeepsDirectionAndCapsTurnRate)
+{
+  const auto v = val::limitVelocity(0.3, 0.4, 2.0, 0.25, 0.5);  // |(x, y)| = 0.5
+  EXPECT_NEAR(std::hypot(v.x, v.y), 0.25, 1e-9);
+  EXPECT_NEAR(v.x / v.y, 0.3 / 0.4, 1e-9);
+  EXPECT_DOUBLE_EQ(v.theta, 0.5);
+  EXPECT_DOUBLE_EQ(val::limitVelocity(0.0, 0.0, -2.0, 0.25, 0.5).theta, -0.5);
+}
+
+TEST(MotionValidation, LimitVelocityLeavesSlowCommandsAndZeroLimitsAlone)
+{
+  const auto slow = val::limitVelocity(0.1, 0.0, 0.2, 0.25, 0.5);
+  EXPECT_DOUBLE_EQ(slow.x, 0.1);
+  EXPECT_DOUBLE_EQ(slow.theta, 0.2);
+  const auto unlimited = val::limitVelocity(3.0, 0.0, 9.0, 0.0, 0.0);
+  EXPECT_DOUBLE_EQ(unlimited.x, 3.0);
+  EXPECT_DOUBLE_EQ(unlimited.theta, 9.0);
+}
+
+// ---------------------------------------------------------------- moveto
+
+TEST(MotionValidation, MoveToAcceptsGoalsWithinTheCap)
+{
+  EXPECT_EQ(val::validateMoveTo(0.5, -0.5, 3.0), "");
+  EXPECT_EQ(val::validateMoveTo(100.0, 0.0, 0.0), "");  // 0 disables the cap
+}
+
+TEST(MotionValidation, MoveToRejectsFarAndNonFiniteGoals)
+{
+  EXPECT_NE(val::validateMoveTo(100.0, 0.0, 3.0), "");
+  EXPECT_NE(val::validateMoveTo(2.5, 2.5, 3.0), "");  // 3.54 m away
+  EXPECT_NE(val::validateMoveTo(kNaN, 0.0, 3.0), "");
+  EXPECT_NE(val::validateMoveTo(0.0, kInf, 0.0), "");
+}
+
+// ---------------------------------------------------------------- LEDs
+
+TEST(LedValidation, AcceptsWellFormedGoals)
+{
+  naoqi_bridge_msgs::action::RunLed::Goal goal;
+  goal.mode = goal.MODE_RGB_FADE;
+  goal.color.r = 0.f;
+  goal.color.g = 0.5f;
+  goal.color.b = 1.f;
+  goal.duration = 2.f;
+  EXPECT_EQ(naoqi::action::validateLedGoal(goal), "");
+  goal.mode = goal.MODE_OFF;
+  EXPECT_EQ(naoqi::action::validateLedGoal(goal), "");
+}
+
+TEST(LedValidation, RejectsOutOfRangeValues)
+{
+  naoqi_bridge_msgs::action::RunLed::Goal goal;
+  goal.mode = goal.MODE_FADE_INTENSITY;
+  goal.intensity = 1.5f;
+  goal.duration = 1.f;
+  EXPECT_NE(naoqi::action::validateLedGoal(goal), "");
+  goal.intensity = 0.5f;
+  goal.duration = -1.f;
+  EXPECT_NE(naoqi::action::validateLedGoal(goal), "");
+  goal.duration = kNaN;
+  EXPECT_NE(naoqi::action::validateLedGoal(goal), "");
+  goal.mode = goal.MODE_RGB;
+  goal.color.r = 2.f;
+  EXPECT_NE(naoqi::action::validateLedGoal(goal), "");
+  goal.mode = 9;
+  EXPECT_NE(naoqi::action::validateLedGoal(goal), "");
 }

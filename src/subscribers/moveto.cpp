@@ -28,7 +28,10 @@
  */
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
+#include "helpers/async_helpers.hpp"
+#include "helpers/parameter_helpers.hpp"
 #include "helpers/transform_helpers.hpp"
+#include "motion_validation.hpp"
 
 namespace naoqi
 {
@@ -45,6 +48,9 @@ MovetoSubscriber::MovetoSubscriber(
 
 void MovetoSubscriber::reset(rclcpp::Node * node)
 {
+  max_distance_ = helpers::declareNumberParameter(
+    node, "moveto_max_distance", 3.0,
+    "Goals farther than this (m) are rejected; 0 disables the check");
   sub_moveto_ = node->create_subscription<geometry_msgs::msg::PoseStamped>(
     topic_,
     10,
@@ -55,61 +61,50 @@ void MovetoSubscriber::reset(rclcpp::Node * node)
 
 void MovetoSubscriber::callback(const geometry_msgs::msg::PoseStamped::SharedPtr pose_msg)
 {
-  if (pose_msg->header.frame_id == "odom") {
-    geometry_msgs::msg::PoseStamped pose_msg_bf;
-
+  const auto & logger = naoqi::helpers::Node::get_logger();
+  if (pose_msg->header.frame_id == "base_footprint") {
+    sendMoveTo(pose_msg->pose);
+  } else if (pose_msg->header.frame_id == "odom") {
     try {
-      // Use the latest transform without waiting: this runs on the driver's only
-      // loop thread, and blocking here would stall every sensor stream.
+      // Use the latest transform without waiting: blocking here would stall the
+      // driver's ROS callbacks.
       const auto odom_to_base = tf2_buffer_->lookupTransform(
         "base_footprint", "odom", tf2::TimePointZero);
-      tf2::doTransform(*pose_msg, pose_msg_bf, odom_to_base);
-
-      double yaw = helpers::transform::getYaw(pose_msg_bf.pose);
-
-      RCLCPP_INFO_STREAM(
-        naoqi::helpers::Node::get_logger(),
-        "odom to move x: " << pose_msg_bf.pose.position.x << " y: " << pose_msg_bf.pose.position.y << " yaw: " <<
-          yaw);
-
-      if (std::isnan(yaw)) {
-        yaw = 0.0;
-        RCLCPP_WARN_STREAM(naoqi::helpers::Node::get_logger(), "Yaw is nan, changed to 0.0");
-      }
-
-      p_motion_.async<void>(
-        "moveTo",
-        pose_msg_bf.pose.position.x,
-        pose_msg_bf.pose.position.y,
-        yaw);
-
+      geometry_msgs::msg::PoseStamped goal_in_base;
+      tf2::doTransform(*pose_msg, goal_in_base, odom_to_base);
+      sendMoveTo(goal_in_base.pose);
     } catch (const tf2::TransformException & e) {
       RCLCPP_WARN_STREAM(
-        naoqi::helpers::Node::get_logger(),
-        "Cannot transform the moveto goal from odom to base_footprint: " << e.what());
+        logger, "Cannot transform the moveto goal from odom to base_footprint: " << e.what());
     }
-  } else if (pose_msg->header.frame_id == "base_footprint") {
-    double yaw = helpers::transform::getYaw(pose_msg->pose);
-    RCLCPP_INFO_STREAM(
-      naoqi::helpers::Node::get_logger(),
-      "going to move x: " << pose_msg->pose.position.x << " y: " << pose_msg->pose.position.y << " yaw: " <<
-        yaw);
-
-    if (std::isnan(yaw)) {
-      yaw = 0.0;
-      RCLCPP_WARN_STREAM(naoqi::helpers::Node::get_logger(), "Yaw is nan, changed to 0.0");
-    }
-
-    p_motion_.async<void>(
-      "moveTo",
-      pose_msg->pose.position.x,
-      pose_msg->pose.position.y,
-      yaw);
   } else {
     RCLCPP_WARN_STREAM(
-      naoqi::helpers::Node::get_logger(), "Cannot reach position expressed in the " << pose_msg->header.frame_id << " frame, enter a valid frame id in the pose's header"
-        " (base_footprint or odom)");
+      logger, "Cannot reach position expressed in the " << pose_msg->header.frame_id <<
+        " frame, enter a valid frame id in the pose's header (base_footprint or odom)");
   }
+}
+
+void MovetoSubscriber::sendMoveTo(const geometry_msgs::msg::Pose & goal)
+{
+  const auto & logger = naoqi::helpers::Node::get_logger();
+  const std::string error =
+    validation::validateMoveTo(goal.position.x, goal.position.y, max_distance_);
+  if (!error.empty()) {
+    RCLCPP_WARN(logger, "Ignoring moveto goal: %s", error.c_str());
+    return;
+  }
+
+  double yaw = helpers::transform::getYaw(goal);
+  if (std::isnan(yaw)) {
+    yaw = 0.0;
+    RCLCPP_WARN(logger, "Yaw is nan, changed to 0.0");
+  }
+  RCLCPP_INFO(
+    logger, "going to move x: %f y: %f yaw: %f (base_footprint)",
+    goal.position.x, goal.position.y, yaw);
+  helpers::warnOnAsyncError(
+    p_motion_.async<void>("moveTo", goal.position.x, goal.position.y, yaw), logger,
+    "ALMotion.moveTo");
 }
 
 }  // namespace subscriber

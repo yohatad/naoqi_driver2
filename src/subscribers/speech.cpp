@@ -19,6 +19,8 @@
  * LOCAL includes
  */
 #include "speech.hpp"
+#include "helpers/async_helpers.hpp"
+#include <naoqi_driver/ros_helpers.hpp>
 
 namespace naoqi
 {
@@ -45,7 +47,9 @@ void SpeechSubscriber::reset(rclcpp::Node * node)
 
 void SpeechSubscriber::speechCallback(const std_msgs::msg::String::SharedPtr string_msg)
 {
-  p_tts_.async<void>("say", string_msg->data);
+  helpers::warnOnAsyncError(
+    p_tts_.async<void>("say", string_msg->data), naoqi::helpers::Node::get_logger(),
+    "ALTextToSpeech.say");
 }
 
 }  // namespace subscriber

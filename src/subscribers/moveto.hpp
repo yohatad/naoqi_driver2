@@ -49,10 +49,14 @@ public:
   void callback(const geometry_msgs::msg::PoseStamped::SharedPtr pose_msg);
 
 private:
+  /** Sends a goal expressed in base_footprint to ALMotion.moveTo, after checking it. */
+  void sendMoveTo(const geometry_msgs::msg::Pose & goal);
+
   qi::AnyObject p_motion_;
+  double max_distance_ = 0.0;  // m, 0 = no cap
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_moveto_;
   std::shared_ptr<tf2_ros::Buffer> tf2_buffer_;
-}; // class Teleop
+};  // class MovetoSubscriber
 
 }  // namespace subscriber
 }  // namespace naoqi
