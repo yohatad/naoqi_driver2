@@ -113,6 +113,7 @@
 /*
  * STATIC FUNCTIONS INCLUDE
  */
+#include "heartbeat.hpp"
 #include "ros_env.hpp"
 #include "helpers/filesystem_helpers.hpp"
 #include "helpers/recorder_helpers.hpp"
@@ -251,6 +252,10 @@ void Driver::run()
 
   RCLCPP_INFO_STREAM(get_logger(), "naoqi_driver initialized");
   RCLCPP_INFO_STREAM(get_logger(), "Starting ROS loop");
+
+  // Lets scripts/robot_watchdog.py, on the robot, stop the base if this process dies,
+  // hangs or loses the network. It beats from the callback threads below.
+  Heartbeat heartbeat(this, session_, std::chrono::milliseconds(200));
 
   // ROS callbacks (commands, services, actions, timers) run on their own threads,
   // so they never wait for the converter schedule of this loop.

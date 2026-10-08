@@ -106,6 +106,7 @@ set(
   DRIVER_SRC
   src/naoqi_driver.cpp
   src/boot_config.cpp
+  src/heartbeat.cpp
   src/helpers/driver_helpers.cpp
   src/helpers/ros_helpers.cpp
   src/recorder/globalrecorder.cpp
@@ -186,6 +187,9 @@ install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 # install the rviz2 configurations
 install(DIRECTORY rviz2 DESTINATION share/${PROJECT_NAME})
 
+# scripts that run on the robot, to copy there (see README)
+install(PROGRAMS scripts/robot_watchdog.py DESTINATION share/${PROJECT_NAME}/scripts)
+
 if(BUILD_TESTING)
   # Code style: 'ament_uncrustify --reformat src include test' fixes any failure.
   find_package(ament_cmake_uncrustify REQUIRED)
@@ -228,6 +232,10 @@ if(BUILD_TESTING)
   naoqi_driver_add_test(test_naoqi_image)
   naoqi_driver_add_test(test_motion_safety)
   naoqi_driver_add_test(test_driver_shutdown)
+  naoqi_driver_add_test(test_heartbeat)
+
+  find_package(ament_cmake_pytest REQUIRED)
+  ament_add_pytest_test(test_robot_watchdog test/test_robot_watchdog.py TIMEOUT 60)
 endif()
 
 ament_export_libraries(naoqi_driver)

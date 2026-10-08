@@ -4,8 +4,10 @@
 #ifndef NAOQI_DRIVER_TEST_FAKE_NAOQI_HPP
 #define NAOQI_DRIVER_TEST_FAKE_NAOQI_HPP
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <map>
 #include <mutex>
 #include <sstream>
 #include <stdexcept>
@@ -121,8 +123,25 @@ public:
 
   void insertData(const std::string & key, const qi::AnyValue & value)
   {
-    (void)value;
+    if (fail_inserts) {
+      throw std::runtime_error("ALMemory is unreachable");
+    }
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      inserted_[key] = value;
+    }
     log_.add("insertData(" + key + ")");
+  }
+
+  /** Makes insertData throw, as calls do when NAOqi is unreachable. Not a NAOqi member. */
+  std::atomic<bool> fail_inserts{false};
+
+  /** The last value inserted under key, or an invalid value. Not a NAOqi method. */
+  qi::AnyValue inserted(const std::string & key)
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    const auto it = inserted_.find(key);
+    return it == inserted_.end() ? qi::AnyValue() : it->second;
   }
 
   /** Fires the signal of every subscriber whose key starts with prefix. */
@@ -146,6 +165,7 @@ private:
   CallLog & log_;
   std::mutex mutex_;
   std::vector<std::pair<std::string, boost::shared_ptr<FakeMemorySubscriber>>> subscribers_;
+  std::map<std::string, qi::AnyValue> inserted_;
 };
 
 class FakeDialog

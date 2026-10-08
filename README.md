@@ -232,6 +232,26 @@ angular:
   z: 0.0"
 ```
 
+### Stop the base if the driver dies
+
+The driver stops the base when `/cmd_vel` goes quiet and when it exits, but it
+cannot when it crashes, hangs or loses the network. For those cases, run
+`robot_watchdog.py` on the robot (NAOqi 2.5 with SSH access; Python 2.7 or 3):
+
+```sh
+scp $(ros2 pkg prefix naoqi_driver)/share/naoqi_driver/scripts/robot_watchdog.py nao@<robot_host>:
+ssh nao@<robot_host>
+nohup python robot_watchdog.py > robot_watchdog.log 2>&1 &
+exit
+```
+
+The driver writes a counter to ALMemory (`NaoqiDriver/Heartbeat`) every 0.2 s.
+The watchdog calls `ALMotion.stopMove()` when the counter has not changed for
+1 s (`--timeout`). It does nothing until a driver runs, and nothing after the
+driver exits cleanly. Start it again after the robot reboots, or have NAOqi
+start it by adding its full path under `[python]` in
+`/home/nao/naoqi/preferences/autoload.ini`.
+
 ### Audio Playback
 
 The driver provides several services and an action for audio playback:

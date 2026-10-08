@@ -132,6 +132,18 @@ public:
     return false;
   }
 
+  size_t count(const std::string & text) const
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    size_t n = 0;
+    for (const auto & m : messages_) {
+      if (m.find(text) != std::string::npos) {
+        ++n;
+      }
+    }
+    return n;
+  }
+
   bool waitFor(
     const std::string & text,
     std::chrono::milliseconds timeout = std::chrono::seconds(2))
