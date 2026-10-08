@@ -75,6 +75,7 @@ private:
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr sub_cmd_vel_;
   std::shared_ptr<CmdVelWatchdog> cmd_vel_watchdog_;
   rclcpp::TimerBase::SharedPtr cmd_vel_watchdog_timer_;
+  rclcpp::CallbackGroup::SharedPtr callback_group_;
   rclcpp::Logger logger_ = rclcpp::get_logger("TeleopSubscriber");
   double max_linear_speed_ = 0.0;  // m/s, 0 = no cap
   double max_angular_speed_ = 0.0;  // rad/s, 0 = no cap

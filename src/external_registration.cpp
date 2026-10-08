@@ -19,6 +19,8 @@
 #include <signal.h>
 
 #include <atomic>
+#include <chrono>
+#include <thread>
 
 #include <rclcpp/rclcpp.hpp>
 #include <qi/applicationsession.hpp>
@@ -33,6 +35,7 @@
 
 #include "naoqi_driver/tools.hpp"
 #include "naoqi_driver/ros_helpers.hpp"
+#include "helpers/connection_helpers.hpp"
 
 // A plain atomic pointer: unlike weak_ptr::lock(), loading it is async-signal-safe.
 std::atomic<naoqi::Driver *> g_driver{nullptr};
@@ -40,13 +43,30 @@ static_assert(
   std::atomic<naoqi::Driver *>::is_always_lock_free,
   "the SIGINT handler needs a lock-free pointer");
 
+// Set by SIGINT, also while still connecting to NAOqi.
+std::atomic<bool> g_interrupted{false};
+// Set when the NAOqi session drops while the driver runs.
+std::atomic<bool> g_disconnected{false};
+static_assert(std::atomic<bool>::is_always_lock_free, "the SIGINT handler needs a lock-free flag");
+
 void sigintHandler(int sig)
 {
+  (void)sig;
   // Only async-signal-safe work here: just flag the run() loop to stop.
   // The actual cleanup (driver->stop()) happens afterwards in main(),
   // since it locks mutexes and isn't safe to call from a signal handler.
+  g_interrupted = true;
   if (naoqi::Driver * driver = g_driver.load()) {
     driver->requestStop();
+  }
+}
+
+/** Sleeps for delay, waking early on Ctrl+C. */
+void sleepUnlessInterrupted(std::chrono::seconds delay)
+{
+  const auto end = std::chrono::steady_clock::now() + delay;
+  while (!g_interrupted && std::chrono::steady_clock::now() < end) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 }
 
@@ -94,7 +114,8 @@ int main(int argc, char ** argv)
   }
 
   // Build the q::ApplicationSession, and connect the associated session
-  qi::Url url(protocol + nao_ip + ":" + std::to_string(nao_port));
+  const std::string address = protocol + nao_ip + ":" + std::to_string(nao_port);
+  qi::Url url(address);
   qi::ApplicationSession app(argc, argv);
 
 #if LIBQI_VERSION >= 29
@@ -108,12 +129,24 @@ int main(int argc, char ** argv)
   }
 #endif
 
-  auto session = app.session();
-  qi::Future<void> connection = session->connect(url);
+  // Ctrl+C must also work while retrying the connection.
+  signal(SIGINT, sigintHandler);
 
-  if (connection.hasError()) {
-    RCLCPP_ERROR_STREAM(bs->get_logger(), connection.error());
-    return EXIT_FAILURE;
+  // Retry with growing delays: the robot may still be booting or out of reach.
+  auto session = app.session();
+  for (int attempt = 1; ; ++attempt) {
+    qi::Future<void> connection = session->connect(url);
+    if (!connection.hasError()) {
+      break;
+    }
+    const auto delay = naoqi::helpers::reconnectDelay(attempt);
+    RCLCPP_ERROR(
+      bs->get_logger(), "Cannot connect to NAOqi at %s (%s), retrying in %ld s",
+      address.c_str(), connection.error().c_str(), static_cast<long>(delay.count()));
+    sleepUnlessInterrupted(delay);
+    if (g_interrupted) {
+      return EXIT_FAILURE;
+    }
   }
   // The session needs to listen on the network to process audio callbacks.
   if (!listen_url.empty()) {
@@ -123,15 +156,30 @@ int main(int argc, char ** argv)
   // Pass the create session to the driver node, and init the node
   bs->setQiSession(session);
 
+  // If NAOqi goes away, stop and exit with an error; the launch file respawns the
+  // driver, which then reconnects with the backoff above.
+  rclcpp::Logger logger = bs->get_logger();
+  session->disconnected.connect(
+    [logger](const std::string & reason) {
+      g_disconnected = true;
+      RCLCPP_ERROR(logger, "Lost the connection to NAOqi (%s), stopping", reason.c_str());
+      if (naoqi::Driver * driver = g_driver.load()) {
+        driver->requestStop();
+      }
+    });
+
   // Run the driver node. Stop it on SIGINT.
   g_driver = bs.get();
-  signal(SIGINT, sigintHandler);
+  if (g_interrupted) {
+    bs->requestStop();
+  }
   bs->run();
   g_driver = nullptr;
   bs->stop();
+  const int exit_code = g_disconnected ? EXIT_FAILURE : EXIT_SUCCESS;
 
   // Close the qi::Session and shutdown ROS.
   app.session()->close();
   rclcpp::shutdown();
-  return EXIT_SUCCESS;
+  return exit_code;
 }

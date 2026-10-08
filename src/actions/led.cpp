@@ -28,6 +28,7 @@ struct LedState
   std::mutex mutex;
   std::shared_ptr<RunLedGoalHandle> current_goal;
   std::string current_target;
+  GoalWorker worker;  // joined at shutdown; see goal_worker.hpp
 };
 
 rclcpp_action::GoalResponse handleGoal(
@@ -86,7 +87,7 @@ void handleAccepted(
     state->current_goal = goal_handle;
   }
 
-  std::thread(
+  state->worker.start(
     [state, goal_handle]() {
       std::string goal_id = rclcpp_action::to_string(goal_handle->get_goal_id());
       auto result = std::make_shared<RunLed::Result>();
@@ -141,7 +142,7 @@ void handleAccepted(
           const auto end = start + std::chrono::duration<float>(duration);
 
           while (std::chrono::steady_clock::now() < end) {
-            if (goal_handle->is_canceling()) {break;}
+            if (goal_handle->is_canceling() || state->worker.stopping()) {break;}
 
             auto feedback = std::make_shared<RunLed::Feedback>();
             feedback->elapsed_time = std::chrono::duration<float>(
@@ -156,7 +157,11 @@ void handleAccepted(
         state->current_goal.reset();
         state->current_target.clear();
 
-        if (goal_handle->is_canceling()) {
+        if (state->worker.stopping() && !goal_handle->is_canceling()) {
+          result->success = false;
+          result->message = "Driver shutting down";
+          goal_handle->abort(result);
+        } else if (goal_handle->is_canceling()) {
           result->success = false;
           result->message = "Cancelled";
           goal_handle->canceled(result);
@@ -176,21 +181,23 @@ void handleAccepted(
         result->message = e.what();
         goal_handle->abort(result);
       }
-    }).detach();
+    });
 }
 }  // namespace
 
-rclcpp_action::Server<RunLed>::SharedPtr
+std::unique_ptr<ActionHandle>
 createRunLedServer(rclcpp::Node * node, qi::SessionPtr session)
 {
   namespace ph = std::placeholders;
   auto state = std::make_shared<LedState>(node, std::move(session));
-  return rclcpp_action::create_server<RunLed>(
+  auto server = rclcpp_action::create_server<RunLed>(
     node, "naoqi_driver/run_led",
     std::bind(handleGoal, state, ph::_1, ph::_2),
     std::bind(handleCancel, state, ph::_1),
     std::bind(handleAccepted, state, ph::_1)
   );
+  // A fade goal polls stopping() every 100 ms, so joining is quick.
+  return std::make_unique<ActionHandle>(server, [state]() {state->worker.shutdown();});
 }
 
 }  // namespace action

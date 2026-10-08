@@ -1,5 +1,8 @@
 #pragma once
 
+#include <memory>
+
+#include "actions/goal_worker.hpp"
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <qi/session.hpp>
@@ -29,7 +32,8 @@ struct AudioPlayerServers
   rclcpp::Service<naoqi_bridge_msgs::srv::ResumeAudio>::SharedPtr resume_audio;
 };
 
-AudioPlayerServers createAudioPlayerServers(rclcpp::Node * node, qi::SessionPtr session);
+/** The play_audio action and its services; destroying the handle stops playback. */
+std::unique_ptr<ActionHandle> createAudioPlayerServers(rclcpp::Node * node, qi::SessionPtr session);
 
 }  // namespace action
 }  // namespace naoqi

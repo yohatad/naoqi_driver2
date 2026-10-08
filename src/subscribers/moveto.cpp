@@ -51,10 +51,13 @@ void MovetoSubscriber::reset(rclcpp::Node * node)
   max_distance_ = helpers::declareNumberParameter(
     node, "moveto_max_distance", 3.0,
     "Goals farther than this (m) are rejected; 0 disables the check");
+  callback_group_ = node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  rclcpp::SubscriptionOptions options;
+  options.callback_group = callback_group_;
   sub_moveto_ = node->create_subscription<geometry_msgs::msg::PoseStamped>(
     topic_,
     10,
-    std::bind(&MovetoSubscriber::callback, this, std::placeholders::_1));
+    std::bind(&MovetoSubscriber::callback, this, std::placeholders::_1), options);
 
   is_initialized_ = true;
 }

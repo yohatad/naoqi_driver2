@@ -44,6 +44,11 @@ TeleopSubscriber::TeleopSubscriber(
 void TeleopSubscriber::reset(rclcpp::Node * node)
 {
   logger_ = node->get_logger();
+  // Motion commands and the watchdog get their own callback group, so a slow service
+  // or action callback elsewhere in the driver never delays them.
+  callback_group_ = node->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  rclcpp::SubscriptionOptions options;
+  options.callback_group = callback_group_;
 
   const double timeout_s = helpers::declareNumberParameter(
     node, "cmd_vel_timeout", 0.5,
@@ -64,7 +69,7 @@ void TeleopSubscriber::reset(rclcpp::Node * node)
           helpers::warnOnAsyncError(
             p_motion_.async<void>("move", 0.0f, 0.0f, 0.0f), logger_, "ALMotion.move (stop)");
         }
-      });
+      }, callback_group_);
   }
   RCLCPP_INFO(
     logger_, "cmd_vel_timeout: %.2f s%s", timeout_s,
@@ -72,15 +77,15 @@ void TeleopSubscriber::reset(rclcpp::Node * node)
 
   sub_cmd_vel_ = node->create_subscription<geometry_msgs::msg::Twist>(
     cmd_vel_topic_, 10,
-    std::bind(&TeleopSubscriber::cmdVelCallback, this, std::placeholders::_1));
+    std::bind(&TeleopSubscriber::cmdVelCallback, this, std::placeholders::_1), options);
 
   sub_joint_angles_ = node->create_subscription<naoqi_bridge_msgs::msg::JointAnglesWithSpeed>(
     joint_angles_topic_, 10,
-    std::bind(&TeleopSubscriber::jointAnglesCallback, this, std::placeholders::_1));
+    std::bind(&TeleopSubscriber::jointAnglesCallback, this, std::placeholders::_1), options);
 
   sub_joint_angle_traj_ = node->create_subscription<naoqi_bridge_msgs::msg::JointAnglesTrajectory>(
     joint_angle_traj_topic_, 10,
-    std::bind(&TeleopSubscriber::jointAngleTrajCallback, this, std::placeholders::_1));
+    std::bind(&TeleopSubscriber::jointAngleTrajCallback, this, std::placeholders::_1), options);
 
   is_initialized_ = true;
 }

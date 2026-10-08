@@ -64,6 +64,7 @@ struct AudioPlayerState
   // Tracks remote temp files that need deletion: file_id → remote_path
   std::map<int32_t, std::string> remote_temp_files;
 
+  GoalWorker worker;  // joined at shutdown; see goal_worker.hpp
 };
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -173,7 +174,7 @@ void handleAccepted(
     state->is_paused.store(false);
   }
 
-  std::thread(
+  state->worker.start(
     [state, goal_handle]()
     {
       const auto goal = goal_handle->get_goal();
@@ -206,6 +207,20 @@ void handleAccepted(
         // Poll at ~10 Hz: check cancel, wait 100 ms for future to finish
         // Also check for timeout to prevent indefinite blocking
         while (rclcpp::ok()) {
+          if (state->worker.stopping()) {
+            player.call<void>("stopAll");
+            result->success = false;
+            result->status = "aborted: the driver is shutting down";
+            result->played_secs = elapsed_secs();
+            {
+              std::lock_guard<std::mutex> lock(state->mutex);
+              state->current_goal.reset();
+              state->cancel_requested.store(false);
+            }
+            goal_handle->abort(result);
+            return;
+          }
+
           // Check timeout
           if (elapsed_secs() > DEFAULT_PLAYBACK_TIMEOUT) {
             player.call<void>("stopAll");
@@ -285,7 +300,7 @@ void handleAccepted(
         goal_handle->abort(result);
         RCLCPP_ERROR(state->logger, "Playback failed: %s", e.what());
       }
-    }).detach();
+    });
 }
 
 // ── service handlers ──────────────────────────────────────────────────────────
@@ -520,12 +535,13 @@ void handleSendBuffer(
 
 // ── public factory ────────────────────────────────────────────────────────────
 
-AudioPlayerServers createAudioPlayerServers(rclcpp::Node * node, qi::SessionPtr session)
+std::unique_ptr<ActionHandle> createAudioPlayerServers(rclcpp::Node * node, qi::SessionPtr session)
 {
   namespace ph = std::placeholders;
   auto state = std::make_shared<AudioPlayerState>(node, std::move(session));
 
-  AudioPlayerServers servers;
+  auto servers_ptr = std::make_shared<AudioPlayerServers>();
+  AudioPlayerServers & servers = *servers_ptr;
 
   servers.play_audio = rclcpp_action::create_server<PlayAudio>(
     node, "/naoqi_driver/play_audio",
@@ -562,7 +578,8 @@ AudioPlayerServers createAudioPlayerServers(rclcpp::Node * node, qi::SessionPtr 
     "/naoqi_driver/resume_audio",
     std::bind(handleResumeAudio, state, ph::_1, ph::_2));
 
-  return servers;
+  // A playing goal polls stopping() every 100 ms and stops playback itself.
+  return std::make_unique<ActionHandle>(servers_ptr, [state]() {state->worker.shutdown();});
 }
 
 }  // namespace action

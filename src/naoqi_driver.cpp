@@ -125,6 +125,50 @@ namespace naoqi
 
 namespace
 {
+
+/**
+ * Spins the node's callbacks on two threads until destroyed. With callback groups,
+ * a slow service call cannot hold up /cmd_vel and its watchdog.
+ */
+class CallbackThread
+{
+public:
+  explicit CallbackThread(rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node)
+  : node_(std::move(node)), executor_(rclcpp::ExecutorOptions(), 2)
+  {
+    executor_.add_node(node_);
+    thread_ = std::thread(
+      [this] {
+        executor_.spin();
+        done_ = true;
+      });
+  }
+
+  ~CallbackThread()
+  {
+    // cancel() can race with spin() starting, so repeat it until spin() returned.
+    while (!done_) {
+      executor_.cancel();
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    thread_.join();
+    executor_.remove_node(node_);
+  }
+
+  CallbackThread(const CallbackThread &) = delete;
+  CallbackThread & operator=(const CallbackThread &) = delete;
+
+private:
+  rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_;
+  rclcpp::executors::MultiThreadedExecutor executor_;
+  std::thread thread_;
+  std::atomic<bool> done_{false};
+};
+
+}  // namespace
+
+namespace
+{
 using ImuPublisher = publisher::BasicPublisher<sensor_msgs::msg::Imu>;
 using ImuRecorder = recorder::BasicRecorder<sensor_msgs::msg::Imu>;
 using LaserPublisher = publisher::BasicPublisher<sensor_msgs::msg::LaserScan>;
@@ -157,11 +201,13 @@ void Driver::run()
   registerDefaultSubscriber();
   registerDefaultServices();
 
-  // Setting up action servers.
-  auto listen_server = action::createListenServer(this, session_);
-  auto speech_server = action::createSpeechWithFeedbackServer(this, session_);
-  auto audio_player_servers = action::createAudioPlayerServers(this, session_);
-  auto led_server = action::createRunLedServer(this, session_);
+  // Action servers. They outlive the callback thread below; destroying them stops
+  // their running goals in NAOqi and joins the goal threads.
+  std::vector<std::unique_ptr<action::ActionHandle>> actions;
+  actions.push_back(action::createListenServer(this, session_));
+  actions.push_back(action::createSpeechWithFeedbackServer(this, session_));
+  actions.push_back(action::createAudioPlayerServers(this, session_));
+  actions.push_back(action::createRunLedServer(this, session_));
 
   // A single iteration will propagate registrations, etc...
   rosIteration();
@@ -206,6 +252,9 @@ void Driver::run()
   RCLCPP_INFO_STREAM(get_logger(), "naoqi_driver initialized");
   RCLCPP_INFO_STREAM(get_logger(), "Starting ROS loop");
 
+  // ROS callbacks (commands, services, actions, timers) run on their own threads,
+  // so they never wait for the converter schedule of this loop.
+  CallbackThread callbacks(get_node_base_interface());
   while (keep_looping_) {
     this->rosIteration();
   }
@@ -304,14 +353,10 @@ void Driver::rosIteration()
       }
 
     } else { // conv_queue is empty.
-      // sleep one second
-      rclcpp::sleep_for(rclcpp::Duration(1, 0).to_chrono<std::chrono::nanoseconds>());
+      // Short, so that a stop request is noticed quickly.
+      rclcpp::sleep_for(std::chrono::milliseconds(100));
     }
   } // mutex scope
-
-  // Always service ROS callbacks: commands such as a zero /cmd_vel, action
-  // cancels and services must keep working while publishing is disabled.
-  rclcpp::spin_some(this->get_node_base_interface());
 }
 
 std::string Driver::minidump(const std::string & prefix)
@@ -1018,7 +1063,8 @@ void Driver::stop()
     subscribers_.clear();
     event_map_.clear();
   }
-  rclcpp::spin_some(this->get_node_base_interface());
+  // No spin_some() here: a /cmd_vel still queued would run after stopMove and could
+  // start the base again.
 }
 
 void Driver::parseJsonFile(std::string filepath, boost::property_tree::ptree & pt)

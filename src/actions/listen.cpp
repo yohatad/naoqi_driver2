@@ -49,6 +49,7 @@ struct ListenState
   // may drive it to a terminal state.
   std::shared_ptr<ListenGoalHandle> current_goal;
   qi::AnyObject memory_subscriber;
+  GoalWorker worker;  // joined at shutdown; see goal_worker.hpp
 };
 
 std::string topicNameForGoalId(const rclcpp_action::GoalUUID & goal_id)
@@ -67,6 +68,18 @@ struct ClaimedGoal
 // The dialog callback (NAOqi thread) and handleCancel (ROS executor) can
 // both try to finish the same goal. Whoever claims it first owns the
 // terminal transition; the other backs off.
+/** Takes over whichever goal is running, for example to abort it at shutdown. */
+ClaimedGoal claimCurrentGoal(ListenState & state)
+{
+  std::lock_guard<std::mutex> lock(state.mutex);
+  ClaimedGoal claimed;
+  claimed.goal = std::move(state.current_goal);
+  claimed.memory_subscriber = state.memory_subscriber;
+  state.current_goal.reset();
+  state.memory_subscriber.reset();
+  return claimed;
+}
+
 ClaimedGoal claimGoal(ListenState & state, const std::shared_ptr<ListenGoalHandle> & expected)
 {
   std::lock_guard<std::mutex> lock(state.mutex);
@@ -222,11 +235,11 @@ rclcpp_action::CancelResponse handleCancel(
 
   // The goal only enters CANCELING once we return ACCEPT, so the terminal
   // transition has to happen on another thread, after that.
-  std::thread(
+  state->worker.start(
     [state, goal_handle]
     {
       try {
-        for (int i = 0; i < 100 && !goal_handle->is_canceling(); ++i) {
+        for (int i = 0; i < 100 && !goal_handle->is_canceling() && !state->worker.stopping(); ++i) {
           std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
         goal_handle->canceled(std::make_shared<Listen::Result>());
@@ -235,7 +248,7 @@ rclcpp_action::CancelResponse handleCancel(
           state->logger, "Failed to mark listen %s as canceled: %s",
           rclcpp_action::to_string(goal_handle->get_goal_id()).c_str(), e.what());
       }
-    }).detach();
+    });
 
   return rclcpp_action::CancelResponse::ACCEPT;
 }
@@ -268,17 +281,33 @@ void cleanupDialog(ListenState & state, const std::string & topic_name)
 }
 }  // namespace
 
-rclcpp_action::Server<Listen>::SharedPtr
+std::unique_ptr<ActionHandle>
 createListenServer(rclcpp::Node * node, qi::SessionPtr session)
 {
   namespace ph = std::placeholders;
   auto task = std::make_shared<ListenState>(node, std::move(session));
-  return rclcpp_action::create_server<Listen>(
+  auto server = rclcpp_action::create_server<Listen>(
     node, "naoqi_driver/listen",
     std::bind(handleGoal, task, ph::_1, ph::_2),
     std::bind(handleCancel, task, ph::_1),
     std::bind(handleAccepted, task, ph::_1)
   );
+  return std::make_unique<ActionHandle>(
+    server, [task]() {
+      task->worker.requestStop();
+      // Abort a goal still waiting for speech and remove its dialog topic.
+      auto claimed = claimCurrentGoal(*task);
+      if (claimed.goal) {
+        claimed.memory_subscriber.reset();
+        cleanupDialog(*task, topicNameForGoalId(claimed.goal->get_goal_id()));
+        try {
+          claimed.goal->abort(std::make_shared<Listen::Result>());
+        } catch (const std::exception & e) {
+          RCLCPP_WARN(task->logger, "Failed to abort listen goal on shutdown: %s", e.what());
+        }
+      }
+      task->worker.join();
+    });
 }
 
 }  // namespace action

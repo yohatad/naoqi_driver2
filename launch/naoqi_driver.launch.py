@@ -64,6 +64,11 @@ def generate_launch_description():
             'max_angular_speed',
             default_value="0.0",
             description='Cap on the /cmd_vel angular speed (rad/s); 0 means no cap.'),
+        launch.actions.DeclareLaunchArgument(
+            'respawn',
+            default_value="true",
+            description='Restart the driver when it exits on its own, e.g. after losing '
+                        'the NAOqi connection (it then reconnects with backoff).'),
         launch_ros.actions.Node(
             package='naoqi_driver',
             executable='naoqi_driver_node',
@@ -85,5 +90,7 @@ def generate_launch_description():
                 'max_angular_speed': launch_ros.parameter_descriptions.ParameterValue(
                     launch.substitutions.LaunchConfiguration('max_angular_speed'), value_type=float),
             }],
-            output="screen"),
+            output="screen",
+            respawn=launch.substitutions.LaunchConfiguration('respawn'),
+            respawn_delay=2.0),
     ])

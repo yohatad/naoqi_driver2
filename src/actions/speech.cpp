@@ -29,6 +29,7 @@ struct SpeechState
   std::shared_ptr<SpeechGoalHandle> current_goal;
   qi::AnyObject animated_speech_service;
   std::atomic<bool> cancel_requested{false};
+  GoalWorker worker;  // joined at shutdown; see goal_worker.hpp
 };
 
 rclcpp_action::GoalResponse handleGoal(
@@ -96,7 +97,7 @@ void handleAccepted(
   }
 
   // Run speech in a separate thread to avoid blocking
-  std::thread(
+  state->worker.start(
     [state, goal_handle, goal_id]() {
       try {
         // Initialize ALAnimatedSpeech service if needed
@@ -134,7 +135,13 @@ void handleAccepted(
         // Check result
         auto result = std::make_shared<SpeechWithFeedback::Result>();
 
-        if (state->cancel_requested || goal_handle->is_canceling()) {
+        if (state->worker.stopping()) {
+          result->success = false;
+          goal_handle->abort(result);
+          RCLCPP_INFO(
+            state->logger, "Speech aborted, the driver is shutting down: %s",
+            goal_id.c_str());
+        } else if (state->cancel_requested || goal_handle->is_canceling()) {
           result->success = false;
           goal_handle->canceled(result);
           RCLCPP_INFO(state->logger, "Speech cancelled: %s", goal_id.c_str());
@@ -157,22 +164,41 @@ void handleAccepted(
       std::lock_guard<std::mutex> lock(state->mutex);
       state->current_goal.reset();
       state->cancel_requested = false;
-    }).detach();
+    });
 }
 }  // namespace
 
-rclcpp_action::Server<SpeechWithFeedback>::SharedPtr
+std::unique_ptr<ActionHandle>
 createSpeechWithFeedbackServer(rclcpp::Node * node, qi::SessionPtr session)
 {
   auto state = std::make_shared<SpeechState>(node, std::move(session));
-
-  return rclcpp_action::create_server<SpeechWithFeedback>(
+  auto server = rclcpp_action::create_server<SpeechWithFeedback>(
     node,
     "naoqi_driver/speech_with_feedback",
     std::bind(handleGoal, state, std::placeholders::_1, std::placeholders::_2),
     std::bind(handleCancel, state, std::placeholders::_1),
     std::bind(handleAccepted, state, std::placeholders::_1)
   );
+  return std::make_unique<ActionHandle>(
+    server, [state]() {
+      state->worker.requestStop();
+      // A goal blocked in ALAnimatedSpeech.say() only returns once speech stops.
+      qi::AnyObject speech;
+      bool speaking = false;
+      {
+        std::lock_guard<std::mutex> lock(state->mutex);
+        speech = state->animated_speech_service;
+        speaking = static_cast<bool>(state->current_goal);
+      }
+      if (speaking && speech) {
+        try {
+          speech.call<void>("stopAll");
+        } catch (const std::exception & e) {
+          RCLCPP_WARN(state->logger, "Failed to stop speech on shutdown: %s", e.what());
+        }
+      }
+      state->worker.join();
+    });
 }
 
 }  // namespace action

@@ -56,6 +56,7 @@ private:
   double max_distance_ = 0.0;  // m, 0 = no cap
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_moveto_;
   std::shared_ptr<tf2_ros::Buffer> tf2_buffer_;
+  rclcpp::CallbackGroup::SharedPtr callback_group_;
 };  // class MovetoSubscriber
 
 }  // namespace subscriber
