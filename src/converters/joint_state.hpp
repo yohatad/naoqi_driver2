@@ -24,7 +24,7 @@
 #include <memory>
 #include <functional>
 #include "converter_base.hpp"
-#include "../tools/robot_description.hpp"
+#include "tools/robot_description.hpp"
 #include <naoqi_driver/message_actions.h>
 #include <naoqi_driver/ros_helpers.hpp>
 
@@ -45,19 +45,19 @@ namespace converter
 class JointStateConverter : public BaseConverter<JointStateConverter>
 {
 
-  typedef std::function<void (sensor_msgs::msg::JointState &,
-      std::vector<geometry_msgs::msg::TransformStamped> &)> Callback_t;
+  using Callback_t = std::function<void (sensor_msgs::msg::JointState &,
+      std::vector<geometry_msgs::msg::TransformStamped> &)>;
 
-  typedef std::shared_ptr<tf2_ros::Buffer> BufferPtr;
+  using BufferPtr = std::shared_ptr<tf2_ros::Buffer>;
 
-  typedef std::map<std::string, urdf::JointMimicSharedPtr> MimicMap;
+  using MimicMap = std::map<std::string, urdf::JointMimicSharedPtr>;
 
 public:
   JointStateConverter(
-    const std::string & name, const float & frequency,
+    const std::string & name, float frequency,
     const BufferPtr & tf2_buffer, const qi::SessionPtr & session);
 
-  ~JointStateConverter();
+  ~JointStateConverter() override;
 
   virtual void reset();
 
@@ -104,7 +104,7 @@ private:
 
 }; // class
 
-} //publisher
-} // naoqi
+}  // namespace converter
+}  // namespace naoqi
 
 #endif

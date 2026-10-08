@@ -33,24 +33,24 @@ public:
   DriverAuthenticator(
     const std::string & user,
     const std::string & pass)
-  : _u(user), _p(pass) {}
+  : user_(user), password_(pass) {}
 
-  qi::CapabilityMap initialAuthData()
+  qi::CapabilityMap initialAuthData() override
   {
     qi::CapabilityMap result;
-    result[DriverAuthenticator::user_key] = qi::AnyValue::from(_u);
-    result[DriverAuthenticator::pass_key] = qi::AnyValue::from(_p);
+    result[DriverAuthenticator::user_key] = qi::AnyValue::from(user_);
+    result[DriverAuthenticator::pass_key] = qi::AnyValue::from(password_);
     return result;
   }
 
-  qi::CapabilityMap _processAuth(const qi::CapabilityMap &)
+  qi::CapabilityMap _processAuth(const qi::CapabilityMap &) override
   {
     return qi::CapabilityMap();
   }
 
 private:
-  std::string _u;
-  std::string _p;
+  std::string user_;
+  std::string password_;
 };
 
 class DriverAuthenticatorFactory : public qi::ClientAuthenticatorFactory
@@ -59,13 +59,13 @@ public:
   std::string user;
   std::string pass;
 
-  qi::ClientAuthenticatorPtr newAuthenticator()
+  qi::ClientAuthenticatorPtr newAuthenticator() override
   {
     // qi::ClientAuthenticatorPtr is a boost::shared_ptr, so this must stay boost.
     return boost::make_shared<DriverAuthenticator>(user, pass);
   }
 };
 
-}
+}  // namespace naoqi
 
 #endif // DRIVER_AUTHENTICATOR

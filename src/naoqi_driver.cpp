@@ -77,7 +77,6 @@
 #include "subscribers/moveto.hpp"
 #include "subscribers/speech.hpp"
 
-
 /*
  * SERVICES
  */
@@ -120,7 +119,6 @@
 #include "helpers/naoqi_helpers.hpp"
 #include "helpers/driver_helpers.hpp"
 
-
 namespace ph = std::placeholders;
 
 namespace naoqi
@@ -132,17 +130,11 @@ Driver::Driver()
   publish_enabled_(false),
   record_enabled_(false),
   log_enabled_(false),
-  keep_looping(true),
+  keep_looping_(true),
   recorder_(std::make_shared<recorder::GlobalRecorder>("naoqi_driver")),
   buffer_duration_(helpers::recorder::bufferDefaultDuration) {}
 
-Driver::~Driver()
-{
-  std::cout << BOLDCYAN
-            << "naoqi driver is shutting down.."
-            << RESETCOLOR
-            << std::endl;
-}
+Driver::~Driver() = default;
 
 void Driver::run()
 {
@@ -153,10 +145,10 @@ void Driver::run()
   registerDefaultServices();
 
   // Setting up action servers.
-  auto listen_server = action::createListenServer(this, sessionPtr_);
-  auto speech_server = action::createSpeechWithFeedbackServer(this, sessionPtr_);
-  auto audio_player_servers = action::createAudioPlayerServers(this, sessionPtr_);
-  auto led_server = action::createRunLedServer(this, sessionPtr_);
+  auto listen_server = action::createListenServer(this, session_);
+  auto speech_server = action::createSpeechWithFeedbackServer(this, session_);
+  auto audio_player_servers = action::createAudioPlayerServers(this, session_);
+  auto led_server = action::createRunLedServer(this, session_);
 
   // A single iteration will propagate registrations, etc...
   rosIteration();
@@ -168,15 +160,15 @@ void Driver::run()
       // If there is no converters, create them
       // (converters only depends on Naoqi, resetting the
       // Ros node has no impact on them)
-      std::cout << BOLDRED << "going to register converters" << RESETCOLOR << std::endl;
+      RCLCPP_INFO_STREAM(get_logger(), "going to register converters");
       registerDefaultConverter();
       registerDefaultSubscriber();
     } else {
-      std::cout << "NOT going to re-register the converters" << std::endl;
+      RCLCPP_INFO_STREAM(get_logger(), "NOT going to re-register the converters");
       // If some converters are already there, then
       // we just need to reset the registered publisher
       // using the ROS node
-      typedef std::map<std::string, publisher::Publisher> publisher_map;
+      using publisher_map = std::map<std::string, publisher::Publisher>;
       for (publisher_map::value_type & pub: pub_map_) {
         pub.second.reset(this);
       }
@@ -191,7 +183,7 @@ void Driver::run()
     }
 
     if (!event_map_.empty()) {
-      typedef std::map<std::string, event::Event> event_map;
+      using event_map = std::map<std::string, event::Event>;
       for (event_map::value_type & event: event_map_) {
         event.second.resetPublisher(this);
       }
@@ -200,35 +192,32 @@ void Driver::run()
     startPublishing();
   }
 
-  std::cout << BOLDYELLOW
-            << "naoqi_driver initialized"
-            << RESETCOLOR
-            << std::endl;
-  std::cout << "Starting ROS loop" << std::endl;
+  RCLCPP_INFO_STREAM(get_logger(), "naoqi_driver initialized");
+  RCLCPP_INFO_STREAM(get_logger(), "Starting ROS loop");
 
-  while (keep_looping) {
+  while (keep_looping_) {
     this->rosIteration();
   }
 }
 
 /**
  * Sets the Qi Session to use,
- * sets robot and has_stereo objects.
+ * sets robot and has_stereo_ objects.
  * Must be called before the run function.
  *
  * @param session
  */
 void Driver::setQiSession(const qi::SessionPtr & session)
 {
-  this->sessionPtr_ = session;
+  this->session_ = session;
   robot_ = helpers::driver::getRobot(session);
-  has_stereo = helpers::driver::isDepthStereo(session);
+  has_stereo_ = helpers::driver::isDepthStereo(session);
 }
 
 void Driver::loadBootConfig()
 {
   const std::string & file_path = helpers::filesystem::getBootConfigFile();
-  std::cout << "load boot config from " << file_path << std::endl;
+  RCLCPP_INFO_STREAM(get_logger(), "load boot config from " << file_path);
   if (!file_path.empty()) {
     boost::property_tree::read_json(file_path, this->boot_config_);
   }
@@ -250,7 +239,7 @@ void Driver::rosIteration()
       // 1. publishing enabled
       // 2. has to be registered
       // 3. has to be subscribed
-      PubConstIter pub_it = pub_map_.find(conv.name() );
+      auto pub_it = pub_map_.find(conv.name() );
       if (publish_enabled_ && pub_it != pub_map_.end() && pub_it->second.isSubscribed() ) {
         actions.push_back(message_actions::PUBLISH);
       }
@@ -259,7 +248,7 @@ void Driver::rosIteration()
       // 1. recording enabled
       // 2. has to be registered
       // 3. has to be subscribed (configured to be recorded)
-      RecConstIter rec_it = rec_map_.find(conv.name() );
+      auto rec_it = rec_map_.find(conv.name() );
       {
         std::unique_lock<std::mutex> lock_record(mutex_record_, std::try_to_lock);
         if (lock_record && record_enabled_ && rec_it != rec_map_.end() &&
@@ -275,7 +264,7 @@ void Driver::rosIteration()
       }
 
       // only call when we have at least one action to perform
-      if (actions.size() > 0) {
+      if (!actions.empty()) {
         // A NAOqi error in one converter (camera busy, network hiccup) must not
         // take the whole driver down; it is retried on its next schedule.
         try {
@@ -316,8 +305,7 @@ std::string Driver::minidump(const std::string & prefix)
 {
   if (!log_enabled_) {
     const std::string & err = "Log is not enabled, please enable logging before calling minidump";
-    std::cout << BOLDRED << err << std::endl
-              << RESETCOLOR << std::endl;
+    RCLCPP_WARN_STREAM(get_logger(), err);
     return err;
   }
 
@@ -326,11 +314,9 @@ std::string Driver::minidump(const std::string & prefix)
   std::filesystem::path folderPath(std::filesystem::current_path());
   helpers::filesystem::getFilesSize(folderPath, files_size);
   if (files_size > helpers::filesystem::folderMaximumSize) {
-    std::cout << BOLDRED <<
-      "No more space on robot. You need to upload the presents bags and remove them to make new ones."
-              << std::endl << "To remove all the presents bags, you can run this command:" <<
-      std::endl
-              << "\t$ qicli call ROS-Driver.removeFiles" << RESETCOLOR << std::endl;
+    RCLCPP_WARN_STREAM(
+      get_logger(),
+      "No more space on robot. You need to upload the presents bags and remove them to make new ones.\nTo remove all the presents bags, you can run this command:\n\t$ qicli call ROS-Driver.removeFiles");
     return
       "No more space on robot. You need to upload the presents bags and remove them to make new ones.";
   }
@@ -342,8 +328,8 @@ std::string Driver::minidump(const std::string & prefix)
 
   // STOP BUFFERIZING
   log_enabled_ = false;
-  for (EventIter iterator = event_map_.begin(); iterator != event_map_.end(); iterator++) {
-    iterator->second.isDumping(true);
+  for (auto & [name, event] : event_map_) {
+    event.isDumping(true);
   }
   rclcpp::Time time = this->now();
 
@@ -352,17 +338,17 @@ std::string Driver::minidump(const std::string & prefix)
   recorder_->startRecord(prefix);
 
   // WRITE ALL BUFFER INTO THE ROSBAG
-  for (EventIter iterator = event_map_.begin(); iterator != event_map_.end(); iterator++) {
-    iterator->second.writeDump(time);
+  for (auto & [name, event] : event_map_) {
+    event.writeDump(time);
   }
-  for (RecIter iterator = rec_map_.begin(); iterator != rec_map_.end(); iterator++) {
-    iterator->second.writeDump(time);
+  for (auto & [name, recorder] : rec_map_) {
+    recorder.writeDump(time);
   }
 
   // RESTART BUFFERIZING
   log_enabled_ = true;
-  for (EventIter iterator = event_map_.begin(); iterator != event_map_.end(); iterator++) {
-    iterator->second.isDumping(false);
+  for (auto & [name, event] : event_map_) {
+    event.isDumping(false);
   }
   return recorder_->stopRecord(::naoqi::ros_env::getROSIP("eth0"));
 }
@@ -373,8 +359,7 @@ std::string Driver::minidumpConverters(
 {
   if (!log_enabled_) {
     const std::string & err = "Log is not enabled, please enable logging before calling minidump";
-    std::cout << BOLDRED << err << std::endl
-              << RESETCOLOR << std::endl;
+    RCLCPP_WARN_STREAM(get_logger(), err);
     return err;
   }
 
@@ -383,11 +368,9 @@ std::string Driver::minidumpConverters(
   std::filesystem::path folderPath(std::filesystem::current_path());
   helpers::filesystem::getFilesSize(folderPath, files_size);
   if (files_size > helpers::filesystem::folderMaximumSize) {
-    std::cout << BOLDRED <<
-      "No more space on robot. You need to upload the presents bags and remove them to make new ones."
-              << std::endl << "To remove all the presents bags, you can run this command:" <<
-      std::endl
-              << "\t$ qicli call ROS-Driver.removeFiles" << RESETCOLOR << std::endl;
+    RCLCPP_WARN_STREAM(
+      get_logger(),
+      "No more space on robot. You need to upload the presents bags and remove them to make new ones.\nTo remove all the presents bags, you can run this command:\n\t$ qicli call ROS-Driver.removeFiles");
     return
       "No more space on robot. You need to upload the presents bags and remove them to make new ones.";
   }
@@ -399,8 +382,8 @@ std::string Driver::minidumpConverters(
 
   // STOP BUFFERIZING
   log_enabled_ = false;
-  for (EventIter iterator = event_map_.begin(); iterator != event_map_.end(); iterator++) {
-    iterator->second.isDumping(true);
+  for (auto & [name, event] : event_map_) {
+    event.isDumping(true);
   }
   rclcpp::Time time = this->now();
 
@@ -409,7 +392,7 @@ std::string Driver::minidumpConverters(
 
   bool is_started = false;
   for (const std::string & name: names) {
-    RecIter it = rec_map_.find(name);
+    auto it = rec_map_.find(name);
     if (it != rec_map_.end() ) {
       if (!is_started) {
         recorder_->startRecord(prefix);
@@ -417,7 +400,7 @@ std::string Driver::minidumpConverters(
       }
       it->second.writeDump(time);
     } else {
-      EventIter it_event = event_map_.find(name);
+      auto it_event = event_map_.find(name);
       if (it_event != event_map_.end() ) {
         if (!is_started) {
           recorder_->startRecord(prefix);
@@ -429,17 +412,15 @@ std::string Driver::minidumpConverters(
   }
   // RESTART BUFFERIZING
   log_enabled_ = true;
-  for (EventIter iterator = event_map_.begin(); iterator != event_map_.end(); iterator++) {
-    iterator->second.isDumping(false);
+  for (auto & [name, event] : event_map_) {
+    event.isDumping(false);
   }
   if (is_started) {
     return recorder_->stopRecord(::naoqi::ros_env::getROSIP("eth0"));
   } else {
-    std::cout << BOLDRED << "Could not find any topic in recorders" << RESETCOLOR << std::endl
-              << BOLDYELLOW << "To get the list of all available converter's name, please run:" <<
-      RESETCOLOR << std::endl
-              << GREEN << "\t$ qicli call ROS-Driver.getAvailableConverters" << RESETCOLOR <<
-      std::endl;
+    RCLCPP_ERROR_STREAM(
+      get_logger(),
+      "Could not find any topic in recorders\nTo get the list of all available converter's name, please run:\n\t$ qicli call ROS-Driver.getAvailableConverters");
     return
       "Could not find any topic in converters. To get the list of all available converter's name, please run: $ qicli call ROS-Driver.getAvailableConverters";
   }
@@ -447,11 +428,11 @@ std::string Driver::minidumpConverters(
 
 void Driver::setBufferDuration(float duration)
 {
-  for (RecIter iterator = rec_map_.begin(); iterator != rec_map_.end(); iterator++) {
-    iterator->second.setBufferDuration(duration);
+  for (auto & [name, recorder] : rec_map_) {
+    recorder.setBufferDuration(duration);
   }
-  for (EventIter iterator = event_map_.begin(); iterator != event_map_.end(); iterator++) {
-    iterator->second.setBufferDuration(duration);
+  for (auto & [name, event] : event_map_) {
+    event.setBufferDuration(duration);
   }
   buffer_duration_ = duration;
 }
@@ -492,7 +473,6 @@ void Driver::registerRecorder(
 
 void Driver::insertEventConverter(const std::string & key, event::Event event)
 {
-  //event.reset(*nhPtr_, recorder_);
   event.resetRecorder(recorder_);
   event_map_.insert(std::map<std::string, event::Event>::value_type(key, event) );
 }
@@ -525,11 +505,10 @@ bool Driver::registerMemoryConverter(
   dataType::DataType data_type;
   qi::AnyValue value;
   try {
-    qi::AnyObject p_memory = sessionPtr_->service("ALMemory").value();
+    qi::AnyObject p_memory = session_->service("ALMemory").value();
     value = p_memory.call<qi::AnyValue>("getData", key);
   } catch (const std::exception & e) {
-    std::cout << BOLDRED << "Could not get data in memory for the key: "
-              << BOLDCYAN << key << RESETCOLOR << std::endl;
+    RCLCPP_ERROR_STREAM(get_logger(), "Could not get data in memory for the key: " << key);
     return false;
   }
 
@@ -537,14 +516,10 @@ bool Driver::registerMemoryConverter(
     try {
       data_type = helpers::naoqi::getDataType(value);
     } catch (const std::exception & e) {
-      std::cout << BOLDRED << "Could not get a valid data type to register memory converter "
-                << BOLDCYAN << key << RESETCOLOR << std::endl
-                << BOLDRED << "You can enter it yourself, available types are:" << std::endl
-                << "\t > 0 - None" << std::endl
-                << "\t > 1 - Float" << std::endl
-                << "\t > 2 - Int" << std::endl
-                << "\t > 3 - String" << std::endl
-                << "\t > 4 - Bool" << RESETCOLOR << std::endl;
+      RCLCPP_ERROR_STREAM(
+        get_logger(),
+        "Could not get a valid data type to register memory converter " << key <<
+          "\nYou can enter it yourself, available types are:\n\t > 0 - None\n\t > 1 - Float\n\t > 2 - Int\n\t > 3 - String\n\t > 4 - Bool");
       return false;
     }
   } else {
@@ -582,12 +557,9 @@ bool Driver::registerMemoryConverter(
       break;
     default:
       {
-        std::cout << BOLDRED << "Wrong data type. Available type are: " << std::endl
-                  << "\t > 0 - None" << std::endl
-                  << "\t > 1 - Float" << std::endl
-                  << "\t > 2 - Int" << std::endl
-                  << "\t > 3 - String" << std::endl
-                  << "\t > 4 - Bool" << RESETCOLOR << std::endl;
+        RCLCPP_WARN_STREAM(
+          get_logger(),
+          "Wrong data type. Available type are: \n\t > 0 - None\n\t > 1 - Float\n\t > 2 - Int\n\t > 3 - String\n\t > 4 - Bool");
         return false;
         break;
       }
@@ -670,7 +642,7 @@ void Driver::registerDefaultConverter()
   // Load the correct variables depending on the type of the depth camera
   // (XTION or stereo). IR disabled if the robot uses a stereo camera to
   // compute the depth
-  if (this->has_stereo) {
+  if (this->has_stereo_) {
     camera_ir_enabled = false;
     camera_depth_resolution = camera_depth_stereo_resolution;
   } else {
@@ -692,7 +664,7 @@ void Driver::registerDefaultConverter()
     auto inr = std::make_shared<recorder::BasicRecorder<naoqi_bridge_msgs::msg::StringStamped>>(
       topic);
     std::shared_ptr<converter::InfoConverter> inc = std::make_shared<converter::InfoConverter>(
-      topic, 0, sessionPtr_);
+      topic, 0, session_);
     inc->registerCallback(
       message_actions::PUBLISH,
       std::bind(&publisher::InfoPublisher::publish, inp, ph::_1));
@@ -709,13 +681,12 @@ void Driver::registerDefaultConverter()
     registerConverter(inc, inp, inr);
   }
 
-
-  /** LOGS */
+  /** g_logs */
   if (logs_enabled) {
     std::shared_ptr<converter::LogConverter> lc = std::make_shared<converter::LogConverter>(
       "log",
       logs_frequency,
-      sessionPtr_);
+      session_);
     std::shared_ptr<publisher::LogPublisher> lp = std::make_shared<publisher::LogPublisher>(
       "/rosout");
     lc->registerCallback(
@@ -727,7 +698,7 @@ void Driver::registerDefaultConverter()
   /** DIAGNOSTICS */
   if (diag_enabled) {
     std::shared_ptr<converter::DiagnosticsConverter> dc =
-      std::make_shared<converter::DiagnosticsConverter>("diag", diag_frequency, sessionPtr_);
+      std::make_shared<converter::DiagnosticsConverter>("diag", diag_frequency, session_);
     std::shared_ptr<publisher::BasicPublisher<diagnostic_msgs::msg::DiagnosticArray>> dp =
       std::make_shared<publisher::BasicPublisher<diagnostic_msgs::msg::DiagnosticArray>>(
       "/diagnostics");
@@ -754,7 +725,7 @@ void Driver::registerDefaultConverter()
     std::shared_ptr<recorder::BasicRecorder<sensor_msgs::msg::Imu>> imutr =
       std::make_shared<recorder::BasicRecorder<sensor_msgs::msg::Imu>>("imu/torso");
     std::shared_ptr<converter::ImuConverter> imutc = std::make_shared<converter::ImuConverter>(
-      "imu_torso", converter::IMU::TORSO, imu_torso_frequency, sessionPtr_);
+      "imu_torso", converter::IMU::TORSO, imu_torso_frequency, session_);
     imutc->registerCallback(
       message_actions::PUBLISH,
       std::bind(&publisher::BasicPublisher<sensor_msgs::msg::Imu>::publish, imutp, ph::_1) );
@@ -775,7 +746,7 @@ void Driver::registerDefaultConverter()
       std::shared_ptr<recorder::BasicRecorder<sensor_msgs::msg::Imu>> imubr =
         std::make_shared<recorder::BasicRecorder<sensor_msgs::msg::Imu>>("imu/base");
       std::shared_ptr<converter::ImuConverter> imubc = std::make_shared<converter::ImuConverter>(
-        "imu_base", converter::IMU::BASE, imu_base_frequency, sessionPtr_);
+        "imu_base", converter::IMU::BASE, imu_base_frequency, session_);
       imubc->registerCallback(
         message_actions::PUBLISH,
         std::bind(&publisher::BasicPublisher<sensor_msgs::msg::Imu>::publish, imubp, ph::_1) );
@@ -796,7 +767,7 @@ void Driver::registerDefaultConverter()
     std::shared_ptr<recorder::CameraRecorder> fcr = std::make_shared<recorder::CameraRecorder>(
       "camera/front", camera_front_recorder_fps);
     std::shared_ptr<converter::CameraConverter> fcc = std::make_shared<converter::CameraConverter>(
-      "front_camera", camera_front_fps, sessionPtr_, AL::kTopCamera, camera_front_resolution);
+      "front_camera", camera_front_fps, session_, AL::kTopCamera, camera_front_resolution);
     fcc->registerCallback(
       message_actions::PUBLISH,
       std::bind(&publisher::CameraPublisher::publish, fcp, ph::_1, ph::_2) );
@@ -816,7 +787,7 @@ void Driver::registerDefaultConverter()
     std::shared_ptr<recorder::CameraRecorder> bcr = std::make_shared<recorder::CameraRecorder>(
       "camera/bottom", camera_bottom_recorder_fps);
     std::shared_ptr<converter::CameraConverter> bcc = std::make_shared<converter::CameraConverter>(
-      "bottom_camera", camera_bottom_fps, sessionPtr_, AL::kBottomCamera,
+      "bottom_camera", camera_bottom_fps, session_, AL::kBottomCamera,
       camera_bottom_resolution);
     bcc->registerCallback(
       message_actions::PUBLISH,
@@ -830,7 +801,6 @@ void Driver::registerDefaultConverter()
     registerConverter(bcc, bcp, bcr);
   }
 
-
   if (robot_ == robot::PEPPER) {
     /** Depth Camera */
     if (camera_depth_enabled) {
@@ -842,10 +812,10 @@ void Driver::registerDefaultConverter()
         std::make_shared<converter::CameraConverter>(
         "depth_camera",
         camera_depth_fps,
-        sessionPtr_,
+        session_,
         AL::kDepthCamera,
         camera_depth_resolution,
-        this->has_stereo);
+        this->has_stereo_);
 
       dcc->registerCallback(
         message_actions::PUBLISH,
@@ -860,7 +830,7 @@ void Driver::registerDefaultConverter()
     }
 
     /** Stereo Camera */
-    if (this->has_stereo && camera_stereo_enabled) {
+    if (this->has_stereo_ && camera_stereo_enabled) {
       std::shared_ptr<publisher::CameraPublisher> scp =
         std::make_shared<publisher::CameraPublisher>(
         "camera/stereo/image_raw",
@@ -872,10 +842,10 @@ void Driver::registerDefaultConverter()
         std::make_shared<converter::CameraConverter>(
         "stereo_camera",
         camera_stereo_fps,
-        sessionPtr_,
+        session_,
         AL::kInfraredOrStereoCamera,
         camera_stereo_resolution,
-        this->has_stereo);
+        this->has_stereo_);
 
       scc->registerCallback(
         message_actions::PUBLISH,
@@ -900,7 +870,7 @@ void Driver::registerDefaultConverter()
       std::shared_ptr<converter::CameraConverter> icc =
         std::make_shared<converter::CameraConverter>(
         "infrared_camera", camera_ir_fps,
-        sessionPtr_, AL::kInfraredOrStereoCamera,
+        session_, AL::kInfraredOrStereoCamera,
         camera_ir_resolution);
       icc->registerCallback(
         message_actions::PUBLISH,
@@ -924,7 +894,7 @@ void Driver::registerDefaultConverter()
     std::shared_ptr<converter::JointStateConverter> jsc =
       std::make_shared<converter::JointStateConverter>(
       "joint_states", joint_states_frequency,
-      tf2_buffer_, sessionPtr_);
+      tf2_buffer_, session_);
     jsc->registerCallback(
       message_actions::PUBLISH,
       std::bind(&publisher::JointStatePublisher::publish, jsp, ph::_1, ph::_2) );
@@ -935,7 +905,6 @@ void Driver::registerDefaultConverter()
       message_actions::LOG,
       std::bind(&recorder::JointStateRecorder::bufferize, jsr, ph::_1, ph::_2) );
     registerConverter(jsc, jsp, jsr);
-    //  registerRecorder(jsc, jsr);
   }
 
   if (robot_ == robot::PEPPER) {
@@ -946,7 +915,7 @@ void Driver::registerDefaultConverter()
       std::shared_ptr<recorder::BasicRecorder<sensor_msgs::msg::LaserScan>> lr =
         std::make_shared<recorder::BasicRecorder<sensor_msgs::msg::LaserScan>>("laser");
       std::shared_ptr<converter::LaserConverter> lc = std::make_shared<converter::LaserConverter>(
-        "laser", laser_frequency, sessionPtr_);
+        "laser", laser_frequency, session_);
 
       lc->setLaserRanges(laser_range_min, laser_range_max);
       lc->registerCallback(
@@ -977,7 +946,7 @@ void Driver::registerDefaultConverter()
     std::shared_ptr<recorder::SonarRecorder> usr = std::make_shared<recorder::SonarRecorder>(
       sonar_topics);
     std::shared_ptr<converter::SonarConverter> usc = std::make_shared<converter::SonarConverter>(
-      "sonar", sonar_frequency, sessionPtr_);
+      "sonar", sonar_frequency, session_);
     usc->registerCallback(
       message_actions::PUBLISH,
       std::bind(&publisher::SonarPublisher::publish, usp, ph::_1) );
@@ -993,17 +962,16 @@ void Driver::registerDefaultConverter()
   if (audio_enabled) {
     /** Audio */
     // boost, not std: AudioEventRegister registers itself as a qi service (see audio.hpp).
-    auto event_register = boost::make_shared<AudioEventRegister>("audio", 0, sessionPtr_);
+    auto event_register = boost::make_shared<AudioEventRegister>("audio", 0, session_);
     insertEventConverter("audio", event_register);
-    if (keep_looping) {
+    if (keep_looping_) {
       try {
         event_map_.at("audio").startProcess();
       } catch (const std::exception & e) {
-        std::cerr << "Failed to start audio extraction: " << e.what() << std::endl;
-        std::cout << "Audio is being disabled automatically." << std::endl
-                  <<
-          "Try specifying the --qi_listen_url option to an endpoint reachable by the robot fix that."
-                  << std::endl;
+        RCLCPP_ERROR_STREAM(get_logger(), "Failed to start audio extraction: " << e.what());
+        RCLCPP_WARN_STREAM(
+          get_logger(),
+          "Audio is being disabled automatically.\nTry specifying the --qi_listen_url option to an endpoint reachable by the robot fix that.");
       }
     }
     if (publish_enabled_) {
@@ -1020,9 +988,9 @@ void Driver::registerDefaultConverter()
       bumper_events.push_back("BackBumperPressed");
     }
     std::shared_ptr<BumperEventRegister> event_register =
-      std::make_shared<BumperEventRegister>("bumper", bumper_events, 0, sessionPtr_);
+      std::make_shared<BumperEventRegister>("bumper", bumper_events, 0, session_);
     insertEventConverter("bumper", event_register);
-    if (keep_looping) {
+    if (keep_looping_) {
       event_map_.at("bumper").startProcess();
     }
     if (publish_enabled_) {
@@ -1039,9 +1007,9 @@ void Driver::registerDefaultConverter()
     hand_touch_events.push_back("HandLeftLeftTouched");
     hand_touch_events.push_back("HandLeftRightTouched");
     std::shared_ptr<HandTouchEventRegister> event_register =
-      std::make_shared<HandTouchEventRegister>("hand_touch", hand_touch_events, 0, sessionPtr_);
+      std::make_shared<HandTouchEventRegister>("hand_touch", hand_touch_events, 0, session_);
     insertEventConverter("hand_touch", event_register);
-    if (keep_looping) {
+    if (keep_looping_) {
       event_map_.at("hand_touch").startProcess();
     }
     if (publish_enabled_) {
@@ -1055,9 +1023,9 @@ void Driver::registerDefaultConverter()
     head_touch_events.push_back("MiddleTactilTouched");
     head_touch_events.push_back("RearTactilTouched");
     std::shared_ptr<HeadTouchEventRegister> event_register =
-      std::make_shared<HeadTouchEventRegister>("head_touch", head_touch_events, 0, sessionPtr_);
+      std::make_shared<HeadTouchEventRegister>("head_touch", head_touch_events, 0, session_);
     insertEventConverter("head_touch", event_register);
-    if (keep_looping) {
+    if (keep_looping_) {
       event_map_.at("head_touch").startProcess();
     }
     if (publish_enabled_) {
@@ -1072,7 +1040,7 @@ void Driver::registerDefaultConverter()
     std::shared_ptr<recorder::BasicRecorder<nav_msgs::msg::Odometry>> lr =
       std::make_shared<recorder::BasicRecorder<nav_msgs::msg::Odometry>>("pepper_odom");
     std::shared_ptr<converter::OdomConverter> lc = std::make_shared<converter::OdomConverter>(
-      "pepper_odom", odom_frequency, sessionPtr_);
+      "pepper_odom", odom_frequency, session_);
     lc->registerCallback(
       message_actions::PUBLISH,
       std::bind(&publisher::BasicPublisher<nav_msgs::msg::Odometry>::publish, lp, ph::_1) );
@@ -1087,7 +1055,6 @@ void Driver::registerDefaultConverter()
 
 }
 
-
 // public interface here
 void Driver::registerSubscriber(subscriber::Subscriber sub)
 {
@@ -1098,13 +1065,12 @@ void Driver::registerSubscriber(subscriber::Subscriber sub)
   // if subscriber is not found, register it!
   if (it == subscribers_.end() ) {
     sub_index = subscribers_.size();
-    //sub.reset( *nhPtr_ );
     subscribers_.push_back(sub);
-    std::cout << "registered subscriber:\t" << sub.name() << std::endl;
+    RCLCPP_INFO_STREAM(get_logger(), "registered subscriber:\t" << sub.name());
   }
   // if found, re-init them
   else {
-    std::cout << "re-initialized existing subscriber:\t" << it->name() << std::endl;
+    RCLCPP_INFO_STREAM(get_logger(), "re-initialized existing subscriber:\t" << it->name());
   }
 }
 
@@ -1116,15 +1082,15 @@ void Driver::registerDefaultSubscriber()
   registerSubscriber(
     std::make_shared<naoqi::subscriber::TeleopSubscriber>(
       "teleop", "/cmd_vel",
-      "/joint_angles", "/joint_angles_trajectory", sessionPtr_) );
+      "/joint_angles", "/joint_angles_trajectory", session_) );
   registerSubscriber(
     std::make_shared<naoqi::subscriber::MovetoSubscriber>(
       "moveto",
-      "/move_base_simple/goal", sessionPtr_, tf2_buffer_) );
+      "/move_base_simple/goal", session_, tf2_buffer_) );
   registerSubscriber(
     std::make_shared<naoqi::subscriber::SpeechSubscriber>(
       "speech", "/speech",
-      sessionPtr_) );
+      session_) );
 }
 
 void Driver::registerService(service::Service srv)
@@ -1132,25 +1098,24 @@ void Driver::registerService(service::Service srv)
   services_.push_back(srv);
 }
 
-
 void Driver::registerDefaultServices()
 {
   registerService(
     std::make_shared<service::RobotConfigService>(
       "get_robot_config",
-      "/naoqi_driver/get_robot_config", sessionPtr_) );
+      "/naoqi_driver/get_robot_config", session_) );
   registerService(
     std::make_shared<service::SetLanguageService>(
       "set_language",
-      "/naoqi_driver/set_language", sessionPtr_) );
+      "/naoqi_driver/set_language", session_) );
   registerService(
     std::make_shared<service::GetLanguageService>(
       "get_language",
-      "/naoqi_driver/get_language", sessionPtr_) );
+      "/naoqi_driver/get_language", session_) );
   registerService(
     std::make_shared<service::OdomResetService>(
       "reset_odometry",
-      "/naoqi_driver/reset_odometry", sessionPtr_) );
+      "/naoqi_driver/reset_odometry", session_) );
 }
 
 std::vector<std::string> Driver::getAvailableConverters()
@@ -1159,8 +1124,8 @@ std::vector<std::string> Driver::getAvailableConverters()
   for (const converter::Converter & conv: converters_) {
     conv_list.push_back(conv.name());
   }
-  for (EventConstIter iterator = event_map_.begin(); iterator != event_map_.end(); iterator++) {
-    conv_list.push_back(iterator->first);
+  for (const auto & [name, event] : event_map_) {
+    conv_list.push_back(name);
   }
 
   return conv_list;
@@ -1169,28 +1134,25 @@ std::vector<std::string> Driver::getAvailableConverters()
 void Driver::startPublishing()
 {
   publish_enabled_ = true;
-  for (EventIter iterator = event_map_.begin(); iterator != event_map_.end(); iterator++) {
-    iterator->second.isPublishing(true);
+  for (auto & [name, event] : event_map_) {
+    event.isPublishing(true);
   }
 }
 
 void Driver::stopPublishing()
 {
   publish_enabled_ = false;
-  for (EventIter iterator = event_map_.begin(); iterator != event_map_.end(); iterator++) {
-    iterator->second.isPublishing(false);
+  for (auto & [name, event] : event_map_) {
+    event.isPublishing(false);
   }
 }
 
 std::vector<std::string> Driver::getSubscribedPublishers() const
 {
   std::vector<std::string> publisher;
-  for (PubConstIter iterator = pub_map_.begin(); iterator != pub_map_.end(); iterator++) {
-    // iterator->first = key
-    // iterator->second = value
-    // Repeat if you also want to iterate through the second map.
-    if (iterator->second.isSubscribed() ) {
-      publisher.push_back(iterator->second.topic() );
+  for (const auto & [name, pub] : pub_map_) {
+    if (pub.isSubscribed() ) {
+      publisher.push_back(pub.topic() );
     }
   }
   return publisher;
@@ -1201,19 +1163,15 @@ void Driver::startRecording()
   std::lock_guard<std::mutex> lock_record(mutex_record_);
   recorder_->startRecord();
   for (converter::Converter & conv: converters_) {
-    RecIter it = rec_map_.find(conv.name());
+    auto it = rec_map_.find(conv.name());
     if (it != rec_map_.end() ) {
       it->second.subscribe(true);
-      std::cout << HIGHGREEN << "Topic "
-                << BOLDCYAN << conv.name() << RESETCOLOR
-                << HIGHGREEN << " is subscribed for recording" << RESETCOLOR << std::endl;
+      RCLCPP_INFO_STREAM(get_logger(), "Topic " << conv.name() << " is subscribed for recording");
     }
   }
-  for (EventIter iterator = event_map_.begin(); iterator != event_map_.end(); iterator++) {
-    iterator->second.isRecording(true);
-    std::cout << HIGHGREEN << "Topic "
-              << BOLDCYAN << iterator->first << RESETCOLOR
-              << HIGHGREEN << " is subscribed for recording" << RESETCOLOR << std::endl;
+  for (auto & [name, event] : event_map_) {
+    event.isRecording(true);
+    RCLCPP_INFO_STREAM(get_logger(), "Topic " << name << " is subscribed for recording");
   }
   record_enabled_ = true;
 }
@@ -1224,44 +1182,35 @@ void Driver::startRecordingConverters(const std::vector<std::string> & names)
 
   bool is_started = false;
   for (const std::string & name: names) {
-    RecIter it_rec = rec_map_.find(name);
-    EventIter it_ev = event_map_.find(name);
+    auto it_rec = rec_map_.find(name);
+    auto it_ev = event_map_.find(name);
     if (it_rec != rec_map_.end() ) {
       if (!is_started) {
         recorder_->startRecord();
         is_started = true;
       }
       it_rec->second.subscribe(true);
-      std::cout << HIGHGREEN << "Topic "
-                << BOLDCYAN << name << RESETCOLOR
-                << HIGHGREEN << " is subscribed for recording" << RESETCOLOR << std::endl;
+      RCLCPP_INFO_STREAM(get_logger(), "Topic " << name << " is subscribed for recording");
     } else if (it_ev != event_map_.end() ) {
       if (!is_started) {
         recorder_->startRecord();
         is_started = true;
       }
       it_ev->second.isRecording(true);
-      std::cout << HIGHGREEN << "Topic "
-                << BOLDCYAN << name << RESETCOLOR
-                << HIGHGREEN << " is subscribed for recording" << RESETCOLOR << std::endl;
+      RCLCPP_INFO_STREAM(get_logger(), "Topic " << name << " is subscribed for recording");
     } else {
-      std::cout << BOLDRED << "Could not find topic "
-                << BOLDCYAN << name
-                << BOLDRED << " in recorders" << RESETCOLOR << std::endl
-                << BOLDYELLOW << "To get the list of all available converter's name, please run:" <<
-        RESETCOLOR << std::endl
-                << GREEN << "\t$ qicli call ROS-Driver.getAvailableConverters" << RESETCOLOR <<
-        std::endl;
+      RCLCPP_ERROR_STREAM(
+        get_logger(),
+        "Could not find topic " << name <<
+          " in recorders\nTo get the list of all available converter's name, please run:\n\t$ qicli call ROS-Driver.getAvailableConverters");
     }
   }
   if (is_started) {
     record_enabled_ = true;
   } else {
-    std::cout << BOLDRED << "Could not find any topic in recorders" << RESETCOLOR << std::endl
-              << BOLDYELLOW << "To get the list of all available converter's name, please run:" <<
-      RESETCOLOR << std::endl
-              << GREEN << "\t$ qicli call ROS-Driver.getAvailableConverters" << RESETCOLOR <<
-      std::endl;
+    RCLCPP_ERROR_STREAM(
+      get_logger(),
+      "Could not find any topic in recorders\nTo get the list of all available converter's name, please run:\n\t$ qicli call ROS-Driver.getAvailableConverters");
   }
 }
 
@@ -1270,13 +1219,13 @@ std::string Driver::stopRecording()
   std::lock_guard<std::mutex> lock_record(mutex_record_);
   record_enabled_ = false;
   for (converter::Converter & conv: converters_) {
-    RecIter it = rec_map_.find(conv.name());
+    auto it = rec_map_.find(conv.name());
     if (it != rec_map_.end() ) {
       it->second.subscribe(false);
     }
   }
-  for (EventIter iterator = event_map_.begin(); iterator != event_map_.end(); iterator++) {
-    iterator->second.isRecording(false);
+  for (auto & [name, event] : event_map_) {
+    event.isRecording(false);
   }
   return recorder_->stopRecord();
 }
@@ -1293,11 +1242,12 @@ void Driver::stopLogging()
 
 void Driver::stop()
 {
-  keep_looping = false;
+  RCLCPP_INFO(get_logger(), "naoqi_driver is shutting down");
+  keep_looping_ = false;
 
   // ALMotion.move() keeps the last velocity, so leaving without stopping would
   // let the base drive on. Each call is independent: one failing must not skip the others.
-  if (sessionPtr_) {
+  if (session_) {
     const std::vector<std::pair<std::string, std::string>> halts = {
       {"ALMotion", "stopMove"},
       {"ALAnimatedSpeech", "stopAll"},
@@ -1306,7 +1256,7 @@ void Driver::stop()
     };
     for (const auto & halt : halts) {
       try {
-        sessionPtr_->service(halt.first).value().call<void>(halt.second);
+        session_->service(halt.first).value().call<void>(halt.second);
       } catch (const std::exception & e) {
         RCLCPP_WARN(
           get_logger(), "%s.%s failed on shutdown: %s",
@@ -1315,8 +1265,8 @@ void Driver::stop()
     }
   }
 
-  for (EventIter iterator = event_map_.begin(); iterator != event_map_.end(); iterator++) {
-    iterator->second.stopProcess();
+  for (auto & [name, event] : event_map_) {
+    event.stopProcess();
   }
 
   {
@@ -1346,17 +1296,18 @@ void Driver::addMemoryConverters(std::string filepath)
   boost::property_tree::ptree pt;
   parseJsonFile(filepath, pt);
 
-
   // Get the frequency requested (default to 10 Hz)
   float frequency = 10.0f;
   try {
     frequency = pt.get<float>("frequency");
   } catch (const boost::property_tree::ptree_bad_data & e) {
-    std::cout << "\"frequency\" could not be interpreted as float: " << e.what() << std::endl;
-    std::cout << "Default to 10 Hz" << std::endl;
+    RCLCPP_WARN_STREAM(
+      get_logger(),
+      "\"frequency\" could not be interpreted as float: " << e.what());
+    RCLCPP_INFO_STREAM(get_logger(), "Default to 10 Hz");
   } catch (const boost::property_tree::ptree_bad_path & e) {
-    std::cout << "\"frequency\" was not found: " << e.what() << std::endl;
-    std::cout << "Default to 10 Hz" << std::endl;
+    RCLCPP_WARN_STREAM(get_logger(), "\"frequency\" was not found: " << e.what());
+    RCLCPP_INFO_STREAM(get_logger(), "Default to 10 Hz");
   }
 
   // Get the topic name requested
@@ -1364,8 +1315,9 @@ void Driver::addMemoryConverters(std::string filepath)
   try {
     topic = pt.get<std::string>("topic");
   } catch (const boost::property_tree::ptree_error & e) {
-    std::cout << "\"topic\" could not be retrieved: " << e.what() << std::endl
-              << "Cannot add new converters" << std::endl;
+    RCLCPP_ERROR_STREAM(
+      get_logger(),
+      "\"topic\" could not be retrieved: " << e.what() << "\nCannot add new converters");
     return;
   }
 
@@ -1376,14 +1328,15 @@ void Driver::addMemoryConverters(std::string filepath)
       list.push_back(topic);
     }
   } catch (const boost::property_tree::ptree_error & e) {
-    std::cout << "A problem occured during the reading of the mem keys list: " << e.what() <<
-      std::endl
-              << "Cannot add new converters" << std::endl;
+    RCLCPP_ERROR_STREAM(
+      get_logger(),
+      "A problem occured during the reading of the mem keys list: " << e.what() <<
+        "\nCannot add new converters");
     return;
   }
 
   if (list.empty()) {
-    std::cout << "The list of keys to add is empty. " << std::endl;
+    RCLCPP_WARN_STREAM(get_logger(), "The list of keys to add is empty. ");
     return;
   }
 
@@ -1393,7 +1346,7 @@ void Driver::addMemoryConverters(std::string filepath)
   std::shared_ptr<recorder::BasicRecorder<naoqi_bridge_msgs::msg::MemoryList>> mlr =
     std::make_shared<recorder::BasicRecorder<naoqi_bridge_msgs::msg::MemoryList>>(topic);
   std::shared_ptr<converter::MemoryListConverter> mlc =
-    std::make_shared<converter::MemoryListConverter>(list, topic, frequency, sessionPtr_);
+    std::make_shared<converter::MemoryListConverter>(list, topic, frequency, session_);
   mlc->registerCallback(
     message_actions::PUBLISH,
     std::bind(
@@ -1415,11 +1368,10 @@ bool Driver::registerEventConverter(const std::string & key, const dataType::Dat
   dataType::DataType data_type;
   qi::AnyValue value;
   try {
-    qi::AnyObject p_memory = sessionPtr_->service("ALMemory").value();
+    qi::AnyObject p_memory = session_->service("ALMemory").value();
     value = p_memory.call<qi::AnyValue>("getData", key);
   } catch (const std::exception & e) {
-    std::cout << BOLDRED << "Could not get data in memory for the key: "
-              << BOLDCYAN << key << RESETCOLOR << std::endl;
+    RCLCPP_ERROR_STREAM(get_logger(), "Could not get data in memory for the key: " << key);
     return false;
   }
 
@@ -1427,14 +1379,10 @@ bool Driver::registerEventConverter(const std::string & key, const dataType::Dat
     try {
       data_type = helpers::naoqi::getDataType(value);
     } catch (const std::exception & e) {
-      std::cout << BOLDRED << "Could not get a valid data type to register memory converter "
-                << BOLDCYAN << key << RESETCOLOR << std::endl
-                << BOLDRED << "You can enter it yourself, available types are:" << std::endl
-                << "\t > 0 - None" << std::endl
-                << "\t > 1 - Float" << std::endl
-                << "\t > 2 - Int" << std::endl
-                << "\t > 3 - String" << std::endl
-                << "\t > 4 - Bool" << RESETCOLOR << std::endl;
+      RCLCPP_ERROR_STREAM(
+        get_logger(),
+        "Could not get a valid data type to register memory converter " << key <<
+          "\nYou can enter it yourself, available types are:\n\t > 0 - None\n\t > 1 - Float\n\t > 2 - Int\n\t > 3 - String\n\t > 4 - Bool");
       return false;
     }
   } else {
@@ -1452,7 +1400,7 @@ bool Driver::registerEventConverter(const std::string & key, const dataType::Dat
           recorder::BasicEventRecorder<naoqi_bridge_msgs::msg::FloatStamped>>> event_register =
           std::make_shared<EventRegister<converter::MemoryFloatConverter,
             publisher::BasicPublisher<naoqi_bridge_msgs::msg::FloatStamped>,
-            recorder::BasicEventRecorder<naoqi_bridge_msgs::msg::FloatStamped>>>(key, sessionPtr_);
+            recorder::BasicEventRecorder<naoqi_bridge_msgs::msg::FloatStamped>>>(key, session_);
         insertEventConverter(key, event_register);
         break;
       }
@@ -1463,7 +1411,7 @@ bool Driver::registerEventConverter(const std::string & key, const dataType::Dat
           recorder::BasicEventRecorder<naoqi_bridge_msgs::msg::IntStamped>>> event_register =
           std::make_shared<EventRegister<converter::MemoryIntConverter,
             publisher::BasicPublisher<naoqi_bridge_msgs::msg::IntStamped>,
-            recorder::BasicEventRecorder<naoqi_bridge_msgs::msg::IntStamped>>>(key, sessionPtr_);
+            recorder::BasicEventRecorder<naoqi_bridge_msgs::msg::IntStamped>>>(key, session_);
         insertEventConverter(key, event_register);
         break;
       }
@@ -1474,7 +1422,7 @@ bool Driver::registerEventConverter(const std::string & key, const dataType::Dat
           recorder::BasicEventRecorder<naoqi_bridge_msgs::msg::StringStamped>>> event_register =
           std::make_shared<EventRegister<converter::MemoryStringConverter,
             publisher::BasicPublisher<naoqi_bridge_msgs::msg::StringStamped>,
-            recorder::BasicEventRecorder<naoqi_bridge_msgs::msg::StringStamped>>>(key, sessionPtr_);
+            recorder::BasicEventRecorder<naoqi_bridge_msgs::msg::StringStamped>>>(key, session_);
         insertEventConverter(key, event_register);
         break;
       }
@@ -1485,23 +1433,20 @@ bool Driver::registerEventConverter(const std::string & key, const dataType::Dat
           recorder::BasicEventRecorder<naoqi_bridge_msgs::msg::BoolStamped>>> event_register =
           std::make_shared<EventRegister<converter::MemoryBoolConverter,
             publisher::BasicPublisher<naoqi_bridge_msgs::msg::BoolStamped>,
-            recorder::BasicEventRecorder<naoqi_bridge_msgs::msg::BoolStamped>>>(key, sessionPtr_);
+            recorder::BasicEventRecorder<naoqi_bridge_msgs::msg::BoolStamped>>>(key, session_);
         insertEventConverter(key, event_register);
         break;
       }
     default:
       {
-        std::cout << BOLDRED << "Wrong data type. Available type are: " << std::endl
-                  << "\t > 0 - None" << std::endl
-                  << "\t > 1 - Float" << std::endl
-                  << "\t > 2 - Int" << std::endl
-                  << "\t > 3 - String" << std::endl
-                  << "\t > 4 - Bool" << RESETCOLOR << std::endl;
+        RCLCPP_WARN_STREAM(
+          get_logger(),
+          "Wrong data type. Available type are: \n\t > 0 - None\n\t > 1 - Float\n\t > 2 - Int\n\t > 3 - String\n\t > 4 - Bool");
         return false;
       }
   }
 
-  if (keep_looping) {
+  if (keep_looping_) {
     event_map_.at(key).startProcess();
   }
   if (publish_enabled_) {
@@ -1518,10 +1463,8 @@ std::vector<std::string> Driver::getFilesList()
   std::vector<std::filesystem::path> files;
   helpers::filesystem::getFiles(folderPath, ".bag", files);
 
-  for (std::vector<std::filesystem::path>::const_iterator it = files.begin();
-    it != files.end(); it++)
-  {
-    fileNames.push_back(it->string());
+  for (const auto & file : files) {
+    fileNames.push_back(file.string());
   }
   return fileNames;
 }
@@ -1532,19 +1475,15 @@ void Driver::removeAllFiles()
   std::vector<std::filesystem::path> files;
   helpers::filesystem::getFiles(folderPath, ".bag", files);
 
-  for (std::vector<std::filesystem::path>::const_iterator it = files.begin();
-    it != files.end(); it++)
-  {
-    std::remove(it->c_str());
+  for (const auto & file : files) {
+    std::remove(file.c_str());
   }
 }
 
 void Driver::removeFiles(std::vector<std::string> files)
 {
-  for (std::vector<std::string>::const_iterator it = files.begin();
-    it != files.end(); it++)
-  {
-    std::remove(it->c_str());
+  for (const auto & file : files) {
+    std::remove(file.c_str());
   }
 }
 
@@ -1569,4 +1508,4 @@ QI_REGISTER_OBJECT(
   stopRecording,
   startLogging,
   stopLogging);
-} //naoqi
+}  // namespace naoqi

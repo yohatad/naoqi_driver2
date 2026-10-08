@@ -15,13 +15,14 @@
  *
 */
 
+#include <naoqi_driver/ros_helpers.hpp>
 #include <rclcpp/node.hpp>
 
 /*
 * LOCAL includes
 */
 #include "robot_description.hpp"
-#include "../helpers/filesystem_helpers.hpp"
+#include "helpers/filesystem_helpers.hpp"
 
 namespace naoqi
 {
@@ -44,14 +45,15 @@ std::string getRobotDescription(const robot::Robot & robot)
   } else if (robot == robot::ROMEO) {
     urdf_path = helpers::filesystem::getURDF("romeo.urdf");
   } else {
-    std::cerr << " could not load urdf file from disk " << std::endl;
+    RCLCPP_ERROR_STREAM(naoqi::helpers::Node::get_logger(), " could not load urdf file from disk ");
     return std::string();
   }
 
   std::ifstream stream( (urdf_path).c_str() );
   if (!stream) {
-    std::cerr << "failed to load robot description in joint_state_publisher: " << urdf_path <<
-      std::endl;
+    RCLCPP_ERROR_STREAM(
+      naoqi::helpers::Node::get_logger(),
+      "failed to load robot description in joint_state_publisher: " << urdf_path);
     return std::string();
   }
   robot_desc = std::string(
@@ -77,10 +79,12 @@ publishRobotDescription(rclcpp::Node * node, const robot::Robot & robot_type)
 
   // Publish the robot description
   description_pub->publish(std::move(msg));
-  std::cout << "published robot description to /" << topic << std::endl;
+  RCLCPP_INFO_STREAM(
+    naoqi::helpers::Node::get_logger(),
+    "published robot description to /" << topic);
   return description_pub;
 }
 
-} // tools
+}  // namespace tools
 
-} // naoqi
+}  // namespace naoqi

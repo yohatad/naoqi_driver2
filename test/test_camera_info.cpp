@@ -23,7 +23,7 @@ void expectDistortion(
   }
 }
 
-} // namespace
+}  // namespace
 
 TEST(CameraInfoDefinitions, TopCameraDistortion)
 {

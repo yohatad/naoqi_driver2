@@ -15,9 +15,10 @@
  *
 */
 
+#include <naoqi_driver/ros_helpers.hpp>
 #include "set_language.hpp"
 #include <iostream>
-#include "../helpers/driver_helpers.hpp"
+#include "helpers/driver_helpers.hpp"
 
 namespace naoqi
 {
@@ -43,9 +44,10 @@ void SetLanguageService::callback(
   const std::shared_ptr<naoqi_bridge_msgs::srv::SetString::Request> req,
   std::shared_ptr<naoqi_bridge_msgs::srv::SetString::Response> resp)
 {
-  std::cout << "Receiving service call of setting language" << std::endl;
+  RCLCPP_INFO_STREAM(
+    naoqi::helpers::Node::get_logger(), "Receiving service call of setting language");
   resp->success = helpers::driver::setLanguage(session_, req);
 }
 
-}
-}
+}  // namespace service
+}  // namespace naoqi

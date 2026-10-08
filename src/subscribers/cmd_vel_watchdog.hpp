@@ -66,7 +66,7 @@ private:
   bool moving_ = false;
 };
 
-} // subscriber
-} // naoqi
+}  // namespace subscriber
+}  // namespace naoqi
 
 #endif

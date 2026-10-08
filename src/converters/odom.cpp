@@ -18,9 +18,9 @@
 /*
 * LOCAL includes
 */
+#include <naoqi_driver/ros_helpers.hpp>
 #include "odom.hpp"
-#include "../tools/from_any_value.hpp"
-
+#include "tools/from_any_value.hpp"
 
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
@@ -39,7 +39,7 @@ float OdomConverter::orientation_offset_wy_ = 0.0f;
 float OdomConverter::orientation_offset_wz_ = 0.0f;
 
 OdomConverter::OdomConverter(
-  const std::string & name, const float & frequency,
+  const std::string & name, float frequency,
   const qi::SessionPtr & session)
 : BaseConverter(name, frequency, session),
   p_motion_(session->service("ALMotion").value() )
@@ -68,7 +68,6 @@ void OdomConverter::callAll(const std::vector<message_actions::MessageAction> & 
   float raw_y = al_position_data[1];      // Y position in world frame
   float raw_theta = al_position_data[2];  // Yaw angle in world frame [-pi, pi]
 
-
   // Copy the offsets under lock; they can be rewritten by /reset_odom
   float offset_x, offset_y, offset_wz;
   {
@@ -95,9 +94,9 @@ void OdomConverter::callAll(const std::vector<message_actions::MessageAction> & 
   const float odomTheta = raw_theta - offset_wz;
 
   // Velocity is already in FRAME_ROBOT (base_link) - perfect for odometry
-  const float & dX = al_speed_data[0];
-  const float & dY = al_speed_data[1];
-  const float & dWZ = al_speed_data[2];
+  const float dX = al_speed_data[0];
+  const float dY = al_speed_data[1];
+  const float dWZ = al_speed_data[2];
 
   // Create quaternion from yaw angle
   tf2::Quaternion tf_quat;
@@ -160,12 +159,15 @@ void OdomConverter::resetOdometry()
       orientation_offset_wz_ = current_pos[2];  // Yaw/Theta
     }
 
-    std::cout << "Odometry reset using software offset" << std::endl;
-    std::cout << "New offsets - X: " << current_pos[0]
-              << " Y: " << current_pos[1]
-              << " Theta: " << current_pos[2] << std::endl;
+    RCLCPP_INFO_STREAM(naoqi::helpers::Node::get_logger(), "Odometry reset using software offset");
+    RCLCPP_INFO_STREAM(
+      naoqi::helpers::Node::get_logger(),
+      "New offsets - X: " << current_pos[0] << " Y: " << current_pos[1] << " Theta: " <<
+        current_pos[2]);
   } catch (const std::exception & e) {
-    std::cerr << "Failed to reset odometry: " << e.what() << std::endl;
+    RCLCPP_ERROR_STREAM(
+      naoqi::helpers::Node::get_logger(),
+      "Failed to reset odometry: " << e.what());
   }
 }
 
@@ -192,10 +194,10 @@ void OdomConverter::setOffsets(float x, float y, float z, float wx, float wy, fl
     orientation_offset_wz_ = wz;
   }
 
-  std::cout << "Odometry offsets set to - X: " << x
-            << " Y: " << y
-            << " Theta: " << wz << std::endl;
+  RCLCPP_INFO_STREAM(
+    naoqi::helpers::Node::get_logger(),
+    "Odometry offsets set to - X: " << x << " Y: " << y << " Theta: " << wz);
 }
 
-} //converter
-} // naoqi
+}  // namespace converter
+}  // namespace naoqi

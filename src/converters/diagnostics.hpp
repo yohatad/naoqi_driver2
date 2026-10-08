@@ -44,7 +44,7 @@ namespace converter
 class DiagnosticsConverter : public BaseConverter<DiagnosticsConverter>
 {
 
-  typedef std::function<void (diagnostic_msgs::msg::DiagnosticArray &)> Callback_t;
+  using Callback_t = std::function<void (diagnostic_msgs::msg::DiagnosticArray &)>;
 
 public:
   DiagnosticsConverter(const std::string & name, float frequency, const qi::SessionPtr & session);
@@ -78,7 +78,7 @@ private:
   std::map<message_actions::MessageAction, Callback_t> callbacks_;
 };
 
-} //converter
-} // naoqi
+}  // namespace converter
+}  // namespace naoqi
 
 #endif

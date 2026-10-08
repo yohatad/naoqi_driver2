@@ -32,7 +32,7 @@
 * loca includes
 */
 #include <naoqi_driver/ros_helpers.hpp>
-#include "../helpers/transform_helpers.hpp"
+#include "helpers/transform_helpers.hpp"
 
 namespace naoqi
 {
@@ -98,13 +98,10 @@ inline void addBaseFootprint(
     tf_odom_to_base.transform.translation.z
   );
   tf2::Transform tf_odom_to_base_conv(q, r);
-  //tf2::Transform tf_odom_to_base_conv;
-  //tf2::convert( tf_odom_to_base.transform, tf_odom_to_base_conv );
   tf2::Transform tf_base_to_footprint = tf_odom_to_base_conv.inverse() * tf_odom_to_footprint;
 
   // convert it back to geometry_msgs
   geometry_msgs::msg::TransformStamped message;
-  //message.transform = tf2::toMsg(tf_base_to_footprint);
   message.header.stamp = time;
   message.header.frame_id = "base_link";
   message.child_frame_id = "base_footprint";
@@ -117,15 +114,13 @@ inline void addBaseFootprint(
   message.transform.translation.y = tf_base_to_footprint.getOrigin().y();
   message.transform.translation.z = tf_base_to_footprint.getOrigin().z();
 
-  //tf::transformTFToMsg( tf_base_to_footprint, message.transform);
-  // publish transform with parent m_baseFrameId and new child m_baseFootPrintID
-  // i.e. transform from m_baseFrameId to m_baseFootPrintID
+  // base_link -> base_footprint, also stored in the shared buffer for later lookups
   tf2_buffer->setTransform(message, "naoqiconverter", false);
   tf_transforms.push_back(message);
 }
 
-} // nao
-} // converter
-} // naoqi
+}  // namespace nao
+}  // namespace converter
+}  // namespace naoqi
 
 #endif

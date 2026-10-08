@@ -18,6 +18,7 @@
 #ifndef PUBLISHER_HPP
 #define PUBLISHER_HPP
 
+#include <naoqi_driver/ros_helpers.hpp>
 #include <string>
 
 #include <memory>
@@ -28,7 +29,6 @@ namespace naoqi
 {
 namespace publisher
 {
-
 
 /**
 * @brief Publisher concept interface
@@ -74,9 +74,9 @@ public:
   */
   void reset(rclcpp::Node * node)
   {
-    std::cout << topic() << " is resetting" << std::endl;
+    RCLCPP_DEBUG_STREAM(naoqi::helpers::Node::get_logger(), topic() << " is resetting");
     pubPtr_->reset(node);
-    std::cout << topic() << " reset" << std::endl;
+    RCLCPP_DEBUG_STREAM(naoqi::helpers::Node::get_logger(), topic() << " reset");
   }
 
   /**
@@ -91,10 +91,7 @@ public:
   friend bool operator==(const Publisher & lhs, const Publisher & rhs)
   {
     // decision made for OR-comparison since we want to be more restrictive
-    if (lhs.topic() == rhs.topic() ) {
-      return true;
-    }
-    return false;
+    return lhs.topic() == rhs.topic();
   }
 
   friend bool operator==(
@@ -110,13 +107,12 @@ private:
   */
   struct PublisherConcept
   {
-    virtual ~PublisherConcept() {}
+    virtual ~PublisherConcept() = default;
     virtual bool isInitialized() const = 0;
     virtual bool isSubscribed() const = 0;
     virtual void reset(rclcpp::Node * node) = 0;
     virtual std::string topic() const = 0;
   };
-
 
   /**
   * templated instances of base concept
@@ -128,22 +124,22 @@ private:
     : publisher_(other)
     {}
 
-    std::string topic() const
+    std::string topic() const override
     {
       return publisher_->topic();
     }
 
-    bool isInitialized() const
+    bool isInitialized() const override
     {
       return publisher_->isInitialized();
     }
 
-    bool isSubscribed() const
+    bool isSubscribed() const override
     {
       return publisher_->isSubscribed();
     }
 
-    void reset(rclcpp::Node * node)
+    void reset(rclcpp::Node * node) override
     {
       publisher_->reset(node);
     }
@@ -155,7 +151,7 @@ private:
 
 }; // class publisher
 
-} //publisher
-} //naoqi
+}  // namespace publisher
+}  // namespace naoqi
 
 #endif

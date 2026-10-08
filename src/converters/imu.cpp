@@ -18,25 +18,23 @@
 /*
 * LOCAL includes
 */
+#include <naoqi_driver/ros_helpers.hpp>
 #include "imu.hpp"
-#include "../tools/from_any_value.hpp"
+#include "tools/from_any_value.hpp"
 
 /*
 * ROS includes
 */
-//#include <tf/transform_datatypes.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
-
 
 namespace naoqi
 {
 namespace converter
 {
 
-
 ImuConverter::ImuConverter(
   const std::string & name, const IMU::Location & location,
-  const float & frequency, const qi::SessionPtr & session)
+  float frequency, const qi::SessionPtr & session)
 : BaseConverter(name, frequency, session),
   p_memory_(session->service("ALMemory").value())
 {
@@ -68,9 +66,7 @@ ImuConverter::ImuConverter(
 }
 
 ImuConverter::~ImuConverter()
-{
-
-}
+= default;
 
 void ImuConverter::reset()
 {
@@ -90,7 +86,8 @@ void ImuConverter::callAll(const std::vector<message_actions::MessageAction> & a
     qi::AnyValue anyvalues = p_memory_.call<qi::AnyValue>("getListData", data_names_list_);
     tools::fromAnyValueToFloatVector(anyvalues, memData);
   } catch (const std::exception & e) {
-    std::cerr << "Exception caught in ImuConverter: " << e.what() << std::endl;
+    RCLCPP_ERROR_STREAM(
+      naoqi::helpers::Node::get_logger(), "Exception caught in ImuConverter: " << e.what());
     return;
   }
   // angle (X,Y,Z) = memData(1,2,3);
@@ -110,11 +107,6 @@ void ImuConverter::callAll(const std::vector<message_actions::MessageAction> & a
   tf_quat.setRPY(memData[1], memData[2], memData[3]);
   msg_imu_.orientation = tf2::toMsg(tf_quat);
 
-  //msg_imu_.orientation = tf::createQuaternionMsgFromRollPitchYaw(
-  //                            memData[1],
-  //                            memData[2],
-  //                            memData[3]);
-
   msg_imu_.angular_velocity.x = memData[4];
   msg_imu_.angular_velocity.y = memData[5];
   msg_imu_.angular_velocity.z = memData[6];
@@ -128,12 +120,11 @@ void ImuConverter::callAll(const std::vector<message_actions::MessageAction> & a
   msg_imu_.angular_velocity_covariance[0] = -1;
   msg_imu_.linear_acceleration_covariance[0] = -1;
 
-
   for (message_actions::MessageAction action: actions) {
     callbacks_[action](msg_imu_);
   }
 }
 
-}
+}  // namespace converter
 
-}
+}  // namespace naoqi

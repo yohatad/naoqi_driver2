@@ -55,10 +55,10 @@ static const double kFrameStaleSeconds = 1.0;
 class LaserConverter : public BaseConverter<LaserConverter>
 {
 
-  typedef std::function<void (sensor_msgs::msg::LaserScan &)> Callback_t;
+  using Callback_t = std::function<void (sensor_msgs::msg::LaserScan &)>;
 
 public:
-  LaserConverter(const std::string & name, const float & frequency, const qi::SessionPtr & session);
+  LaserConverter(const std::string & name, float frequency, const qi::SessionPtr & session);
 
   void registerCallback(message_actions::MessageAction action, Callback_t cb);
 
@@ -66,7 +66,7 @@ public:
 
   void reset();
 
-  void setLaserRanges(const float & range_min, const float & range_max);
+  void setLaserRanges(float range_min, float range_max);
 
 private:
   /** Advance-based liveness for one laser board.
@@ -123,7 +123,7 @@ private:
   sensor_msgs::msg::LaserScan msg_;
 }; // class
 
-} //publisher
-} // naoqi
+}  // namespace converter
+}  // namespace naoqi
 
 #endif

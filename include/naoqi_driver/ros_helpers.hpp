@@ -15,7 +15,6 @@
  *
 */
 
-
 #ifndef HELPERS_HPP
 #define HELPERS_HPP
 
@@ -51,7 +50,7 @@ public:
    */
   static rclcpp::Logger get_logger()
   {
-    return Node::node_ptr_->get_logger();
+    return Node::node_ptr_ ? Node::node_ptr_->get_logger() : rclcpp::get_logger("naoqi_driver");
   }
 
   /**
@@ -97,7 +96,7 @@ public:
   }
 };
 
-} // naoqi
-} // helpers
+}  // namespace helpers
+}  // namespace naoqi
 
 #endif // HELPERS_HPP

@@ -15,7 +15,6 @@
  *
 */
 
-
 #ifndef ROS_ENV_HPP
 #define ROS_ENV_HPP
 
@@ -44,7 +43,6 @@ void setPrefix(std::string s);
 
 std::string getPrefix();
 
-
-} // ros_env
-} // naoqi
+}  // namespace ros_env
+}  // namespace naoqi
 #endif

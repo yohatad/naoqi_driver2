@@ -15,7 +15,6 @@
  *
 */
 
-
 #ifndef NAOQI_DRIVER_HPP
 #define NAOQI_DRIVER_HPP
 
@@ -50,7 +49,7 @@
 namespace tf2_ros
 {
 class Buffer;
-}
+}  // namespace tf2_ros
 
 namespace naoqi
 {
@@ -58,7 +57,7 @@ namespace naoqi
 namespace recorder
 {
 class GlobalRecorder;
-}
+}  // namespace recorder
 /**
 * @brief Interface for naoqi driver which is registered as a naoqi2 Module,
 * once the external roscore ip is set, this class will advertise and publish ros messages
@@ -76,7 +75,7 @@ public:
   * @brief Destructor for naoqi driver,
   * destroys all ros nodehandle and shutsdown all publisher
   */
-  ~Driver();
+  ~Driver() override;
 
   /**
    * @brief Register the ROS components and start the ROS loop.
@@ -98,7 +97,7 @@ public:
    */
   void requestStop()
   {
-    keep_looping = false;
+    keep_looping_ = false;
   }
 
   /**
@@ -161,7 +160,6 @@ public:
    */
   bool registerEventConverter(const std::string & key, const dataType::DataType & type);
 
-
   /**
    * @brief get all available converters
    */
@@ -194,24 +192,6 @@ public:
    * eventually this should be replaced by move semantics C++11
    */
   void registerService(service::Service srv);
-  // /**
-  // * @brief qicli call function to get current master uri
-  // * @return string indicating http master uri
-  // */
-  // std::string getMasterURI() const;
-
-  // /**
-  // * @brief qicli call function to set current master uri
-  // * @param string in form of http://<ip>:11311
-  // * @param network_interface the network interface ("eth0", "tether" ...)
-  // */
-  // void setMasterURINet( const std::string& uri, const std::string& network_interface );
-
-  // /**
-  // * @brief qicli call function to set current master uri
-  // * @param string in form of http://<ip>:11311
-  // */
-  // void setMasterURI( const std::string& uri );
 
   /**
   * @brief qicli call function to start/enable publishing all registered publisher
@@ -256,14 +236,14 @@ public:
   void removeFiles(std::vector<std::string> files);
 
 private:
-  qi::SessionPtr sessionPtr_;
+  qi::SessionPtr session_;
   robot::Robot robot_;
 
   std::atomic<bool> publish_enabled_;
   std::atomic<bool> record_enabled_;
   std::atomic<bool> log_enabled_;
-  std::atomic<bool> keep_looping;
-  bool has_stereo;
+  std::atomic<bool> keep_looping_;
+  bool has_stereo_;
 
   const size_t freq_;
 
@@ -283,7 +263,7 @@ private:
   {
     std::shared_ptr<T1> mfp = std::make_shared<T1>(key);
     std::shared_ptr<T2> mfr = std::make_shared<T2>(key);
-    std::shared_ptr<T3> mfc = std::make_shared<T3>(key, frequency, sessionPtr_, key);
+    std::shared_ptr<T3> mfc = std::make_shared<T3>(key, frequency, session_, key);
     mfc->registerCallback(
       message_actions::PUBLISH,
       std::bind(&T1::publish, mfp, std::placeholders::_1) );
@@ -306,12 +286,6 @@ private:
   std::map<std::string, publisher::Publisher> pub_map_;
   std::map<std::string, recorder::Recorder> rec_map_;
   std::map<std::string, event::Event> event_map_;
-  typedef std::map<std::string, publisher::Publisher>::const_iterator PubConstIter;
-  typedef std::map<std::string, publisher::Publisher>::iterator PubIter;
-  typedef std::map<std::string, recorder::Recorder>::const_iterator RecConstIter;
-  typedef std::map<std::string, recorder::Recorder>::iterator RecIter;
-  typedef std::map<std::string, event::Event>::const_iterator EventConstIter;
-  typedef std::map<std::string, event::Event>::iterator EventIter;
 
   std::vector<subscriber::Subscriber> subscribers_;
   std::vector<service::Service> services_;
@@ -345,6 +319,6 @@ private:
   std::shared_ptr<tf2_ros::Buffer> tf2_buffer_;
 };
 
-} // naoqi
+}  // namespace naoqi
 
 #endif

@@ -54,11 +54,9 @@ void CameraRecorder::write(
 void CameraRecorder::writeDump(const rclcpp::Time & time)
 {
   std::lock_guard<std::mutex> lock_write_buffer(mutex_);
-  boost::circular_buffer<std::pair<sensor_msgs::msg::Image::SharedPtr,
-    sensor_msgs::msg::CameraInfo>>::iterator it;
-  for (it = buffer_.begin(); it != buffer_.end(); it++) {
-    if (it->first != NULL) {
-      write(it->first, it->second);
+  for (auto & [image, info] : buffer_) {
+    if (image != nullptr) {
+      write(image, info);
     }
   }
 }
@@ -94,5 +92,5 @@ void CameraRecorder::setBufferDuration(float duration)
   buffer_.set_capacity(buffer_size_);
 }
 
-} //publisher
-} // naoqi
+}  // namespace recorder
+}  // namespace naoqi

@@ -39,19 +39,19 @@ namespace converter
 class CameraConverter : public BaseConverter<CameraConverter>
 {
 
-  typedef std::function<void (sensor_msgs::msg::Image::SharedPtr,
-      sensor_msgs::msg::CameraInfo)> Callback_t;
+  using Callback_t = std::function<void (sensor_msgs::msg::Image::SharedPtr,
+      sensor_msgs::msg::CameraInfo)>;
 
 public:
   CameraConverter(
     const std::string & name,
-    const float & frequency,
+    float frequency,
     const qi::SessionPtr & session,
-    const int & camera_source,
-    const int & resolution,
-    const bool & has_stereo = false);
+    int camera_source,
+    int resolution,
+    bool has_stereo = false);
 
-  ~CameraConverter();
+  ~CameraConverter() override;
 
   void reset();
 
@@ -79,8 +79,7 @@ private:
   sensor_msgs::msg::Image::SharedPtr msg_;
 };
 
-} //publisher
-} //naoqi
-
+}  // namespace converter
+}  // namespace naoqi
 
 #endif

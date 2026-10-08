@@ -39,12 +39,12 @@ namespace converter
 
 class MemoryListConverter : public BaseConverter<MemoryListConverter>
 {
-  typedef std::function<void (naoqi_bridge_msgs::msg::MemoryList &)> Callback_t;
+  using Callback_t = std::function<void (naoqi_bridge_msgs::msg::MemoryList &)>;
 
 public:
   MemoryListConverter(
     const std::vector<std::string> & key_list, const std::string & name,
-    const float & frequency, const qi::SessionPtr & session);
+    float frequency, const qi::SessionPtr & session);
 
   virtual void reset();
 
@@ -53,8 +53,8 @@ public:
   virtual void callAll(const std::vector<message_actions::MessageAction> & actions);
 
 private:
-  std::vector<std::string> _key_list;
-  naoqi_bridge_msgs::msg::MemoryList _msg;
+  std::vector<std::string> key_list_;
+  naoqi_bridge_msgs::msg::MemoryList msg_;
   qi::AnyObject p_memory_;
   std::vector<std::string> data_names_list_;
 
@@ -62,8 +62,8 @@ private:
   std::map<message_actions::MessageAction, Callback_t> callbacks_;
 };
 
-}
+}  // namespace converter
 
-}
+}  // namespace naoqi
 
 #endif // MEMORY_LIST_CONVERTER_HPP

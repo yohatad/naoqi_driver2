@@ -41,7 +41,7 @@ public:
     is_initialized_(false)
   {}
 
-  virtual ~BasicPublisher() {}
+  virtual ~BasicPublisher() = default;
 
   inline std::string topic() const
   {
@@ -55,7 +55,7 @@ public:
 
   virtual inline bool isSubscribed() const
   {
-    if (is_initialized_ == false) {
+    if (!is_initialized_) {
       return false;
     } else {
       return helpers::Node::count_subscribers(topic_) > 0;
@@ -82,7 +82,7 @@ protected:
   typename rclcpp::Publisher<T>::SharedPtr pub_;
 }; // class
 
-} // publisher
-} // naoqi
+}  // namespace publisher
+}  // namespace naoqi
 
 #endif

@@ -18,10 +18,11 @@
 /*
 * LOCAL includes
 */
+#include <naoqi_driver/ros_helpers.hpp>
 #include "camera.hpp"
 #include "camera_info_definitions.hpp"
-#include "../tools/alvisiondefinitions.h" // for kTop...
-#include "../tools/from_any_value.hpp"
+#include "tools/alvisiondefinitions.h" // for kTop...
+#include "tools/from_any_value.hpp"
 
 /*
 * ROS includes
@@ -32,7 +33,6 @@
 * CV includes
 */
 #include <opencv2/imgproc/imgproc.hpp>
-
 
 namespace naoqi
 {
@@ -50,9 +50,7 @@ const sensor_msgs::msg::CameraInfo & getEmptyInfo()
 
 const sensor_msgs::msg::CameraInfo & getCameraInfo(int camera_source, int resolution)
 {
-  /** RETURN VALUE OPTIMIZATION (RVO)
-  * since there is no C++11 initializer list nor lamda functions
-  */
+  // Each calibration is built once, on first use.
   if (camera_source == AL::kTopCamera) {
     if (resolution == AL::kVGA) {
       static const sensor_msgs::msg::CameraInfo cam_info_msg = createCameraInfoTOPVGA();
@@ -135,20 +133,22 @@ const sensor_msgs::msg::CameraInfo & getCameraInfo(int camera_source, int resolu
     }
   }
 
-  std::cout << "no camera information found for camera_source " << camera_source << " and res: " <<
-    resolution << std::endl;
+  RCLCPP_WARN_STREAM(
+    naoqi::helpers::Node::get_logger(),
+    "no camera information found for camera_source " << camera_source << " and res: " <<
+      resolution);
   return getEmptyInfo();
 }
 
-} // camera_info_definitions
+}  // namespace camera_info_definitions
 
 CameraConverter::CameraConverter(
   const std::string & name,
-  const float & frequency,
+  float frequency,
   const qi::SessionPtr & session,
-  const int & camera_source,
-  const int & resolution,
-  const bool & has_stereo)
+  int camera_source,
+  int resolution,
+  bool has_stereo)
 : BaseConverter(name, frequency, session),
   p_video_(session->service("ALVideoDevice").value()),
   camera_source_(camera_source),
@@ -195,12 +195,14 @@ CameraConverter::CameraConverter(
 CameraConverter::~CameraConverter()
 {
   if (!handle_.empty()) {
-    std::cout << "Unsubscribe camera handle " << handle_ << std::endl;
+    RCLCPP_INFO_STREAM(naoqi::helpers::Node::get_logger(), "Unsubscribe camera handle " << handle_);
     // Destructors must not throw; NAOqi may already be unreachable at shutdown.
     try {
       p_video_.call<qi::AnyValue>("unsubscribe", handle_);
     } catch (const std::exception & e) {
-      std::cerr << "Failed to unsubscribe camera " << handle_ << ": " << e.what() << std::endl;
+      RCLCPP_ERROR_STREAM(
+        naoqi::helpers::Node::get_logger(),
+        "Failed to unsubscribe camera " << handle_ << ": " << e.what());
     }
     handle_.clear();
   }
@@ -232,9 +234,12 @@ void CameraConverter::callAll(const std::vector<message_actions::MessageAction> 
 {
 
   if (handle_.empty() ) {
-    std::cerr << name_ << "Camera Handle is empty - cannot retrieve image" << std::endl;
-    std::cerr << name_ << "Might be a NAOqi problem. Try to restart the ALVideoDevice." <<
-      std::endl;
+    RCLCPP_ERROR_STREAM(
+      naoqi::helpers::Node::get_logger(),
+      name_ << "Camera Handle is empty - cannot retrieve image");
+    RCLCPP_ERROR_STREAM(
+      naoqi::helpers::Node::get_logger(),
+      name_ << "Might be a NAOqi problem. Try to restart the ALVideoDevice.");
     return;
   }
 
@@ -244,7 +249,7 @@ void CameraConverter::callAll(const std::vector<message_actions::MessageAction> 
     image_anyvalue = p_video_.call<qi::AnyValue>("getImageRemote", handle_);
     image = tools::fromAnyValueToNaoqiImage(image_anyvalue);
   } catch (const std::exception & e) {
-    std::cout << "Cannot retrieve image: " << e.what() << std::endl;
+    RCLCPP_WARN_STREAM(naoqi::helpers::Node::get_logger(), "Cannot retrieve image: " << e.what());
     return;
   }
 
@@ -252,8 +257,10 @@ void CameraConverter::callAll(const std::vector<message_actions::MessageAction> 
   const size_t expected_size = static_cast<size_t>(image.width) * image.height * CV_ELEM_SIZE(
     cv_mat_type_);
   if (image.width <= 0 || image.height <= 0 || image.buffer_size < expected_size) {
-    std::cerr << name_ << ": image buffer is " << image.buffer_size << " bytes, expected "
-              << expected_size << " for " << image.width << "x" << image.height << std::endl;
+    RCLCPP_ERROR_STREAM(
+      naoqi::helpers::Node::get_logger(),
+      name_ << ": image buffer is " << image.buffer_size << " bytes, expected " << expected_size << " for " << image.width << "x" <<
+        image.height);
     return;
   }
 
@@ -262,9 +269,8 @@ void CameraConverter::callAll(const std::vector<message_actions::MessageAction> 
   msg_ = cv_bridge::CvImage(std_msgs::msg::Header(), msg_colorspace_, cv_img).toImageMsg();
   msg_->header.frame_id = msg_frameid_;
 
+  // Stamped on arrival with the ROS clock: the NAOqi capture time is on the robot's clock.
   msg_->header.stamp = helpers::Time::now();
-  //msg_->header.stamp.sec = image.timestamp_s;
-  //msg_->header.stamp.nsec = image.timestamp_us*1000;
   camera_info_.header.stamp = msg_->header.stamp;
 
   for (const message_actions::MessageAction & action: actions) {
@@ -272,5 +278,5 @@ void CameraConverter::callAll(const std::vector<message_actions::MessageAction> 
   }
 }
 
-} // publisher
-} //naoqi
+}  // namespace converter
+}  // namespace naoqi

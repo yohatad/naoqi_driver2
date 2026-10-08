@@ -35,7 +35,7 @@
 namespace rclcpp
 {
 class Node;
-}
+}  // namespace rclcpp
 
 namespace naoqi
 {
@@ -51,7 +51,7 @@ std::string getRobotDescription(const robot::Robot & robot);
  */
 rclcpp::Publisher<std_msgs::msg::String>::SharedPtr
 publishRobotDescription(rclcpp::Node * node, const robot::Robot & robot_type);
-}
-}
+}  // namespace tools
+}  // namespace naoqi
 
 #endif // ROBOT_DESCRIPTION_HPP

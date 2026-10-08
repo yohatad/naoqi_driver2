@@ -18,6 +18,7 @@
 /*
  * LOCAL includes
  */
+#include <naoqi_driver/ros_helpers.hpp>
 #include <memory>
 #include <functional>
 #include "moveto.hpp"
@@ -25,10 +26,9 @@
 /*
  * ROS includes
  */
-//#include <tf/transform_datatypes.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
-#include "../helpers/transform_helpers.hpp"
+#include "helpers/transform_helpers.hpp"
 
 namespace naoqi
 {
@@ -67,13 +67,14 @@ void MovetoSubscriber::callback(const geometry_msgs::msg::PoseStamped::SharedPtr
 
       double yaw = helpers::transform::getYaw(pose_msg_bf.pose);
 
-      std::cout << "odom to move x: " << pose_msg_bf.pose.position.x
-                << " y: " << pose_msg_bf.pose.position.y
-                << " yaw: " << yaw << std::endl;
+      RCLCPP_INFO_STREAM(
+        naoqi::helpers::Node::get_logger(),
+        "odom to move x: " << pose_msg_bf.pose.position.x << " y: " << pose_msg_bf.pose.position.y << " yaw: " <<
+          yaw);
 
       if (std::isnan(yaw)) {
         yaw = 0.0;
-        std::cout << "Yaw is nan, changed to 0.0" << std::endl;
+        RCLCPP_WARN_STREAM(naoqi::helpers::Node::get_logger(), "Yaw is nan, changed to 0.0");
       }
 
       p_motion_.async<void>(
@@ -83,23 +84,20 @@ void MovetoSubscriber::callback(const geometry_msgs::msg::PoseStamped::SharedPtr
         yaw);
 
     } catch (const tf2::TransformException & e) {
-      std::cout << e.what() << std::endl;
-      std::cout << "moveto position in frame_id "
-                << pose_msg->header.frame_id
-                << "is not supported in any other base frame than "
-        "basefootprint"
-                << std::endl;
+      RCLCPP_WARN_STREAM(
+        naoqi::helpers::Node::get_logger(),
+        "Cannot transform the moveto goal from odom to base_footprint: " << e.what());
     }
   } else if (pose_msg->header.frame_id == "base_footprint") {
     double yaw = helpers::transform::getYaw(pose_msg->pose);
-    std::cout << "going to move x: "
-              << pose_msg->pose.position.x
-              << " y: " << pose_msg->pose.position.y
-              << " yaw: " << yaw << std::endl;
+    RCLCPP_INFO_STREAM(
+      naoqi::helpers::Node::get_logger(),
+      "going to move x: " << pose_msg->pose.position.x << " y: " << pose_msg->pose.position.y << " yaw: " <<
+        yaw);
 
     if (std::isnan(yaw)) {
       yaw = 0.0;
-      std::cout << "Yaw is nan, changed to 0.0" << std::endl;
+      RCLCPP_WARN_STREAM(naoqi::helpers::Node::get_logger(), "Yaw is nan, changed to 0.0");
     }
 
     p_motion_.async<void>(
@@ -108,13 +106,11 @@ void MovetoSubscriber::callback(const geometry_msgs::msg::PoseStamped::SharedPtr
       pose_msg->pose.position.y,
       yaw);
   } else {
-    std::cout << "Cannot reach position expressed in the "
-              << pose_msg->header.frame_id
-              << " frame, enter a valid frame id in the pose's header"
-      " (base_footprint or odom)"
-              << std::endl;
+    RCLCPP_WARN_STREAM(
+      naoqi::helpers::Node::get_logger(), "Cannot reach position expressed in the " << pose_msg->header.frame_id << " frame, enter a valid frame id in the pose's header"
+        " (base_footprint or odom)");
   }
 }
 
-} //publisher
-} // naoqi
+}  // namespace subscriber
+}  // namespace naoqi

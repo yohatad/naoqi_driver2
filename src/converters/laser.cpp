@@ -18,8 +18,9 @@
 /*
 * LOCAL includes
 */
+#include <naoqi_driver/ros_helpers.hpp>
 #include "laser.hpp"
-#include "../tools/from_any_value.hpp"
+#include "tools/from_any_value.hpp"
 
 /*
 * STANDARD includes
@@ -177,7 +178,7 @@ const float kUnknownRange = std::numeric_limits<float>::quiet_NaN();
 }  // namespace
 
 LaserConverter::LaserConverter(
-  const std::string & name, const float & frequency,
+  const std::string & name, float frequency,
   const qi::SessionPtr & session)
 : BaseConverter(name, frequency, session),
   p_memory_(session->service("ALMemory").value()),
@@ -201,7 +202,8 @@ void LaserConverter::callAll(const std::vector<message_actions::MessageAction> &
     qi::AnyValue anyvalues = p_memory_.call<qi::AnyValue>("getListData", laser_keys_value);
     tools::fromAnyValueToFloatVector(anyvalues, result_value);
   } catch (const std::exception & e) {
-    std::cerr << "Exception caught in LaserConverter: " << e.what() << std::endl;
+    RCLCPP_ERROR_STREAM(
+      naoqi::helpers::Node::get_logger(), "Exception caught in LaserConverter: " << e.what());
     return;
   }
 
@@ -209,9 +211,10 @@ void LaserConverter::callAll(const std::vector<message_actions::MessageAction> &
   // bail out rather than read out of bounds if the robot returned a short list
   // (e.g. an unknown memory key).
   if (result_value.size() < laser_keys_value.size() ) {
-    std::cerr << "LaserConverter: expected " << laser_keys_value.size()
-              << " values from ALMemory, got " << result_value.size()
-              << std::endl;
+    RCLCPP_ERROR_STREAM(
+      naoqi::helpers::Node::get_logger(),
+      "LaserConverter: expected " << laser_keys_value.size() << " values from ALMemory, got " <<
+        result_value.size());
     return;
   }
 
@@ -232,11 +235,10 @@ void LaserConverter::callAll(const std::vector<message_actions::MessageAction> &
   if (!any_live) {
     if (now_s - last_warn_s_ > 5.0) {
       last_warn_s_ = now_s;
-      std::cerr << "LaserConverter: no laser board has advanced its frame "
-                << "counter in " << kFrameStaleSeconds << " s -- not "
-                << "publishing. The boards stop sampling while the robot is "
-                << "at rest, so this is expected unless it is awake."
-                << std::endl;
+      RCLCPP_ERROR_STREAM(
+        naoqi::helpers::Node::get_logger(),
+        "LaserConverter: no laser board has advanced its frame counter in " << kFrameStaleSeconds <<
+          " s -- not publishing. The boards stop sampling while the robot is at rest, so this is expected unless it is awake.");
     }
     return;
   }
@@ -305,8 +307,8 @@ void LaserConverter::reset()
 }
 
 void LaserConverter::setLaserRanges(
-  const float & range_min,
-  const float & range_max)
+  float range_min,
+  float range_max)
 {
 
   if (range_min > 0) {
@@ -322,5 +324,5 @@ void LaserConverter::setLaserRanges(
   }
 }
 
-} //converter
-} // naoqi
+}  // namespace converter
+}  // namespace naoqi

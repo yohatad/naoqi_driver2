@@ -143,17 +143,16 @@ namespace AL
   int getNumLayersInColorSpace(const int colorSpace);
 
   inline float convertAngleValToNormalizedImgVal(
-    const float & radValue,
-    const float & imageRadMin,
-    const float & imageRadMax)
+    float radValue,
+    float imageRadMin,
+    float imageRadMax)
   {return radValue / (imageRadMax - imageRadMin);}
 
   inline float convertAnglePosToNormalizedImgPos(
-    const float & radPosition,
-    const float & imageRadMin,
-    const float & imageRadMax)
+    float radPosition,
+    float imageRadMin,
+    float imageRadMax)
   {return (radPosition - imageRadMin) / (imageRadMax - imageRadMin);}
-} // namespace AL
-
+}  // namespace AL
 
 #endif  // _LIBALVISION_ALVISION_ALVISIONDEFINITIONS_H_

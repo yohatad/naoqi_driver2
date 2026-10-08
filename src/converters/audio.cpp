@@ -20,7 +20,6 @@
 */
 #include "audio.hpp"
 
-
 namespace naoqi
 {
 
@@ -28,15 +27,14 @@ namespace converter
 {
 
 AudioEventConverter::AudioEventConverter(
-  const std::string & name, const float & frequency,
+  const std::string & name, float frequency,
   const qi::SessionPtr & session)
 : BaseConverter(name, frequency, session)
 {
 }
 
 AudioEventConverter::~AudioEventConverter()
-{
-}
+= default;
 
 void AudioEventConverter::reset()
 {
@@ -64,6 +62,6 @@ void AudioEventConverter::callAll(
   }
 }
 
-}
+}  // namespace converter
 
-}
+}  // namespace naoqi

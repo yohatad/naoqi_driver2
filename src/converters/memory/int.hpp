@@ -22,7 +22,7 @@
 * LOCAL includes
 */
 #include <functional>
-#include "../converter_base.hpp"
+#include "converters/converter_base.hpp"
 #include <naoqi_driver/message_actions.h>
 #include <naoqi_driver/ros_helpers.hpp>
 
@@ -38,11 +38,11 @@ namespace converter
 
 class MemoryIntConverter : public BaseConverter<MemoryIntConverter>
 {
-  typedef std::function<void (naoqi_bridge_msgs::msg::IntStamped &)> Callback_t;
+  using Callback_t = std::function<void (naoqi_bridge_msgs::msg::IntStamped &)>;
 
 public:
   MemoryIntConverter(
-    const std::string & name, const float & frequency,
+    const std::string & name, float frequency,
     const qi::SessionPtr & session, const std::string & memory_key);
 
   void reset();
@@ -65,7 +65,7 @@ private:
 
 }; // class
 
-} //publisher
-} // naoqi
+}  // namespace converter
+}  // namespace naoqi
 
 #endif

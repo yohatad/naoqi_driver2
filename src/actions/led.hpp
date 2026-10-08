@@ -10,5 +10,5 @@ namespace action
 rclcpp_action::Server<naoqi_bridge_msgs::action::RunLed>::SharedPtr
 createRunLedServer(rclcpp::Node * node, qi::SessionPtr session);
 
-} // namespace action
-} // namespace naoqi
+}  // namespace action
+}  // namespace naoqi

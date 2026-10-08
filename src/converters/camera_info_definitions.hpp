@@ -59,7 +59,6 @@ inline sensor_msgs::msg::CameraInfo createCameraInfoTOPVGA()
   return cam_info_msg;
 }
 
-
 inline sensor_msgs::msg::CameraInfo createCameraInfoTOPQVGA()
 {
   sensor_msgs::msg::CameraInfo cam_info_msg;
@@ -88,7 +87,6 @@ inline sensor_msgs::msg::CameraInfo createCameraInfoTOPQVGA()
   return cam_info_msg;
 }
 
-
 inline sensor_msgs::msg::CameraInfo createCameraInfoTOPQQVGA()
 {
   sensor_msgs::msg::CameraInfo cam_info_msg;
@@ -116,7 +114,6 @@ inline sensor_msgs::msg::CameraInfo createCameraInfoTOPQQVGA()
 
   return cam_info_msg;
 }
-
 
 /**
 * BOTTOM CAMERA
@@ -149,7 +146,6 @@ inline sensor_msgs::msg::CameraInfo createCameraInfoBOTTOMVGA()
   return cam_info_msg;
 }
 
-
 inline sensor_msgs::msg::CameraInfo createCameraInfoBOTTOMQVGA()
 {
   sensor_msgs::msg::CameraInfo cam_info_msg;
@@ -177,7 +173,6 @@ inline sensor_msgs::msg::CameraInfo createCameraInfoBOTTOMQVGA()
 
   return cam_info_msg;
 }
-
 
 inline sensor_msgs::msg::CameraInfo createCameraInfoBOTTOMQQVGA()
 {
@@ -207,7 +202,6 @@ inline sensor_msgs::msg::CameraInfo createCameraInfoBOTTOMQQVGA()
   return cam_info_msg;
 }
 
-
 /**
 * DEPTH CAMERA
 */
@@ -221,9 +215,6 @@ inline sensor_msgs::msg::CameraInfo createCameraInfoDEPTHVGA()
   cam_info_msg.height = 480;
   cam_info_msg.k = std::array<double, 9>{{525, 0, 319.5000000, 0, 525, 239.5000000000000, 0, 0, 1}};
 
-  //cam_info_msg.distortion_model = "plumb_bob";
-  //cam_info_msg.D = boost::assign::list_of(-0.0688388724945936)(0.0697453843669642)(0.00309518737071049)(-0.00570486993696543)(0);
-
   cam_info_msg.r = std::array<double, 9>{{1, 0, 0, 0, 1, 0, 0, 0, 1}};
 
   cam_info_msg.p =
@@ -231,7 +222,6 @@ inline sensor_msgs::msg::CameraInfo createCameraInfoDEPTHVGA()
 
   return cam_info_msg;
 }
-
 
 inline sensor_msgs::msg::CameraInfo createCameraInfoDEPTHQVGA()
 {
@@ -244,9 +234,6 @@ inline sensor_msgs::msg::CameraInfo createCameraInfoDEPTHQVGA()
   cam_info_msg.k =
     std::array<double,
       9>{{525 / 2.0f, 0, 319.5000000 / 2.0f, 0, 525 / 2.0f, 239.5000000000000 / 2.0f, 0, 0, 1}};
-
-  //cam_info_msg.distortion_model = "plumb_bob";
-  //cam_info_msg.D = boost::assign::list_of(-0.0688388724945936)(0.0697453843669642)(0.00309518737071049)(-0.00570486993696543)(0);
 
   cam_info_msg.r = std::array<double, 9>{{1, 0, 0, 0, 1, 0, 0, 0, 1}};
 
@@ -270,9 +257,6 @@ inline sensor_msgs::msg::CameraInfo createCameraInfoDEPTHQQVGA()
     std::array<double,
       9>{{525 / 4.0f, 0, 319.5000000 / 4.0f, 0, 525 / 4.0f, 239.5000000000000 / 4.0f, 0, 0, 1}};
 
-  //cam_info_msg.distortion_model = "plumb_bob";
-  //cam_info_msg.D = boost::assign::list_of(-0.0688388724945936)(0.0697453843669642)(0.00309518737071049)(-0.00570486993696543)(0);
-
   cam_info_msg.r = std::array<double, 9>{{1, 0, 0, 0, 1, 0, 0, 0, 1}};
 
   cam_info_msg.p =
@@ -287,9 +271,9 @@ inline sensor_msgs::msg::CameraInfo createCameraInfoDEPTHQQVGA()
 * STEREO CAMERA
 */
 inline sensor_msgs::msg::CameraInfo createCameraInfoStereo(
-  const int & width,
-  const int & height,
-  const float & reductionFactor)
+  int width,
+  int height,
+  float reductionFactor)
 {
 
   sensor_msgs::msg::CameraInfo cam_info_msg;
@@ -319,7 +303,6 @@ inline sensor_msgs::msg::CameraInfo createCameraInfoStereo(
     0, 569.869568f / reductionFactor, 393.368958f / reductionFactor, 0,
     0, 0, 1, 0};
 
-
   cam_info_msg.width = width;
   cam_info_msg.height = height;
 
@@ -345,7 +328,6 @@ inline sensor_msgs::msg::CameraInfo createCameraInfoDEPTH720P()
 {
   return createCameraInfoStereo(1280, 720, 1.0);
 }
-
 
 inline sensor_msgs::msg::CameraInfo createCameraInfoDEPTHQ720P()
 {
@@ -393,9 +375,8 @@ inline sensor_msgs::msg::CameraInfo createCameraInfoStereoQQQQ720PX2()
   return createCameraInfoStereo(160, 45, 16.0);
 }
 
-} // camera_info_definitions
-} //publisher
-} //naoqi
-
+}  // namespace camera_info_definitions
+}  // namespace converter
+}  // namespace naoqi
 
 #endif

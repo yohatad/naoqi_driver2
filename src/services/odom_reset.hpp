@@ -15,7 +15,6 @@
  *
 */
 
-
 #ifndef ODOM_RESET_SERVICE_HPP
 #define ODOM_RESET_SERVICE_HPP
 
@@ -38,7 +37,7 @@ public:
     const std::string & name, const std::string & topic,
     const qi::SessionPtr & session);
 
-  ~OdomResetService() {}
+  ~OdomResetService() = default;
 
   std::string name() const
   {
@@ -64,6 +63,6 @@ private:
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr service_;
 };
 
-} // service
-} // naoqi
+}  // namespace service
+}  // namespace naoqi
 #endif

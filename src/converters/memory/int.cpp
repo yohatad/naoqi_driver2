@@ -18,8 +18,8 @@
 /*
 * LOCAL includes
 */
+#include <naoqi_driver/ros_helpers.hpp>
 #include "int.hpp"
-
 
 namespace naoqi
 {
@@ -27,7 +27,7 @@ namespace converter
 {
 
 MemoryIntConverter::MemoryIntConverter(
-  const std::string & name, const float & frequency,
+  const std::string & name, float frequency,
   const qi::SessionPtr & session,
   const std::string & memory_key)
 : BaseConverter(name, frequency, session),
@@ -49,7 +49,9 @@ bool MemoryIntConverter::convert()
     msg_.data = value;
     success = true;
   } catch (const std::exception & e) {
-    std::cerr << "Exception caught in MemoryIntConverter " << e.what() << std::endl;
+    RCLCPP_ERROR_STREAM(
+      naoqi::helpers::Node::get_logger(),
+      "Exception caught in MemoryIntConverter " << e.what());
     success = false;
   }
   return success;
@@ -67,5 +69,5 @@ void MemoryIntConverter::callAll(const std::vector<message_actions::MessageActio
 void MemoryIntConverter::reset()
 {}
 
-} // publisher
-} //naoqi
+}  // namespace converter
+}  // namespace naoqi

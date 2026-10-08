@@ -37,21 +37,18 @@
 #include <naoqi_driver/recorder/globalrecorder.hpp>
 
 // Converter
-#include "../src/converters/audio.hpp"
+#include "converters/audio.hpp"
 // Publisher
-#include "../src/publishers/basic.hpp"
+#include "publishers/basic.hpp"
 // Recorder
-#include "../recorder/basic_event.hpp"
+#include "recorder/basic_event.hpp"
 
 namespace naoqi
 {
 
 /**
-* @brief GlobalRecorder concept interface
-* @note this defines an private concept struct,
-* which each instance has to implement
-* @note a type erasure pattern in implemented here to avoid strict inheritance,
-* thus each possible publisher instance has to implement the virtual functions mentioned in the concept
+* @brief Streams the robot microphones as naoqi_bridge_msgs/AudioBuffer.
+* @note Registered as a qi service, so ALAudioDevice pushes buffers into processRemote().
 */
 // Stays on boost::enable_shared_from_this: startProcess() registers this object as a
 // qi service, and qi::Object can only be built from a boost::shared_ptr.
@@ -63,7 +60,7 @@ public:
   * @brief Constructor for recorder interface
   */
   AudioEventRegister(
-    const std::string & name, const float & frequency,
+    const std::string & name, float frequency,
     const qi::SessionPtr & session);
   ~AudioEventRegister();
 
@@ -95,22 +92,22 @@ private:
   recorder::BasicEventRecorder<naoqi_bridge_msgs::msg::AudioBuffer> recorder_;
   converter::AudioEventConverter converter_;
   qi::AnyObject p_audio_;
-  qi::FutureSync<qi::AnyObject> p_audio_extractor_request;
-  std::vector<uint8_t> channelMap;
-  unsigned int serviceId;
+  qi::FutureSync<qi::AnyObject> p_audio_extractor_request_;
+  std::vector<uint8_t> channel_map_;
+  unsigned int service_id_;
 
   std::mutex subscription_mutex_;
   std::mutex processing_mutex_;
 
-  std::atomic<bool> isStarted_;
-  bool isPublishing_;
-  bool isRecording_;
-  bool isDumping_;
+  std::atomic<bool> is_started_;
+  bool is_publishing_;
+  bool is_recording_;
+  bool is_dumping_;
 
 }; // class
 
 QI_REGISTER_OBJECT(AudioEventRegister, processRemote)
 
-} //naoqi
+}  // namespace naoqi
 
 #endif

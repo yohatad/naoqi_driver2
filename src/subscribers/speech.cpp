@@ -20,7 +20,6 @@
  */
 #include "speech.hpp"
 
-
 namespace naoqi
 {
 namespace subscriber
@@ -39,15 +38,15 @@ void SpeechSubscriber::reset(rclcpp::Node * node)
   sub_speech_ = node->create_subscription<std_msgs::msg::String>(
     speech_topic_,
     10,
-    std::bind(&SpeechSubscriber::speech_callback, this, std::placeholders::_1));
+    std::bind(&SpeechSubscriber::speechCallback, this, std::placeholders::_1));
 
   is_initialized_ = true;
 }
 
-void SpeechSubscriber::speech_callback(const std_msgs::msg::String::SharedPtr string_msg)
+void SpeechSubscriber::speechCallback(const std_msgs::msg::String::SharedPtr string_msg)
 {
   p_tts_.async<void>("say", string_msg->data);
 }
 
-} //publisher
-} // naoqi
+}  // namespace subscriber
+}  // namespace naoqi

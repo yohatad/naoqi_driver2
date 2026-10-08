@@ -45,23 +45,23 @@ public:
     const std::string & joint_angles_topic,
     const std::string & joint_angle_traj_topic,
     const qi::SessionPtr & session);
-  ~TeleopSubscriber() {}
+  ~TeleopSubscriber() override = default;
 
   void reset(rclcpp::Node * node);
-  void cmd_vel_callback(const geometry_msgs::msg::Twist::SharedPtr twist_msg);
-  void joint_angles_callback(const naoqi_bridge_msgs::msg::JointAnglesWithSpeed::SharedPtr js_msg);
-  void joint_angle_traj_callback(
+  void cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr twist_msg);
+  void jointAnglesCallback(const naoqi_bridge_msgs::msg::JointAnglesWithSpeed::SharedPtr js_msg);
+  void jointAngleTrajCallback(
     const naoqi_bridge_msgs::msg::JointAnglesTrajectory::SharedPtr traj_msg);
 
 private:
   // Helper methods for trajectory execution
-  void execute_angle_interpolation(
+  void executeAngleInterpolation(
     const std::vector<std::string> & names,
     const std::vector<float> & angles,
     const std::vector<float> & times,
     bool is_absolute);
 
-  void execute_bezier_trajectory(
+  void executeBezierTrajectory(
     const std::vector<std::string> & names,
     const std::vector<float> & angles,
     const std::vector<float> & times);
@@ -81,6 +81,6 @@ private:
     sub_joint_angle_traj_;
 };
 
-} // namespace subscriber
-} // namespace naoqi
+}  // namespace subscriber
+}  // namespace naoqi
 #endif

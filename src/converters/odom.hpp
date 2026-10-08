@@ -41,10 +41,10 @@ namespace converter
 class OdomConverter : public BaseConverter<OdomConverter>
 {
 
-  typedef std::function<void (nav_msgs::msg::Odometry &)> Callback_t;
+  using Callback_t = std::function<void (nav_msgs::msg::Odometry &)>;
 
 public:
-  OdomConverter(const std::string & name, const float & frequency, const qi::SessionPtr & session);
+  OdomConverter(const std::string & name, float frequency, const qi::SessionPtr & session);
 
   void registerCallback(message_actions::MessageAction action, Callback_t cb);
 
@@ -80,7 +80,7 @@ private:
   static float orientation_offset_wz_;
 }; // class
 
-} //publisher
-} // naoqi
+}  // namespace converter
+}  // namespace naoqi
 
 #endif

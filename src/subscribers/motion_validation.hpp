@@ -105,8 +105,8 @@ inline std::string validateTrajectory(
   return "";
 }
 
-} // validation
-} // subscriber
-} // naoqi
+}  // namespace validation
+}  // namespace subscriber
+}  // namespace naoqi
 
 #endif

@@ -15,7 +15,6 @@
  *
  */
 
-
 #ifndef SPEECH_SUBSCRIBER_HPP
 #define SPEECH_SUBSCRIBER_HPP
 
@@ -41,10 +40,10 @@ public:
   SpeechSubscriber(
     const std::string & name, const std::string & speech_topic,
     const qi::SessionPtr & session);
-  ~SpeechSubscriber() {}
+  ~SpeechSubscriber() override = default;
 
   void reset(rclcpp::Node * node);
-  void speech_callback(const std_msgs::msg::String::SharedPtr msg);
+  void speechCallback(const std_msgs::msg::String::SharedPtr msg);
 
 private:
   std::string speech_topic_;
@@ -53,6 +52,6 @@ private:
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr sub_speech_;
 }; // class Speech
 
-} // subscriber
-}// naoqi
+}  // namespace subscriber
+}  // namespace naoqi
 #endif

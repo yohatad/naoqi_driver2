@@ -122,6 +122,7 @@ add_definitions( -DAMENT_BUILD )
 
 include_directories(
   "include"
+  "src"
   ${naoqi_libqi_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
 )
@@ -185,13 +186,17 @@ install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY rviz2 DESTINATION share/${PROJECT_NAME})
 
 if(BUILD_TESTING)
+  # Code style: 'ament_uncrustify --reformat src include test' fixes any failure.
+  find_package(ament_cmake_uncrustify REQUIRED)
+  ament_uncrustify(src include test)
+
   find_package(ament_cmake_gtest REQUIRED)
   # The pre-migration boost implementations are used as reference in the tests
   find_package(Boost REQUIRED COMPONENTS filesystem)
 
   function(naoqi_driver_add_test name)
     ament_add_gtest(${name} test/${name}.cpp TIMEOUT 120)
-    target_include_directories(${name} PRIVATE src test)
+    target_include_directories(${name} PRIVATE test)
     target_link_libraries(${name} naoqi_driver Boost::filesystem ${naoqi_libqi_LIBRARIES})
     ament_target_dependencies(${name}
       rclcpp

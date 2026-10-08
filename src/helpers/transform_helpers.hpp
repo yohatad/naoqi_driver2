@@ -15,7 +15,6 @@
  *
 */
 
-
 #ifndef TRANSFORM_HELPERS_HPP
 #define TRANSFORM_HELPERS_HPP
 
@@ -32,26 +31,26 @@ namespace transform
 
 inline double getYaw(const geometry_msgs::msg::Pose & pose)
 {
-  double yaw, _pitch, _roll;
+  double yaw, pitch, roll;
   tf2::Matrix3x3(
     tf2::Quaternion(
       pose.orientation.x, pose.orientation.y,
-      pose.orientation.z, pose.orientation.w)).getEulerYPR(yaw, _pitch, _roll);
+      pose.orientation.z, pose.orientation.w)).getEulerYPR(yaw, pitch, roll);
   return yaw;
 }
 
 inline double getYaw(const geometry_msgs::msg::Transform & pose)
 {
-  double yaw, _pitch, _roll;
+  double yaw, pitch, roll;
   tf2::Matrix3x3(
     tf2::Quaternion(
       pose.rotation.x, pose.rotation.y, pose.rotation.z,
-      pose.rotation.w)).getEulerYPR(yaw, _pitch, _roll);
+      pose.rotation.w)).getEulerYPR(yaw, pitch, roll);
   return yaw;
 }
 
-} //transform
-} //helpers
-} // naoqi
+}  // namespace transform
+}  // namespace helpers
+}  // namespace naoqi
 
 #endif

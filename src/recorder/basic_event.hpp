@@ -24,7 +24,7 @@
 #include <memory>
 #include <naoqi_driver/recorder/globalrecorder.hpp>
 #include <naoqi_driver/ros_helpers.hpp>
-#include "../helpers/recorder_helpers.hpp"
+#include "helpers/recorder_helpers.hpp"
 #include <rclcpp/duration.hpp>
 
 /*
@@ -49,7 +49,7 @@ public:
     is_subscribed_(false)
   {}
 
-  virtual ~BasicEventRecorder() {}
+  virtual ~BasicEventRecorder() = default;
 
   inline std::string topic() const
   {
@@ -84,12 +84,11 @@ public:
   {
     std::lock_guard<std::mutex> lock_write_buffer(mutex_);
     removeOlderThan(time);
-    typename std::list<T>::iterator it;
-    for (it = buffer_.begin(); it != buffer_.end(); it++) {
-      if (!helpers::recorder::isZero(it->header.stamp)) {
-        gr_->write(topic_, *it, it->header.stamp);
+    for (auto & msg : buffer_) {
+      if (!helpers::recorder::isZero(msg.header.stamp)) {
+        gr_->write(topic_, msg, msg.header.stamp);
       } else {
-        gr_->write(topic_, *it);
+        gr_->write(topic_, msg);
       }
     }
   }
@@ -119,31 +118,25 @@ protected:
   bool isTooOld(const T & msg)
   {
     rclcpp::Duration d(helpers::Time::now() - msg.header.stamp);
-    if (static_cast<float>(d.seconds()) > buffer_duration_) {
-      return true;
-    }
-    return false;
+    return static_cast<float>(d.seconds()) > buffer_duration_;
   }
 
   bool isOlderThan(const T & msg, const rclcpp::Time & time)
   {
     rclcpp::Duration d(time - msg.header.stamp);
-    if (static_cast<float>(d.seconds()) > buffer_duration_) {
-      return true;
-    }
-    return false;
+    return static_cast<float>(d.seconds()) > buffer_duration_;
   }
 
   void removeOld()
   {
-    while (buffer_.size() > 0 && isTooOld(buffer_.front())) {
+    while (!buffer_.empty() && isTooOld(buffer_.front())) {
       buffer_.pop_front();
     }
   }
 
   void removeOlderThan(const rclcpp::Time & time)
   {
-    while (buffer_.size() > 0 && isOlderThan(buffer_.front(), time)) {
+    while (!buffer_.empty() && isOlderThan(buffer_.front(), time)) {
       buffer_.pop_front();
     }
   }
@@ -160,7 +153,7 @@ protected:
   std::shared_ptr<naoqi::recorder::GlobalRecorder> gr_;
 }; // class
 
-} // recorder
-} // naoqi
+}  // namespace recorder
+}  // namespace naoqi
 
 #endif

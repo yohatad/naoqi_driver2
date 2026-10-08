@@ -18,7 +18,7 @@ namespace
 {
 const float kNaN = std::numeric_limits<float>::quiet_NaN();
 const float kInf = std::numeric_limits<float>::infinity();
-}
+}  // namespace
 
 // ---------------------------------------------------------------- watchdog
 

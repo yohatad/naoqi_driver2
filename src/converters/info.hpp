@@ -31,7 +31,6 @@
 */
 #include <naoqi_bridge_msgs/msg/string_stamped.hpp>
 
-
 namespace naoqi
 {
 namespace converter
@@ -40,7 +39,7 @@ namespace converter
 class InfoConverter : public BaseConverter<InfoConverter>
 {
 
-  typedef std::function<void (naoqi_bridge_msgs::msg::StringStamped)> Callback_t;
+  using Callback_t = std::function<void (naoqi_bridge_msgs::msg::StringStamped)>;
 
 public:
   InfoConverter(const std::string & name, float frequency, const qi::SessionPtr & sessions);
@@ -62,7 +61,7 @@ private:
   naoqi_bridge_msgs::msg::StringStamped msg_;
 };
 
-} //converter
-} //naoqi
+}  // namespace converter
+}  // namespace naoqi
 
 #endif

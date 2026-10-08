@@ -18,9 +18,9 @@
 /*
 * LOCAL includes
 */
+#include <naoqi_driver/ros_helpers.hpp>
 #include "sonar.hpp"
-#include "../tools/from_any_value.hpp"
-
+#include "tools/from_any_value.hpp"
 
 namespace naoqi
 {
@@ -28,7 +28,7 @@ namespace converter
 {
 
 SonarConverter::SonarConverter(
-  const std::string & name, const float & frequency,
+  const std::string & name, float frequency,
   const qi::SessionPtr & session)
 : BaseConverter(name, frequency, session),
   p_memory_(session->service("ALMemory").value() ),
@@ -45,15 +45,11 @@ SonarConverter::SonarConverter(
     keys.push_back("Device/SubDeviceList/Platform/Back/Sonar/Sensor/Value");
     frames_.push_back("SonarFront_frame");
     frames_.push_back("SonarBack_frame");
-    //topics_.push_back(topic + "/Front_sensor");
-    //topics_.push_back(topic + "/Back_sensor");
   } else if (robot_ == robot::NAO) {
     keys.push_back("Device/SubDeviceList/US/Left/Sensor/Value");
     keys.push_back("Device/SubDeviceList/US/Right/Sensor/Value");
     frames_.push_back("LSonar_frame");
     frames_.push_back("RSonar_frame");
-    //topics_.push_back(topic + "/Left_sensor");
-    //topics_.push_back(topic + "/Right_sensor");
   }
 
   // Prepare the messages
@@ -100,7 +96,8 @@ void SonarConverter::callAll(const std::vector<message_actions::MessageAction> &
     qi::AnyValue anyvalues = p_memory_.call<qi::AnyValue>("getListData", keys_);
     tools::fromAnyValueToFloatVector(anyvalues, values);
   } catch (const std::exception & e) {
-    std::cerr << "Exception caught in SonarConverter: " << e.what() << std::endl;
+    RCLCPP_ERROR_STREAM(
+      naoqi::helpers::Node::get_logger(), "Exception caught in SonarConverter: " << e.what());
     return;
   }
   rclcpp::Time now = helpers::Time::now();
@@ -123,5 +120,5 @@ void SonarConverter::reset()
   }
 }
 
-} // publisher
-} //naoqi
+}  // namespace converter
+}  // namespace naoqi

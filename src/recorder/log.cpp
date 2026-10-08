@@ -47,9 +47,8 @@ void LogRecorder::write(std::list<rcl_interfaces::msg::Log> & log_msgs)
 void LogRecorder::writeDump(const rclcpp::Time & time)
 {
   std::lock_guard<std::mutex> lock_write_buffer(mutex_);
-  boost::circular_buffer<std::list<rcl_interfaces::msg::Log>>::iterator it;
-  for (it = buffer_.begin(); it != buffer_.end(); it++) {
-    write(*it);
+  for (auto & logs : buffer_) {
+    write(logs);
   }
 }
 
@@ -87,5 +86,5 @@ void LogRecorder::setBufferDuration(float duration)
   buffer_.set_capacity(buffer_size_);
 }
 
-} //publisher
-} // naoqi
+}  // namespace recorder
+}  // namespace naoqi

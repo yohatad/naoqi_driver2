@@ -27,7 +27,7 @@
  * LOCAL includes
  */
 #include <naoqi_driver/tools.hpp>
-#include "../helpers/driver_helpers.hpp"
+#include "helpers/driver_helpers.hpp"
 
 namespace naoqi
 {
@@ -48,7 +48,7 @@ public:
     session_(session)
   {}
 
-  virtual ~BaseSubscriber() {}
+  virtual ~BaseSubscriber() = default;
 
   inline std::string name() const
   {
@@ -77,7 +77,7 @@ protected:
   qi::SessionPtr session_;
 }; // class
 
-} // subscriber
-} // naoqi
+}  // namespace subscriber
+}  // namespace naoqi
 
 #endif

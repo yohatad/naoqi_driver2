@@ -24,8 +24,6 @@
 #include <mutex>
 
 #include <rclcpp/rclcpp.hpp>
-// #include <rosbag/bag.h>
-// #include <rosbag/view.h>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 
 #include "naoqi_driver/recorder/globalrecorder.hpp"
@@ -62,7 +60,6 @@ public:
   {
     return recPtr_->isInitialized();
   }
-
 
   void subscribe(bool state)
   {
@@ -109,10 +106,7 @@ public:
   friend bool operator==(const Recorder & lhs, const Recorder & rhs)
   {
     // decision made for OR-comparison since we want to be more restrictive
-    if (lhs.topic() == rhs.topic() ) {
-      return true;
-    }
-    return false;
+    return lhs.topic() == rhs.topic();
   }
 
 private:
@@ -121,7 +115,7 @@ private:
   */
   struct RecorderConcept
   {
-    virtual ~RecorderConcept() {}
+    virtual ~RecorderConcept() = default;
     virtual bool isInitialized() const = 0;
     virtual void subscribe(bool state) = 0;
     virtual bool isSubscribed() const = 0;
@@ -130,7 +124,6 @@ private:
     virtual void setBufferDuration(float duration) = 0;
     virtual void reset(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float frequency) = 0;
   };
-
 
   /**
   * templated instances of base concept
@@ -142,37 +135,37 @@ private:
     : recorder_(other)
     {}
 
-    void reset(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float frequency)
+    void reset(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float frequency) override
     {
       recorder_->reset(gr, frequency);
     }
 
-    bool isInitialized() const
+    bool isInitialized() const override
     {
       return recorder_->isInitialized();
     }
 
-    void subscribe(bool state)
+    void subscribe(bool state) override
     {
       recorder_->subscribe(state);
     }
 
-    bool isSubscribed() const
+    bool isSubscribed() const override
     {
       return recorder_->isSubscribed();
     }
 
-    std::string topic() const
+    std::string topic() const override
     {
       return recorder_->topic();
     }
 
-    void writeDump(const rclcpp::Time & time)
+    void writeDump(const rclcpp::Time & time) override
     {
       recorder_->writeDump(time);
     }
 
-    void setBufferDuration(float duration)
+    void setBufferDuration(float duration) override
     {
       recorder_->setBufferDuration(duration);
     }
@@ -184,7 +177,7 @@ private:
 
 }; // class recorder
 
-} // recorder
-} //naoqi
+}  // namespace recorder
+}  // namespace naoqi
 
 #endif

@@ -31,5 +31,5 @@ struct AudioPlayerServers
 
 AudioPlayerServers createAudioPlayerServers(rclcpp::Node * node, qi::SessionPtr session);
 
-} // namespace action
-} // namespace naoqi
+}  // namespace action
+}  // namespace naoqi

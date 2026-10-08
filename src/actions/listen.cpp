@@ -1,5 +1,5 @@
 #include "listen.hpp"
-#include "../helpers/string_helpers.hpp"
+#include "helpers/string_helpers.hpp"
 #include <chrono>
 #include <mutex>
 #include <thread>
@@ -13,19 +13,6 @@ namespace action
 {
 namespace
 {
-// Trivial Qi Object with a callback to receive ALMemory events
-struct MemoryReceiver
-{
-  void callback(const std::string & key, const qi::AnyValue & value)
-  {
-    if (key == "Dialog/Answered") {
-      std::cout << "Received input: " << value.toString() << std::endl;
-    }
-  }
-};
-
-QI_REGISTER_OBJECT(MemoryReceiver, callback);
-
 std::string qichatLanguageFromIso(const std::string & iso_language)
 {
   static const std::unordered_map<std::string, std::string> iso_to_qichat = {
@@ -58,13 +45,13 @@ struct ListenState
   qi::SessionPtr session;
   rclcpp::Logger logger = node->get_logger();
   std::mutex mutex;
-  // Guarded by mutex. Only the thread that claims the goal via claim_goal
+  // Guarded by mutex. Only the thread that claims the goal via claimGoal
   // may drive it to a terminal state.
   std::shared_ptr<ListenGoalHandle> current_goal;
   qi::AnyObject memory_subscriber;
 };
 
-std::string topic_name_for_goal_id(const rclcpp_action::GoalUUID & goal_id)
+std::string topicNameForGoalId(const rclcpp_action::GoalUUID & goal_id)
 {
   std::string topic_name = rclcpp_action::to_string(goal_id);
   naoqi::helpers::string::replaceAll(topic_name, "-", "");
@@ -77,10 +64,10 @@ struct ClaimedGoal
   qi::AnyObject memory_subscriber;
 };
 
-// The dialog callback (NAOqi thread) and handle_cancel (ROS executor) can
+// The dialog callback (NAOqi thread) and handleCancel (ROS executor) can
 // both try to finish the same goal. Whoever claims it first owns the
 // terminal transition; the other backs off.
-ClaimedGoal claim_goal(ListenState & state, const std::shared_ptr<ListenGoalHandle> & expected)
+ClaimedGoal claimGoal(ListenState & state, const std::shared_ptr<ListenGoalHandle> & expected)
 {
   std::lock_guard<std::mutex> lock(state.mutex);
   if (!state.current_goal || state.current_goal != expected) {
@@ -94,7 +81,7 @@ ClaimedGoal claim_goal(ListenState & state, const std::shared_ptr<ListenGoalHand
   return claimed;
 }
 
-rclcpp_action::GoalResponse handle_goal(
+rclcpp_action::GoalResponse handleGoal(
   std::shared_ptr<ListenState> state,
   const rclcpp_action::GoalUUID & uuid,
   const std::shared_ptr<const Listen::Goal> goal)
@@ -120,9 +107,9 @@ rclcpp_action::GoalResponse handle_goal(
   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
 
-void cleanup_dialog(ListenState & state, const std::string & topic_name);
+void cleanupDialog(ListenState & state, const std::string & topic_name);
 
-void handle_accepted(
+void handleAccepted(
   std::shared_ptr<ListenState> state,
   const std::shared_ptr<ListenGoalHandle> goal_handle)
 {
@@ -175,10 +162,7 @@ void handle_accepted(
     dialog.call<void>("subscribe", topic_name);
     dialog.call<void>("setFocus", topic_name);
 
-    // auto memory_receiver = std::make_shared<MemoryReceiver>();
-    // auto service_id = session->registerService(topic_name, memory_receiver);
     auto memory = session->service("ALMemory").value();
-    // memory.call<void>("subscribeToEvent", "Dialog/Answered", topic_name, "callback");
     auto memory_subscriber = memory.call<qi::AnyObject>("subscriber", topic_name + "/result");
     memory_subscriber.connect(
       "signal", [ = ](const qi::AnyValue & value)
@@ -189,13 +173,13 @@ void handle_accepted(
           auto utterance = value.toString();
           RCLCPP_INFO(state->logger, "Received input: %s", utterance.c_str());
 
-          auto claimed = claim_goal(*state, goal_handle);
+          auto claimed = claimGoal(*state, goal_handle);
           if (!claimed.goal) {
             // Already cancelled (or not yet registered); drop the utterance.
             return;
           }
           claimed.memory_subscriber.reset();
-          cleanup_dialog(*state, topic_name);
+          cleanupDialog(*state, topic_name);
 
           result->result = std::vector<std::string>{utterance};
           goal_handle->succeed(result);
@@ -213,28 +197,28 @@ void handle_accepted(
     }
   } catch (const std::exception & e) {
     RCLCPP_ERROR(logger, "Failed to start listen %s: %s", goal_id.c_str(), e.what());
-    auto claimed = claim_goal(*state, goal_handle);
+    auto claimed = claimGoal(*state, goal_handle);
     claimed.memory_subscriber.reset();
-    cleanup_dialog(*state, topic_name);
+    cleanupDialog(*state, topic_name);
     goal_handle->abort(result);
   }
 }
 
-rclcpp_action::CancelResponse handle_cancel(
+rclcpp_action::CancelResponse handleCancel(
   std::shared_ptr<ListenState> state,
   const std::shared_ptr<ListenGoalHandle> goal_handle)
 {
   std::string goal_id = rclcpp_action::to_string(goal_handle->get_goal_id());
   RCLCPP_INFO(state->logger, "Received goal cancellation request %s", goal_id.c_str());
 
-  auto claimed = claim_goal(*state, goal_handle);
+  auto claimed = claimGoal(*state, goal_handle);
   if (!claimed.goal) {
     // The dialog callback already finished (or is finishing) this goal.
     return rclcpp_action::CancelResponse::REJECT;
   }
 
   claimed.memory_subscriber.reset();
-  cleanup_dialog(*state, topic_name_for_goal_id(goal_handle->get_goal_id()));
+  cleanupDialog(*state, topicNameForGoalId(goal_handle->get_goal_id()));
 
   // The goal only enters CANCELING once we return ACCEPT, so the terminal
   // transition has to happen on another thread, after that.
@@ -256,21 +240,14 @@ rclcpp_action::CancelResponse handle_cancel(
   return rclcpp_action::CancelResponse::ACCEPT;
 }
 
-void cleanup_dialog(ListenState & state, const std::string & topic_name)
+void cleanupDialog(ListenState & state, const std::string & topic_name)
 {
   auto & logger = state.logger;
   const auto & session = state.session;
   try {
     auto dialog = session->service("ALDialog").value();
 
-    // try
-    // {
-    //   dialog.call<void>("unsubscribe", topic_name);
-    // }
-    // catch (const std::exception& e)
-    // {
-    //   RCLCPP_WARN(logger, "Failed to unsubscribe from topic %s: %s", topic_name.c_str(), e.what());
-    // }
+    // ALDialog.unsubscribe(topic_name) is deliberately not called.
 
     try {
       dialog.call<void>("deactivateTopic", topic_name);
@@ -289,7 +266,7 @@ void cleanup_dialog(ListenState & state, const std::string & topic_name)
 
   RCLCPP_INFO(logger, "Listen topic %s stopped and cleaned up", topic_name.c_str());
 }
-}
+}  // namespace
 
 rclcpp_action::Server<Listen>::SharedPtr
 createListenServer(rclcpp::Node * node, qi::SessionPtr session)
@@ -298,11 +275,11 @@ createListenServer(rclcpp::Node * node, qi::SessionPtr session)
   auto task = std::make_shared<ListenState>(node, std::move(session));
   return rclcpp_action::create_server<Listen>(
     node, "naoqi_driver/listen",
-    std::bind(handle_goal, task, ph::_1, ph::_2),
-    std::bind(handle_cancel, task, ph::_1),
-    std::bind(handle_accepted, task, ph::_1)
+    std::bind(handleGoal, task, ph::_1, ph::_2),
+    std::bind(handleCancel, task, ph::_1),
+    std::bind(handleAccepted, task, ph::_1)
   );
 }
 
-} // ends namespace action
-} // ends namespace naoqi
+}  // namespace action
+}  // namespace naoqi

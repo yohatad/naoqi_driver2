@@ -18,8 +18,9 @@
 /*
 * LOCAL includes
 */
+#include <naoqi_driver/ros_helpers.hpp>
 #include "info.hpp"
-#include "../tools/from_any_value.hpp"
+#include "tools/from_any_value.hpp"
 
 /*
 * BOOST includes
@@ -71,7 +72,8 @@ void InfoConverter::callAll(const std::vector<message_actions::MessageAction> & 
     qi::AnyValue anyvalues = p_memory_.call<qi::AnyValue>("getListData", keys_);
     tools::fromAnyValueToStringVector(anyvalues, values);
   } catch (const std::exception & e) {
-    std::cerr << "Exception caught in InfoConverter: " << e.what() << std::endl;
+    RCLCPP_ERROR_STREAM(
+      naoqi::helpers::Node::get_logger(), "Exception caught in InfoConverter: " << e.what());
     return;
   }
 
@@ -89,5 +91,5 @@ void InfoConverter::callAll(const std::vector<message_actions::MessageAction> & 
   }
 }
 
-} // converter
-} //naoqi
+}  // namespace converter
+}  // namespace naoqi

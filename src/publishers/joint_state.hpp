@@ -69,7 +69,7 @@ private:
 
 }; // class
 
-} //publisher
-} // naoqi
+}  // namespace publisher
+}  // namespace naoqi
 
 #endif

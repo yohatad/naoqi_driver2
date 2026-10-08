@@ -31,7 +31,7 @@ struct SpeechState
   std::atomic<bool> cancel_requested{false};
 };
 
-rclcpp_action::GoalResponse handle_goal(
+rclcpp_action::GoalResponse handleGoal(
   std::shared_ptr<SpeechState> state,
   const rclcpp_action::GoalUUID & uuid,
   const std::shared_ptr<const SpeechWithFeedback::Goal> goal)
@@ -53,7 +53,7 @@ rclcpp_action::GoalResponse handle_goal(
   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
 
-rclcpp_action::CancelResponse handle_cancel(
+rclcpp_action::CancelResponse handleCancel(
   std::shared_ptr<SpeechState> state,
   const std::shared_ptr<SpeechGoalHandle> goal_handle)
 {
@@ -80,7 +80,7 @@ rclcpp_action::CancelResponse handle_cancel(
   return rclcpp_action::CancelResponse::ACCEPT;
 }
 
-void handle_accepted(
+void handleAccepted(
   std::shared_ptr<SpeechState> state,
   const std::shared_ptr<SpeechGoalHandle> goal_handle)
 {
@@ -88,7 +88,7 @@ void handle_accepted(
   RCLCPP_INFO(state->logger, "Executing SpeechWithFeedback %s", goal_id.c_str());
 
   // Claim the goal before returning, so a second goal arriving right after
-  // is rejected by handle_goal instead of speaking concurrently.
+  // is rejected by handleGoal instead of speaking concurrently.
   {
     std::lock_guard<std::mutex> lock(state->mutex);
     state->current_goal = goal_handle;
@@ -159,7 +159,7 @@ void handle_accepted(
       state->cancel_requested = false;
     }).detach();
 }
-}
+}  // namespace
 
 rclcpp_action::Server<SpeechWithFeedback>::SharedPtr
 createSpeechWithFeedbackServer(rclcpp::Node * node, qi::SessionPtr session)
@@ -169,11 +169,11 @@ createSpeechWithFeedbackServer(rclcpp::Node * node, qi::SessionPtr session)
   return rclcpp_action::create_server<SpeechWithFeedback>(
     node,
     "naoqi_driver/speech_with_feedback",
-    std::bind(handle_goal, state, std::placeholders::_1, std::placeholders::_2),
-    std::bind(handle_cancel, state, std::placeholders::_1),
-    std::bind(handle_accepted, state, std::placeholders::_1)
+    std::bind(handleGoal, state, std::placeholders::_1, std::placeholders::_2),
+    std::bind(handleCancel, state, std::placeholders::_1),
+    std::bind(handleAccepted, state, std::placeholders::_1)
   );
 }
 
-} // namespace action
-} // namespace naoqi
+}  // namespace action
+}  // namespace naoqi

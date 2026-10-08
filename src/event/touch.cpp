@@ -15,6 +15,7 @@
  *
 */
 
+#include <naoqi_driver/ros_helpers.hpp>
 #include <functional>
 #include <iostream>
 #include <vector>
@@ -35,29 +36,26 @@ namespace naoqi
 
 template<class T>
 TouchEventRegister<T>::TouchEventRegister()
-{
-}
+= default;
 
 template<class T>
 TouchEventRegister<T>::TouchEventRegister(
   const std::string & name,
   const std::vector<std::string> keys,
-  const float & frequency, const qi::SessionPtr & session)
+  float frequency, const qi::SessionPtr & session)
 : p_memory_(session->service("ALMemory").value()),
-  isStarted_(false),
-  isPublishing_(false),
-  isRecording_(false),
-  isDumping_(false)
+  is_started_(false),
+  is_publishing_(false),
+  is_recording_(false),
+  is_dumping_(false)
 {
   publisher_ = std::make_shared<publisher::BasicPublisher<T>>(name);
-  //recorder_ = std::make_shared<recorder::BasicEventRecorder<T> >( name );
   converter_ = std::make_shared<converter::TouchEventConverter<T>>(name, frequency, session);
 
   converter_->registerCallback(
     message_actions::PUBLISH,
     std::bind(&publisher::BasicPublisher<T>::publish, publisher_, std::placeholders::_1) );
-  //converter_->registerCallback( message_actions::RECORD, std::bind(&recorder::BasicEventRecorder<T>::write, recorder_, _1) );
-  //converter_->registerCallback( message_actions::LOG, std::bind(&recorder::BasicEventRecorder<T>::bufferize, recorder_, _1) );
+  // Touch events are only published; they are never recorded or buffered.
 
   keys_.resize(keys.size());
   size_t i = 0;
@@ -83,14 +81,14 @@ void TouchEventRegister<T>::resetPublisher(rclcpp::Node * node)
 template<class T>
 void TouchEventRegister<T>::resetRecorder(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr)
 {
-  //recorder_->reset(gr, converter_->frequency());
+  (void)gr;  // not recorded
 }
 
 template<class T>
 void TouchEventRegister<T>::startProcess()
 {
   std::lock_guard<std::mutex> start_lock(mutex_);
-  if (!isStarted_) {
+  if (!is_started_) {
     if (subscriptions_.empty()) {
       for (const auto & key : keys_) {
         auto subscriber = p_memory_.call<qi::AnyObject>("subscriber", key);
@@ -101,7 +99,7 @@ void TouchEventRegister<T>::startProcess()
         subscriptions_.emplace_back(std::move(subscriber), std::move(subscription));
       }
     }
-    isStarted_ = true;
+    is_started_ = true;
   }
 }
 
@@ -109,55 +107,54 @@ template<class T>
 void TouchEventRegister<T>::stopProcess()
 {
   std::lock_guard<std::mutex> stop_lock(mutex_);
-  if (isStarted_) {
+  if (is_started_) {
     if (!subscriptions_.empty()) {
       for (const auto & subscription : subscriptions_) {
         try {
           subscription.subscriber.disconnect(subscription.link).value();
         } catch (const std::exception & e) {
-          std::cerr << "Error attempting to clean-up ALMemory subscription: " << e.what() <<
-            std::endl;
+          RCLCPP_ERROR_STREAM(
+            naoqi::helpers::Node::get_logger(),
+            "Error attempting to clean-up ALMemory subscription: " << e.what());
         }
       }
       subscriptions_.clear();
     }
-    isStarted_ = false;
+    is_started_ = false;
   }
 }
 
 template<class T>
 void TouchEventRegister<T>::writeDump(const rclcpp::Time & time)
 {
-  if (isStarted_) {
-    //recorder_->writeDump(time);
-  }
+  (void)time;  // not recorded
 }
 
 template<class T>
 void TouchEventRegister<T>::setBufferDuration(float duration)
 {
-  //recorder_->setBufferDuration(duration);
+  (void)duration;  // not recorded
 }
 
 template<class T>
 void TouchEventRegister<T>::isRecording(bool state)
 {
   std::lock_guard<std::mutex> rec_lock(mutex_);
-  isRecording_ = state;
+  is_recording_ = state;
 }
 
 template<class T>
 void TouchEventRegister<T>::isPublishing(bool state)
 {
   std::lock_guard<std::mutex> pub_lock(mutex_);
-  isPublishing_ = state;
+  is_publishing_ = state;
 }
 
 template<class T>
 void TouchEventRegister<T>::isDumping(bool state)
 {
   std::lock_guard<std::mutex> dump_lock(mutex_);
-  isDumping_ = state;
+  is_dumping_ = state;
 }
 
 template<class T>
@@ -180,19 +177,12 @@ void TouchEventRegister<T>::touchCallback(const std::string & key, const qi::Any
 
   std::vector<message_actions::MessageAction> actions;
   std::lock_guard<std::mutex> callback_lock(mutex_);
-  if (isStarted_) {
+  if (is_started_) {
     // CHECK FOR PUBLISH
-    if (isPublishing_ && publisher_->isSubscribed() ) {
+    if (is_publishing_ && publisher_->isSubscribed() ) {
       actions.push_back(message_actions::PUBLISH);
     }
-    // CHECK FOR RECORD
-    if (isRecording_) {
-      //actions.push_back(message_actions::RECORD);
-    }
-    if (!isDumping_) {
-      //actions.push_back(message_actions::LOG);
-    }
-    if (actions.size() > 0) {
+    if (!actions.empty()) {
       converter_->callAll(actions, msg);
     }
   }
@@ -251,4 +241,4 @@ template class TouchEventRegister<naoqi_bridge_msgs::msg::Bumper>;
 template class TouchEventRegister<naoqi_bridge_msgs::msg::HandTouch>;
 template class TouchEventRegister<naoqi_bridge_msgs::msg::HeadTouch>;
 
-}//namespace
+}  // namespace naoqi

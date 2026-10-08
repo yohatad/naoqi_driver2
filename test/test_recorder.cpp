@@ -42,7 +42,7 @@ Imu imuWithX(double x)
   return msg;
 }
 
-} // namespace
+}  // namespace
 
 class RecorderTest : public naoqi_test::RosTest {};
 

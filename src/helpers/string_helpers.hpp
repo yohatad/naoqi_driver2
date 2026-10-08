@@ -61,8 +61,8 @@ inline void replaceAll(std::string & str, const std::string & from, const std::s
   }
 }
 
-} // string
-} // helpers
-} // naoqi
+}  // namespace string
+}  // namespace helpers
+}  // namespace naoqi
 
 #endif

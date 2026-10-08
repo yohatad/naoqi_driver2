@@ -15,10 +15,10 @@
  *
 */
 
-
 #ifndef FILESYSTEM_HELPERS_HPP
 #define FILESYSTEM_HELPERS_HPP
 
+#include <naoqi_driver/ros_helpers.hpp>
 #include <iostream>
 #include <qi/session.hpp>
 
@@ -55,7 +55,7 @@ inline void getFoldersize(std::string rootFolder, long & file_size)
           getFoldersize(filePath.string(), file_size);
         }
       } catch (std::exception & e) {
-        std::cout << e.what() << std::endl;
+        RCLCPP_WARN_STREAM(naoqi::helpers::Node::get_logger(), e.what());
       }
     }
   }
@@ -82,13 +82,11 @@ inline void getFilesSize(const std::filesystem::path & root, long & file_size)
 {
   std::vector<std::filesystem::path> files_path;
   getFiles(root, ".bag", files_path);
-  for (std::vector<std::filesystem::path>::const_iterator it = files_path.begin();
-    it != files_path.end(); it++)
-  {
+  for (const auto & path : files_path) {
     try {
-      file_size = file_size + std::filesystem::file_size(*it);
+      file_size = file_size + std::filesystem::file_size(path);
     } catch (std::exception & e) {
-      std::cout << e.what() << std::endl;
+      RCLCPP_WARN_STREAM(naoqi::helpers::Node::get_logger(), e.what());
     }
   }
 }
@@ -100,11 +98,11 @@ inline std::string & getBootConfigFile()
 #ifdef AMENT_BUILD
   static std::string path = ament_index_cpp::get_package_share_directory("naoqi_driver") +
     "/share/" + boot_config_file_name;
-  std::cout << "found an ament prefix " << path << std::endl;
+  RCLCPP_DEBUG_STREAM(naoqi::helpers::Node::get_logger(), "found an ament prefix " << path);
   return path;
 #else
   static std::string path = qi::path::findData("/", boot_config_file_name);
-  std::cout << "found a qibuild path " << path << std::endl;
+  RCLCPP_DEBUG_STREAM(naoqi::helpers::Node::get_logger(), "found a qibuild path " << path);
   return path;
 #endif
 }
@@ -115,17 +113,17 @@ inline std::string & getURDF(std::string filename)
 #ifdef AMENT_BUILD
   static std::string path = ament_index_cpp::get_package_share_directory("naoqi_driver") +
     "/share/urdf/" + filename;
-  std::cout << "found a ament URDF " << path << std::endl;
+  RCLCPP_DEBUG_STREAM(naoqi::helpers::Node::get_logger(), "found a ament URDF " << path);
   return path;
 #else
   static std::string path = qi::path::findData("/urdf/", filename);
-  std::cout << "found a qibuild URDF " << path << std::endl;
+  RCLCPP_DEBUG_STREAM(naoqi::helpers::Node::get_logger(), "found a qibuild URDF " << path);
   return path;
 #endif
 }
 
-} // filesystem
-} //helpers
-} // naoqi
+}  // namespace filesystem
+}  // namespace helpers
+}  // namespace naoqi
 
 #endif

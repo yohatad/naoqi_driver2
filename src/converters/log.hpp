@@ -37,7 +37,7 @@ namespace converter
 class LogConverter : public BaseConverter<LogConverter>
 {
 
-  typedef std::function<void (rcl_interfaces::msg::Log &)> Callback_t;
+  using Callback_t = std::function<void (rcl_interfaces::msg::Log &)>;
 
 public:
   LogConverter(const std::string & name, float frequency, const qi::SessionPtr & sessions);
@@ -50,7 +50,7 @@ public:
 
 private:
   /** Function that sets the NAOqi log level to the ROS one */
-  void set_qi_logger_level();
+  void setQiLoggerLevel();
 
   qi::LogManagerPtr logger_;
   /** Log level that is currently translated to ROS */
@@ -60,7 +60,7 @@ private:
   std::map<message_actions::MessageAction, Callback_t> callbacks_;
 };
 
-} //publisher
-} //naoqi
+}  // namespace converter
+}  // namespace naoqi
 
 #endif

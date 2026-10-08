@@ -13,9 +13,8 @@ namespace naoqi
       LOG
     };
 
-  }
+  }  // namespace message_actions
 
-}
-
+}  // namespace naoqi
 
 #endif

@@ -18,6 +18,7 @@
 #ifndef SERVICE_HPP
 #define SERVICE_HPP
 
+#include <naoqi_driver/ros_helpers.hpp>
 #include <string>
 
 #include <memory>
@@ -28,7 +29,6 @@ namespace naoqi
 {
 namespace service
 {
-
 
 /**
 * @brief Service concept interface
@@ -56,9 +56,9 @@ public:
   */
   void reset(rclcpp::Node * node)
   {
-    std::cout << name() << " is resetting" << std::endl;
+    RCLCPP_DEBUG_STREAM(naoqi::helpers::Node::get_logger(), name() << " is resetting");
     srvPtr_->reset(node);
-    std::cout << name() << " reset" << std::endl;
+    RCLCPP_DEBUG_STREAM(naoqi::helpers::Node::get_logger(), name() << " reset");
   }
 
   /**
@@ -85,12 +85,11 @@ private:
   */
   struct ServiceConcept
   {
-    virtual ~ServiceConcept() {}
+    virtual ~ServiceConcept() = default;
     virtual void reset(rclcpp::Node * node) = 0;
     virtual std::string name() const = 0;
     virtual std::string topic() const = 0;
   };
-
 
   /**
   * templated instances of base concept
@@ -102,12 +101,12 @@ private:
     : service_(other)
     {}
 
-    std::string name() const
+    std::string name() const override
     {
       return service_->name();
     }
 
-    std::string topic() const
+    std::string topic() const override
     {
       return service_->topic();
     }
@@ -117,7 +116,7 @@ private:
       return service_->isInitialized();
     }
 
-    void reset(rclcpp::Node * node)
+    void reset(rclcpp::Node * node) override
     {
       service_->reset(node);
     }
@@ -129,7 +128,7 @@ private:
 
 }; // class service
 
-} //service
-} //naoqi
+}  // namespace service
+}  // namespace naoqi
 
 #endif

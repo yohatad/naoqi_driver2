@@ -41,13 +41,13 @@ public:
   {
   }
 
-  virtual inline bool isSubscribed() const
+  inline bool isSubscribed() const override
   {
     return true;
   }
 };
 
-} //publisher
-} //naoqi
+}  // namespace publisher
+}  // namespace naoqi
 
 #endif

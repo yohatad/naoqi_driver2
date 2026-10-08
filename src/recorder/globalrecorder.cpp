@@ -18,8 +18,9 @@
 /*
 * LOCAL includes
 */
+#include <naoqi_driver/ros_helpers.hpp>
 #include <naoqi_driver/recorder/globalrecorder.hpp>
-#include "../helpers/recorder_helpers.hpp"
+#include "helpers/recorder_helpers.hpp"
 
 /*
 * STANDARD includes
@@ -46,22 +47,21 @@ namespace recorder
 {
 
 GlobalRecorder::GlobalRecorder(const std::string & prefix_topic)
-: _processMutex()
-  , _nameBag("")
-  , _isStarted(false)
-  // , _writer()
+: process_mutex_()
+  , bag_name_("")
+  , is_started_(false)
 {
   if (!prefix_topic.empty()) {
-    _prefix_topic = "/" + prefix_topic + "/";
+    prefix_topic_ = "/" + prefix_topic + "/";
   } else {
-    _prefix_topic = "/";
+    prefix_topic_ = "/";
   }
 }
 
 void GlobalRecorder::startRecord(const std::string & prefix_bag)
 {
-  std::lock_guard<std::mutex> startLock(_processMutex);
-  if (!_isStarted) {
+  std::lock_guard<std::mutex> startLock(process_mutex_);
+  if (!is_started_) {
     try {
       // Get current path
       std::filesystem::path cur_path(std::filesystem::current_path() );
@@ -75,18 +75,15 @@ void GlobalRecorder::startRecord(const std::string & prefix_bag)
       std::strftime(buffer, 80, "%d-%m-%Y_%I:%M:%S", timeinfo);
 
       if (!prefix_bag.empty()) {
-        _nameBag = cur_path.string() + "/" + prefix_bag + "_" + buffer;
+        bag_name_ = cur_path.string() + "/" + prefix_bag + "_" + buffer;
       } else {
-        _nameBag = cur_path.string() + "/" + buffer;
+        bag_name_ = cur_path.string() + "/" + buffer;
       }
-      _nameBag.append(".bag");
-      // rosbag2::StorageOptions storage_options({_nameBag, ""});
-
-      // _bag.open(_nameBag, rosbag::bagmode::Write);
-      // _writer.open(storage_options, {"", "rmw1_format"});
-      _isStarted = true;
-      std::cout << YELLOW << "The bag " << BOLDCYAN << _nameBag << RESETCOLOR << YELLOW <<
-        " is opened" << RESETCOLOR << std::endl;
+      bag_name_.append(".bag");
+      is_started_ = true;
+      RCLCPP_INFO_STREAM(
+        naoqi::helpers::Node::get_logger(),
+        "The bag " << bag_name_ << " is opened");
     } catch (const std::exception & e) {
       throw std::runtime_error(e.what());
     }
@@ -97,27 +94,25 @@ void GlobalRecorder::startRecord(const std::string & prefix_bag)
 
 std::string GlobalRecorder::stopRecord(const std::string & robot_ip)
 {
-  std::lock_guard<std::mutex> stopLock(_processMutex);
-  if (_isStarted) {
-    // _bag.close();
-    _isStarted = false;
+  std::lock_guard<std::mutex> stopLock(process_mutex_);
+  if (is_started_) {
+    is_started_ = false;
 
     std::stringstream message;
-    message << _nameBag;
-    std::cout << YELLOW << "The bag " << BOLDCYAN << _nameBag << RESETCOLOR << YELLOW <<
-      " is closed" << RESETCOLOR << std::endl;
+    message << bag_name_;
+    RCLCPP_INFO_STREAM(naoqi::helpers::Node::get_logger(), "The bag " << bag_name_ << " is closed");
 
     // Check if we are on a robot
     const char * home = getenv("HOME");
     const std::string cp = home ? home : "";
     if (!(cp.find("nao") == std::string::npos)) {
-      std::cout << BOLDRED << "To download this bag on your computer:" << RESETCOLOR << std::endl
-                << GREEN << "\t$ scp nao@" << robot_ip << ":" << _nameBag << " <LOCAL_PATH>" <<
-        RESETCOLOR
-                << std::endl;
+      RCLCPP_INFO_STREAM(
+        naoqi::helpers::Node::get_logger(),
+        "To download this bag on your computer:\n\t$ scp nao@" << robot_ip << ":" << bag_name_ <<
+          " <LOCAL_PATH>");
     }
 
-    _nameBag.clear();
+    bag_name_.clear();
     return message.str();
   } else {
     qiLogError() << "Cannot stop recording while it has not been started.";
@@ -127,36 +122,17 @@ std::string GlobalRecorder::stopRecord(const std::string & robot_ip)
 
 bool GlobalRecorder::isStarted()
 {
-  return _isStarted;
+  return is_started_;
 }
 
 void GlobalRecorder::write(
   const std::string & topic,
   const std::vector<geometry_msgs::msg::TransformStamped> & msgtf)
 {
-  if (!msgtf.empty()) {
-    std::string ros_topic;
-    if (topic[0] != '/') {
-      ros_topic = _prefix_topic + topic;
-    } else {
-      ros_topic = topic;
-    }
-    tf2_msgs::msg::TFMessage message;
-    rclcpp::Time now = helpers::Time::now();
-    if (!helpers::recorder::isZero(msgtf[0].header.stamp)) {
-      now = msgtf[0].header.stamp;
-    }
-    for (std::vector<geometry_msgs::msg::TransformStamped>::const_iterator it = msgtf.begin();
-      it != msgtf.end(); ++it)
-    {
-      message.transforms.push_back(*it);
-    }
-    std::lock_guard<std::mutex> writeLock(_processMutex);
-    if (_isStarted) {
-      // _bag.write(ros_topic, now, message);
-    }
-  }
+  // Not stored: bag output is not implemented (see class comment).
+  (void)topic;
+  (void)msgtf;
 }
 
-} // recorder
-} // naoqi
+}  // namespace recorder
+}  // namespace naoqi

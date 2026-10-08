@@ -15,7 +15,6 @@
  *
 */
 
-
 #ifndef NAOQI_HELPERS_HPP
 #define NAOQI_HELPERS_HPP
 
@@ -41,8 +40,8 @@ static dataType::DataType getDataType(qi::AnyValue value)
   return type;
 }
 
-} // naoqi
-} // helpers
-} // naoqi
+}  // namespace naoqi
+}  // namespace helpers
+}  // namespace naoqi
 
 #endif

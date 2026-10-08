@@ -46,8 +46,8 @@ struct NaoqiImage
   float fov_bottom;
 };
 
-}
+}  // namespace tools
 
-}
+}  // namespace naoqi
 
 #endif // NAOQI_IMAGE_HPP

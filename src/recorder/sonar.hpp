@@ -28,7 +28,7 @@
 * LOCAL includes
 */
 #include <naoqi_driver/recorder/globalrecorder.hpp>
-#include "../helpers/recorder_helpers.hpp"
+#include "helpers/recorder_helpers.hpp"
 
 /*
 * ROS includes
@@ -98,7 +98,7 @@ protected:
 
 }; // class
 
-} //publisher
-} // naoqi
+}  // namespace recorder
+}  // namespace naoqi
 
 #endif

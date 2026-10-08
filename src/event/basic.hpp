@@ -78,18 +78,18 @@ private:
 
   qi::AnyObject p_memory_;
   qi::AnyObject signal_;
-  qi::SignalLink signalID_;
+  qi::SignalLink signal_id_;
   std::string key_;
 
   std::mutex mutex_;
 
-  std::atomic<bool> isStarted_;
-  bool isPublishing_;
-  bool isRecording_;
-  bool isDumping_;
+  std::atomic<bool> is_started_;
+  bool is_publishing_;
+  bool is_recording_;
+  bool is_dumping_;
 
 }; // class globalrecorder
-} //naoqi
+}  // namespace naoqi
 #include "basic.hxx"
 
 #endif

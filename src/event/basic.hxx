@@ -33,8 +33,7 @@ namespace naoqi
 
 template<typename Converter, typename Publisher, typename Recorder>
 EventRegister<Converter, Publisher, Recorder>::EventRegister()
-{
-}
+= default;
 
 template<typename Converter, typename Publisher, typename Recorder>
 EventRegister<Converter, Publisher, Recorder>::EventRegister(
@@ -42,10 +41,10 @@ EventRegister<Converter, Publisher, Recorder>::EventRegister(
   const qi::SessionPtr & session)
 : key_(key),
   p_memory_(session->service("ALMemory").value()),
-  isStarted_(false),
-  isPublishing_(false),
-  isRecording_(false),
-  isDumping_(false)
+  is_started_(false),
+  is_publishing_(false),
+  is_recording_(false),
+  is_dumping_(false)
 {
   publisher_ = std::make_shared<Publisher>(key_);
   recorder_ = std::make_shared<Recorder>(key_);
@@ -67,8 +66,7 @@ EventRegister<Converter, Publisher, Recorder>::EventRegister(
 
 template<typename Converter, typename Publisher, typename Recorder>
 EventRegister<Converter, Publisher, Recorder>::~EventRegister()
-{
-}
+= default;
 
 template<typename Converter, typename Publisher, typename Recorder>
 void EventRegister<Converter, Publisher, Recorder>::resetPublisher(rclcpp::Node * node)
@@ -87,9 +85,9 @@ template<typename Converter, typename Publisher, typename Recorder>
 void EventRegister<Converter, Publisher, Recorder>::startProcess()
 {
   std::lock_guard<std::mutex> start_lock(mutex_);
-  if (!isStarted_) {
+  if (!is_started_) {
     registerCallback();
-    isStarted_ = true;
+    is_started_ = true;
   }
 }
 
@@ -97,16 +95,16 @@ template<typename Converter, typename Publisher, typename Recorder>
 void EventRegister<Converter, Publisher, Recorder>::stopProcess()
 {
   std::lock_guard<std::mutex> stop_lock(mutex_);
-  if (isStarted_) {
+  if (is_started_) {
     unregisterCallback();
-    isStarted_ = false;
+    is_started_ = false;
   }
 }
 
 template<typename Converter, typename Publisher, typename Recorder>
 void EventRegister<Converter, Publisher, Recorder>::writeDump(const rclcpp::Time & time)
 {
-  if (isStarted_) {
+  if (is_started_) {
     recorder_->writeDump(time);
   }
 }
@@ -121,33 +119,33 @@ template<typename Converter, typename Publisher, typename Recorder>
 void EventRegister<Converter, Publisher, Recorder>::isRecording(bool state)
 {
   std::lock_guard<std::mutex> rec_lock(mutex_);
-  isRecording_ = state;
+  is_recording_ = state;
 }
 
 template<typename Converter, typename Publisher, typename Recorder>
 void EventRegister<Converter, Publisher, Recorder>::isPublishing(bool state)
 {
   std::lock_guard<std::mutex> pub_lock(mutex_);
-  isPublishing_ = state;
+  is_publishing_ = state;
 }
 
 template<typename Converter, typename Publisher, typename Recorder>
 void EventRegister<Converter, Publisher, Recorder>::isDumping(bool state)
 {
   std::lock_guard<std::mutex> dump_lock(mutex_);
-  isDumping_ = state;
+  is_dumping_ = state;
 }
 
 template<typename Converter, typename Publisher, typename Recorder>
 void EventRegister<Converter, Publisher, Recorder>::registerCallback()
 {
-  signalID_ = signal_.connect("signal", [&](qi::AnyValue value) {onEvent();}).value();
+  signal_id_ = signal_.connect("signal", [&](qi::AnyValue value) {onEvent();}).value();
 }
 
 template<typename Converter, typename Publisher, typename Recorder>
 void EventRegister<Converter, Publisher, Recorder>::unregisterCallback()
 {
-  signal_.disconnect(signalID_);
+  signal_.disconnect(signal_id_);
 }
 
 template<typename Converter, typename Publisher, typename Recorder>
@@ -155,22 +153,22 @@ void EventRegister<Converter, Publisher, Recorder>::onEvent()
 {
   std::vector<message_actions::MessageAction> actions;
   std::lock_guard<std::mutex> callback_lock(mutex_);
-  if (isStarted_) {
+  if (is_started_) {
     // CHECK FOR PUBLISH
-    if (isPublishing_ && publisher_->isSubscribed() ) {
+    if (is_publishing_ && publisher_->isSubscribed() ) {
       actions.push_back(message_actions::PUBLISH);
     }
     // CHECK FOR RECORD
-    if (isRecording_) {
+    if (is_recording_) {
       actions.push_back(message_actions::RECORD);
     }
-    if (!isDumping_) {
+    if (!is_dumping_) {
       actions.push_back(message_actions::LOG);
     }
-    if (actions.size() > 0) {
+    if (!actions.empty()) {
       converter_->callAll(actions);
     }
   }
 }
 
-}//namespace
+}  // namespace naoqi

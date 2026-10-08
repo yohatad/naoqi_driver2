@@ -18,6 +18,7 @@
 /*
 * LOCAL includes
 */
+#include <naoqi_driver/ros_helpers.hpp>
 #include "joint_state.hpp"
 #include "nao_footprint.hpp"
 #include "odom.hpp"
@@ -36,7 +37,7 @@ namespace converter
 {
 
 JointStateConverter::JointStateConverter(
-  const std::string & name, const float & frequency,
+  const std::string & name, float frequency,
   const BufferPtr & tf2_buffer,
   const qi::SessionPtr & session)
 : BaseConverter(name, frequency, session),
@@ -55,7 +56,7 @@ void JointStateConverter::reset()
 {
   std::string robot_desc = naoqi::tools::getRobotDescription(robot_);
   if (robot_desc.empty() ) {
-    std::cout << "error in loading robot description" << std::endl;
+    RCLCPP_ERROR_STREAM(naoqi::helpers::Node::get_logger(), "error in loading robot description");
     return;
   }
 
@@ -94,11 +95,9 @@ void JointStateConverter::reset()
 
   // set mimic joint list
   mimic_.clear();
-  for (std::map<std::string, urdf::JointSharedPtr>::iterator i = model.joints_.begin();
-    i != model.joints_.end(); i++)
-  {
-    if (i->second->mimic) {
-      mimic_.insert(make_pair(i->first, i->second->mimic));
+  for (auto & joint : model.joints_) {
+    if (joint.second->mimic) {
+      mimic_.insert(make_pair(joint.first, joint.second->mimic));
     }
   }
   // pre-fill joint states message
@@ -136,10 +135,6 @@ void JointStateConverter::callAll(const std::vector<message_actions::MessageActi
    */
   // put joint states in tf broadcaster
   std::map<std::string, double> joint_state_map;
-  // stupid version --> change this with std::transform c++11 ??!
-//  std::transform( msg_joint_states_.name.begin(), msg_joint_states_.name.end(), msg_joint_states_.position.begin(),
-//                  std::inserter( joint_state_map, joint_state_map.end() ),
-//                  std::make_pair);
   // Build joint_state_map first
   std::vector<double>::const_iterator itPos = msg_joint_states_.position.begin();
   for (std::vector<std::string>::const_iterator itName = msg_joint_states_.name.begin();
@@ -184,11 +179,11 @@ void JointStateConverter::callAll(const std::vector<message_actions::MessageActi
   msg_joint_states_.effort = al_joint_torques;
 
   // for mimic map
-  for (MimicMap::iterator i = mimic_.begin(); i != mimic_.end(); i++) {
-    if (joint_state_map.find(i->second->joint_name) != joint_state_map.end()) {
-      double pos = joint_state_map[i->second->joint_name] * i->second->multiplier +
-        i->second->offset;
-      joint_state_map[i->first] = pos;
+  for (auto & [joint, mimic] : mimic_) {
+    if (joint_state_map.find(mimic->joint_name) != joint_state_map.end()) {
+      double pos = joint_state_map[mimic->joint_name] * mimic->multiplier +
+        mimic->offset;
+      joint_state_map[joint] = pos;
     }
   }
 
@@ -297,7 +292,6 @@ void JointStateConverter::callAll(const std::vector<message_actions::MessageActi
   }
 }
 
-
 // Copied from robot state publisher
 void JointStateConverter::setTransforms(
   const std::map<std::string, double> & joint_positions,
@@ -307,24 +301,20 @@ void JointStateConverter::setTransforms(
   tf_transform.header.stamp = time;
 
   // loop over all joints
-  for (std::map<std::string, double>::const_iterator jnt = joint_positions.begin();
-    jnt != joint_positions.end(); jnt++)
-  {
+  for (const auto & joint_position : joint_positions) {
     std::map<std::string, robot_state_publisher::SegmentPair>::const_iterator seg = segments_.find(
-      jnt->first);
+      joint_position.first);
     if (seg != segments_.end()) {
-      seg->second.segment.pose(jnt->second).M.GetQuaternion(
+      seg->second.segment.pose(joint_position.second).M.GetQuaternion(
         tf_transform.transform.rotation.x,
         tf_transform.transform.rotation.y,
         tf_transform.transform.rotation.z,
         tf_transform.transform.rotation.w);
-      tf_transform.transform.translation.x = seg->second.segment.pose(jnt->second).p.x();
-      tf_transform.transform.translation.y = seg->second.segment.pose(jnt->second).p.y();
-      tf_transform.transform.translation.z = seg->second.segment.pose(jnt->second).p.z();
+      tf_transform.transform.translation.x = seg->second.segment.pose(joint_position.second).p.x();
+      tf_transform.transform.translation.y = seg->second.segment.pose(joint_position.second).p.y();
+      tf_transform.transform.translation.z = seg->second.segment.pose(joint_position.second).p.z();
 
-      //tf_transform.header.frame_id = tf::resolve(tf_prefix, seg->second.root);
-      //tf_transform.child_frame_id = tf::resolve(tf_prefix, seg->second.tip);
-      tf_transform.header.frame_id = seg->second.root; // tf2 does not suppport tf_prefixing
+      tf_transform.header.frame_id = seg->second.root;  // tf2 has no tf_prefix
       tf_transform.child_frame_id = seg->second.tip;
 
       tf_transforms_.push_back(tf_transform);
@@ -334,7 +324,6 @@ void JointStateConverter::setTransforms(
       }
     }
   }
-  //tf_broadcaster_.sendTransform(tf_transforms);
 }
 
 // Copied from robot state publisher
@@ -365,8 +354,6 @@ void JointStateConverter::setFixedTransforms(
     tf_transform.transform.translation.y = seg->second.segment.pose(0).p.y();
     tf_transform.transform.translation.z = seg->second.segment.pose(0).p.z();
 
-    //tf_transform.header.frame_id = tf::resolve(tf_prefix, seg->second.root);
-    //tf_transform.child_frame_id = tf::resolve(tf_prefix, seg->second.tip);
     tf_transform.header.frame_id = seg->second.root;
     tf_transform.child_frame_id = seg->second.tip;
 
@@ -376,7 +363,6 @@ void JointStateConverter::setFixedTransforms(
       tf2_buffer_->setTransform(tf_transform, "naoqiconverter", true);
     }
   }
-  //tf_broadcaster_.sendTransform(tf_transforms);
 }
 
 void JointStateConverter::addChildren(const KDL::SegmentMap::const_iterator segment)
@@ -385,9 +371,9 @@ void JointStateConverter::addChildren(const KDL::SegmentMap::const_iterator segm
 
   const std::vector<KDL::SegmentMap::const_iterator> & children = GetTreeElementChildren(
     segment->second);
-  for (unsigned int i = 0; i < children.size(); i++) {
-    const KDL::Segment & child = GetTreeElementSegment(children[i]->second);
-    robot_state_publisher::SegmentPair s(GetTreeElementSegment(children[i]->second), root,
+  for (auto child_it : children) {
+    const KDL::Segment & child = GetTreeElementSegment(child_it->second);
+    robot_state_publisher::SegmentPair s(GetTreeElementSegment(child_it->second), root,
       child.getName());
     if (child.getJoint().getType() == KDL::Joint::None) {
       segments_fixed_.insert(std::make_pair(child.getJoint().getName(), s));
@@ -400,9 +386,9 @@ void JointStateConverter::addChildren(const KDL::SegmentMap::const_iterator segm
         helpers::Node::get_logger(), "Adding moving segment from %s to %s",
         root.c_str(), child.getName().c_str());
     }
-    addChildren(children[i]);
+    addChildren(child_it);
   }
 }
 
-} //publisher
-} // naoqi
+}  // namespace converter
+}  // namespace naoqi

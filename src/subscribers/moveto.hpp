@@ -15,7 +15,6 @@
  *
  */
 
-
 #ifndef MOVETO_SUBSCRIBER_HPP
 #define MOVETO_SUBSCRIBER_HPP
 
@@ -44,7 +43,7 @@ public:
     const std::string & name, const std::string & topic,
     const qi::SessionPtr & session,
     const std::shared_ptr<tf2_ros::Buffer> & tf2_buffer);
-  ~MovetoSubscriber() {}
+  ~MovetoSubscriber() override = default;
 
   void reset(rclcpp::Node * node);
   void callback(const geometry_msgs::msg::PoseStamped::SharedPtr pose_msg);
@@ -55,6 +54,6 @@ private:
   std::shared_ptr<tf2_ros::Buffer> tf2_buffer_;
 }; // class Teleop
 
-} // subscriber
-}// naoqi
+}  // namespace subscriber
+}  // namespace naoqi
 #endif

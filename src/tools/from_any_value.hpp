@@ -48,7 +48,7 @@ void fromAnyValueToFloatVectorVector(
   qi::AnyValue & value,
   std::vector<std::vector<float>> & result);
 
-}
-}
+}  // namespace tools
+}  // namespace naoqi
 
 #endif // FROM_ANY_VALUE_HPP

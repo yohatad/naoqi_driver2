@@ -31,9 +31,9 @@ namespace converter
 {
 
 /** mutex to change the logs list */
-std::mutex MUTEX_LOGS;
+std::mutex g_logs_mutex;
 /** list of ogs in which the NAOqi callback will write its logs */
-std::queue<rcl_interfaces::msg::Log> LOGS;
+std::queue<rcl_interfaces::msg::Log> g_logs;
 
 /**
  * @brief Generic Log Level used to store all the correspondences between the
@@ -109,11 +109,11 @@ void logCallback(const qi::LogMessage & msg)
 
   // If we are not publishing, the queue will increase, so we have to prevent an explosion
   // We only keep a log if it's within 5 second of the last publish (totally arbitrary)
-  std::lock_guard<std::mutex> lock(MUTEX_LOGS);
-  while (LOGS.size() > 1000) {
-    LOGS.pop();
+  std::lock_guard<std::mutex> lock(g_logs_mutex);
+  while (g_logs.size() > 1000) {
+    g_logs.pop();
   }
-  LOGS.push(log);
+  g_logs.push(log);
 }
 
 LogConverter::LogConverter(
@@ -133,16 +133,13 @@ LogConverter::LogConverter(
   LogLevel(qi::LogLevel_Verbose, rcl_interfaces::msg::Log::DEBUG, RCUTILS_LOG_SEVERITY_DEBUG);
   LogLevel(qi::LogLevel_Debug, rcl_interfaces::msg::Log::DEBUG, RCUTILS_LOG_SEVERITY_DEBUG);
 
-  // TEMPORARY CODE, WEIRD BUG
-  qi::AnyObject p_manager = session->service("LogManager").value();
-  auto test_obj = p_manager.call<qi::AnyObject>("getListener");
-  qi::LogListenerPtr test = static_cast<qi::LogListenerPtr>(test_obj);
-  test->onLogMessage.connect(logCallback);
-  // END
+  // Receive every libqi log message through the LogManager service.
+  qi::AnyObject log_manager = session->service("LogManager").value();
+  auto listener_object = log_manager.call<qi::AnyObject>("getListener");
+  qi::LogListenerPtr listener = static_cast<qi::LogListenerPtr>(listener_object);
+  listener->onLogMessage.connect(logCallback);
 
-  // listener_ = logger_->getListener();
-  set_qi_logger_level();
-  // listener_->onLogMessage.connect(logCallback);
+  setQiLoggerLevel();
 }
 
 void LogConverter::registerCallback(const message_actions::MessageAction action, Callback_t cb)
@@ -156,8 +153,8 @@ void LogConverter::callAll(const std::vector<message_actions::MessageAction> & a
   // queue) from NAOqi threads while we publish.
   std::queue<rcl_interfaces::msg::Log> pending;
   {
-    std::lock_guard<std::mutex> lock(MUTEX_LOGS);
-    std::swap(pending, LOGS);
+    std::lock_guard<std::mutex> lock(g_logs_mutex);
+    std::swap(pending, g_logs);
   }
   while (!pending.empty() ) {
     rcl_interfaces::msg::Log & log_msg = pending.front();
@@ -166,14 +163,14 @@ void LogConverter::callAll(const std::vector<message_actions::MessageAction> & a
     }
     pending.pop();
   }
-  set_qi_logger_level();
+  setQiLoggerLevel();
 }
 
 void LogConverter::reset()
 {
 }
 
-void LogConverter::set_qi_logger_level()
+void LogConverter::setQiLoggerLevel()
 {
   // Check that the log level is above or equal to the current one
   int severity = rcutils_logging_get_logger_effective_level(helpers::Node::get_logger().get_name());
@@ -188,5 +185,5 @@ void LogConverter::set_qi_logger_level()
   qi::log::setLogLevel(log_level_);
 }
 
-} // publisher
-} //naoqi
+}  // namespace converter
+}  // namespace naoqi

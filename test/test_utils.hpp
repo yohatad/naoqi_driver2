@@ -91,6 +91,6 @@ private:
   bool chdir_into_;
 };
 
-} // naoqi_test
+}  // namespace naoqi_test
 
 #endif

@@ -20,7 +20,6 @@
 */
 #include "touch.hpp"
 
-
 namespace naoqi
 {
 
@@ -29,7 +28,7 @@ namespace converter
 
 template<class T>
 TouchEventConverter<T>::TouchEventConverter(
-  const std::string & name, const float & frequency,
+  const std::string & name, float frequency,
   const qi::SessionPtr & session)
 : BaseConverter<TouchEventConverter<T>>(name, frequency, session)
 {
@@ -37,8 +36,7 @@ TouchEventConverter<T>::TouchEventConverter(
 
 template<class T>
 TouchEventConverter<T>::~TouchEventConverter()
-{
-}
+= default;
 
 template<class T>
 void TouchEventConverter<T>::reset()
@@ -68,6 +66,6 @@ void TouchEventConverter<T>::callAll(
 template class TouchEventConverter<naoqi_bridge_msgs::msg::Bumper>;
 template class TouchEventConverter<naoqi_bridge_msgs::msg::HandTouch>;
 template class TouchEventConverter<naoqi_bridge_msgs::msg::HeadTouch>;
-}
+}  // namespace converter
 
-}
+}  // namespace naoqi

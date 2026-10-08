@@ -91,5 +91,5 @@ void DiagnosticsRecorder::setBufferDuration(float duration)
   buffer_.set_capacity(buffer_size_);
 }
 
-} //publisher
-} // naoqi
+}  // namespace recorder
+}  // namespace naoqi

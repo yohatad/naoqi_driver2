@@ -35,7 +35,7 @@ std::vector<qi::AnyValue> imageFields(int width, int height, const std::string &
   };
 }
 
-} // namespace
+}  // namespace
 
 TEST(NaoqiImage, ReportsDimensionsAndBufferSize)
 {

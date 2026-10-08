@@ -58,5 +58,5 @@ bool JointStatePublisher::isSubscribed() const
   return true;
 }
 
-} //publisher
-} // naoqi
+}  // namespace publisher
+}  // namespace naoqi

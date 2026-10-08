@@ -18,14 +18,14 @@
 /*
 * LOCAL includes
 */
+#include <naoqi_driver/ros_helpers.hpp>
 #include "diagnostics.hpp"
-#include "../tools/from_any_value.hpp"
+#include "tools/from_any_value.hpp"
 
 /*
 * ROS includes
 */
 #include <diagnostic_updater/diagnostic_status_wrapper.hpp>
-
 
 namespace
 {
@@ -39,7 +39,7 @@ void setMessageFromStatus(diagnostic_updater::DiagnosticStatusWrapper & status)
     status.message = "ERROR";
   }
 }
-}
+}  // namespace
 
 namespace naoqi
 {
@@ -71,14 +71,12 @@ DiagnosticsConverter::DiagnosticsConverter(
   this->p_motion_ = session->service("ALMotion").value();
   joint_names_ = this->p_motion_.call<std::vector<std::string>>("getBodyNames", "JointActuators");
 
-  for (std::vector<std::string>::const_iterator it = joint_names_.begin(); it != joint_names_.end();
-    ++it)
-  {
+  for (const auto & joint_name : joint_names_) {
     all_keys_.push_back(
-      std::string("Device/SubDeviceList/") + (*it) +
+      std::string("Device/SubDeviceList/") + joint_name +
       std::string("/Temperature/Sensor/Value"));
     all_keys_.push_back(
-      std::string("Device/SubDeviceList/") + (*it) +
+      std::string("Device/SubDeviceList/") + joint_name +
       std::string("/Hardness/Actuator/Value"));
 
     // Get the joint limits
@@ -87,12 +85,12 @@ DiagnosticsConverter::DiagnosticsConverter(
     try {
       qi_joint_limits = this->p_motion_.call<qi::AnyValue>(
         "getLimits",
-        (*it));
+        joint_name);
 
     } catch (const std::exception & e) {
-      std::cerr << "Exception caught in DiagnosticsConverter: "
-                << e.what()
-                << std::endl;
+      RCLCPP_ERROR_STREAM(
+        naoqi::helpers::Node::get_logger(),
+        "Exception caught in DiagnosticsConverter: " << e.what());
       continue;
     }
 
@@ -100,25 +98,26 @@ DiagnosticsConverter::DiagnosticsConverter(
       tools::fromAnyValueToFloatVectorVector(qi_joint_limits, joint_limits);
 
     } catch (std::exception & e) {
-      std::cerr << "Error while converting the qi value corresponding to "
-                << "the joint's limits : "
-                << e.what()
-                << std::endl;
+      RCLCPP_ERROR_STREAM(
+        naoqi::helpers::Node::get_logger(),
+        "Error while converting the qi value corresponding to the joint's limits : " <<
+          e.what());
       continue;
     }
 
     if (joint_limits.empty() || joint_limits[0].size() < 4) {
-      std::cerr << "Unexpected joint limits shape for " << *it << std::endl;
+      RCLCPP_ERROR_STREAM(
+        naoqi::helpers::Node::get_logger(), "Unexpected joint limits shape for " << joint_name);
       continue;
     }
 
-    this->joint_limit_map_[(*it)].push_back(
+    this->joint_limit_map_[joint_name].push_back(
       static_cast<double>(joint_limits[0][0]));
-    this->joint_limit_map_[(*it)].push_back(
+    this->joint_limit_map_[joint_name].push_back(
       static_cast<double>(joint_limits[0][1]));
-    this->joint_limit_map_[(*it)].push_back(
+    this->joint_limit_map_[joint_name].push_back(
       static_cast<double>(joint_limits[0][2]));
-    this->joint_limit_map_[(*it)].push_back(
+    this->joint_limit_map_[joint_name].push_back(
       static_cast<double>(joint_limits[0][3]));
   }
 
@@ -131,9 +130,7 @@ DiagnosticsConverter::DiagnosticsConverter(
   std::string battery_status_keys[] = {"Charging", "Fully Charged"};
   battery_status_keys_ = std::vector<std::string>(battery_status_keys, battery_status_keys + 2);
 
-  // Get the CPU keys
-  // TODO check that: it is apparently always -1 ...
-  //all_keys_.push_back(std::string("HeadProcessorIsHot"));
+  // The CPU temperature is not read: the HeadProcessorIsHot key always returned -1.
 
   // TODO get ID from Device/DeviceList/ChestBoard/BodyId
 }
@@ -144,13 +141,14 @@ void DiagnosticsConverter::callAll(const std::vector<message_actions::MessageAct
   msg.header.stamp = helpers::Time::now();
 
   // Get all the keys
-  //qi::details::printMetaObject(std::cout, p_memory_.metaObject());
   std::vector<float> values;
   try {
     qi::AnyValue anyvalues = p_memory_.call<qi::AnyValue>("getListData", all_keys_);
     tools::fromAnyValueToFloatVector(anyvalues, values);
   } catch (const std::exception & e) {
-    std::cerr << "Exception caught in DiagnosticsConverter: " << e.what() << std::endl;
+    RCLCPP_ERROR_STREAM(
+      naoqi::helpers::Node::get_logger(),
+      "Exception caught in DiagnosticsConverter: " << e.what());
     return;
   }
 
@@ -164,21 +162,21 @@ void DiagnosticsConverter::callAll(const std::vector<message_actions::MessageAct
   size_t val = 0;
   diagnostic_msgs::msg::DiagnosticStatus::_level_type max_level =
     diagnostic_msgs::msg::DiagnosticStatus::OK;
-  for (size_t i = 0; i < joint_names_.size(); ++i) {
+  for (auto & joint_name : joint_names_) {
     diagnostic_updater::DiagnosticStatusWrapper status;
-    status.name = std::string("naoqi_driver_joints:") + joint_names_[i];
+    status.name = std::string("naoqi_driver_joints:") + joint_name;
 
     double temperature = static_cast<double>(values[val++]);
     double stiffness = static_cast<double>(values[val++]);
 
     // Fill the status data
-    status.hardware_id = joint_names_[i];
+    status.hardware_id = joint_name;
     status.add("Temperature", temperature);
     status.add("Stiffness", stiffness);
-    status.add("minAngle", this->joint_limit_map_[joint_names_[i]][0]);
-    status.add("maxAngle", this->joint_limit_map_[joint_names_[i]][1]);
-    status.add("maxVelocity", this->joint_limit_map_[joint_names_[i]][2]);
-    status.add("maxTorque", this->joint_limit_map_[joint_names_[i]][3]);
+    status.add("minAngle", this->joint_limit_map_[joint_name][0]);
+    status.add("maxAngle", this->joint_limit_map_[joint_name][1]);
+    status.add("maxVelocity", this->joint_limit_map_[joint_name][2]);
+    status.add("maxTorque", this->joint_limit_map_[joint_name][3]);
 
     // Define the level
     if (temperature < temperature_warn_level_) {
@@ -199,11 +197,11 @@ void DiagnosticsConverter::callAll(const std::vector<message_actions::MessageAct
     maxTemperature = std::max(maxTemperature, temperature);
     maxStiffness = std::max(maxStiffness, stiffness);
     minStiffness = std::min(minStiffness, stiffness);
-    if (joint_names_[i].find("Hand") == std::string::npos) {
+    if (joint_name.find("Hand") == std::string::npos) {
       minStiffnessWoHands = std::min(minStiffnessWoHands, stiffness);
     }
     if (status.level >= (int) diagnostic_msgs::msg::DiagnosticStatus::WARN) {
-      hotJointsSS << std::endl << joint_names_[i] << ": " << temperature << "°C";
+      hotJointsSS << std::endl << joint_name << ": " << temperature << "°C";
     }
   }
 
@@ -291,8 +289,7 @@ void DiagnosticsConverter::callAll(const std::vector<message_actions::MessageAct
     diagnostic_updater::DiagnosticStatusWrapper status;
     status.name = std::string("naoqi_driver_computer:CPU");
     status.level = diagnostic_msgs::msg::DiagnosticStatus::OK;
-    //status.add("Temperature", static_cast<float>(values[val++]));
-    // setting to -1 until we find the right key
+    // No reliable ALMemory key for the CPU temperature, so report -1.
     status.add("Temperature", static_cast<float>(-1));
 
     msg.status.push_back(status);
@@ -317,5 +314,5 @@ void DiagnosticsConverter::registerCallback(
   callbacks_[action] = cb;
 }
 
-} //converter
-} // naoqi
+}  // namespace converter
+}  // namespace naoqi

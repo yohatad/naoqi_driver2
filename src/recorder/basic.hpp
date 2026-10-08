@@ -23,7 +23,7 @@
 */
 #include <memory>
 #include <naoqi_driver/recorder/globalrecorder.hpp>
-#include "../helpers/recorder_helpers.hpp"
+#include "helpers/recorder_helpers.hpp"
 
 /*
 * STANDARD includes
@@ -50,7 +50,7 @@ public:
     counter_(1)
   {}
 
-  virtual ~BasicRecorder() {}
+  virtual ~BasicRecorder() = default;
 
   inline std::string topic() const
   {
@@ -148,7 +148,7 @@ protected:
 
 }; // class
 
-} // publisher
-} // naoqi
+}  // namespace recorder
+}  // namespace naoqi
 
 #endif

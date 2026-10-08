@@ -22,7 +22,7 @@
 * LOCAL includes
 */
 #include <naoqi_driver/tools.hpp>
-#include "../helpers/driver_helpers.hpp"
+#include "helpers/driver_helpers.hpp"
 
 /*
 * ALDEBARAN includes
@@ -50,7 +50,7 @@ public:
     record_enabled_(false)
   {}
 
-  virtual ~BaseConverter() {}
+  virtual ~BaseConverter() = default;
 
   inline std::string name() const
   {
@@ -79,7 +79,7 @@ protected:
   bool record_enabled_;
 }; // class
 
-} // converter
-} // naoqi
+}  // namespace converter
+}  // namespace naoqi
 
 #endif

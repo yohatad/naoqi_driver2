@@ -58,7 +58,7 @@ public:
 
   inline bool isSubscribed() const
   {
-    if (is_initialized_ == false) {
+    if (!is_initialized_) {
       return false;
     } else {
       return helpers::Node::count_subscribers(topic_) > 0;
@@ -70,14 +70,12 @@ private:
 
   bool is_initialized_;
 
-  //image_transport::ImageTransport it_;
   image_transport::CameraPublisher pub_;
 
   int camera_source_;
 };
 
-} //publisher
-} //naoqi
-
+}  // namespace publisher
+}  // namespace naoqi
 
 #endif

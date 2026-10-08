@@ -15,6 +15,7 @@
  *
 */
 
+#include <naoqi_driver/ros_helpers.hpp>
 #include "from_any_value.hpp"
 
 namespace naoqi
@@ -152,17 +153,16 @@ NaoqiImage fromAnyValueToNaoqiImage(qi::AnyValue & value)
   return result;
 }
 
-
 std::vector<float> fromAnyValueToFloatVector(qi::AnyValue & value, std::vector<float> & result)
 {
   qi::AnyReferenceVector anyrefs = value.asListValuePtr();
 
-  for (int i = 0; i < anyrefs.size(); i++) {
+  for (auto & anyref : anyrefs) {
     try {
-      result.push_back(anyrefs[i].content().toFloat());
+      result.push_back(anyref.content().toFloat());
     } catch (std::runtime_error & e) {
       result.push_back(-1.0);
-      std::cout << e.what() << "=> set to -1" << std::endl;
+      RCLCPP_WARN_STREAM(naoqi::helpers::Node::get_logger(), e.what() << "=> set to -1");
     }
   }
   return result;
@@ -174,17 +174,18 @@ std::vector<std::string> fromAnyValueToStringVector(
 {
   qi::AnyReferenceVector anyrefs = value.asListValuePtr();
 
-  for (int i = 0; i < anyrefs.size(); i++) {
+  for (auto & anyref : anyrefs) {
     try {
-      result.push_back(anyrefs[i].content().toString());
+      result.push_back(anyref.content().toString());
     } catch (std::runtime_error & e) {
       result.push_back("Not available");
-      std::cout << e.what() << " => set to 'Not available'" << std::endl;
+      RCLCPP_WARN_STREAM(
+        naoqi::helpers::Node::get_logger(),
+        e.what() << " => set to 'Not available'");
     }
   }
   return result;
 }
-
 
 void fromAnyValueToFloatVectorVector(
   qi::AnyValue & value,
@@ -225,5 +226,5 @@ void fromAnyValueToFloatVectorVector(
 
   }
 }
-}
-}
+}  // namespace tools
+}  // namespace naoqi

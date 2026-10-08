@@ -118,7 +118,7 @@ struct MockEvent
   int dumps = 0;
 };
 
-} // namespace
+}  // namespace
 
 class TypeErasureTest : public naoqi_test::RosTest {};
 

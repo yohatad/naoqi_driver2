@@ -15,7 +15,6 @@
  *
 */
 
-
 #ifndef RECORDER_HELPERS_HPP
 #define RECORDER_HELPERS_HPP
 
@@ -44,8 +43,8 @@ static bool isZero(const builtin_interfaces::msg::Time & msg)
   return msg.sec == 0 && msg.nanosec == 0;
 }
 
-} // recorder
-} // helpers
-} // naoqi
+}  // namespace recorder
+}  // namespace helpers
+}  // namespace naoqi
 
 #endif

@@ -29,7 +29,7 @@ struct LedState
   std::string current_target;
 };
 
-rclcpp_action::GoalResponse handle_goal(
+rclcpp_action::GoalResponse handleGoal(
   std::shared_ptr<LedState> state,
   const rclcpp_action::GoalUUID & uuid,
   const std::shared_ptr<const RunLed::Goal> goal)
@@ -50,7 +50,7 @@ rclcpp_action::GoalResponse handle_goal(
   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
 
-rclcpp_action::CancelResponse handle_cancel(
+rclcpp_action::CancelResponse handleCancel(
   std::shared_ptr<LedState> state,
   const std::shared_ptr<RunLedGoalHandle> goal_handle)
 {
@@ -70,11 +70,11 @@ rclcpp_action::CancelResponse handle_cancel(
   return rclcpp_action::CancelResponse::ACCEPT;
 }
 
-void handle_accepted(
+void handleAccepted(
   std::shared_ptr<LedState> state,
   const std::shared_ptr<RunLedGoalHandle> goal_handle)
 {
-  // Claim the goal before returning, so handle_goal rejects a concurrent one.
+  // Claim the goal before returning, so handleGoal rejects a concurrent one.
   {
     std::lock_guard<std::mutex> lock(state->mutex);
     state->current_goal = goal_handle;
@@ -126,7 +126,7 @@ void handle_accepted(
         }
 
         // For fade modes, sleep and publish elapsed_time feedback while waiting.
-        // handle_cancel will call off() on the target to interrupt the fade early.
+        // handleCancel will call off() on the target to interrupt the fade early.
         if (duration > 0.0f &&
         (goal->mode == RunLed::Goal::MODE_FADE_INTENSITY ||
         goal->mode == RunLed::Goal::MODE_RGB_FADE))
@@ -172,7 +172,7 @@ void handle_accepted(
       }
     }).detach();
 }
-}
+}  // namespace
 
 rclcpp_action::Server<RunLed>::SharedPtr
 createRunLedServer(rclcpp::Node * node, qi::SessionPtr session)
@@ -181,11 +181,11 @@ createRunLedServer(rclcpp::Node * node, qi::SessionPtr session)
   auto state = std::make_shared<LedState>(node, std::move(session));
   return rclcpp_action::create_server<RunLed>(
     node, "naoqi_driver/run_led",
-    std::bind(handle_goal, state, ph::_1, ph::_2),
-    std::bind(handle_cancel, state, ph::_1),
-    std::bind(handle_accepted, state, ph::_1)
+    std::bind(handleGoal, state, ph::_1, ph::_2),
+    std::bind(handleCancel, state, ph::_1),
+    std::bind(handleAccepted, state, ph::_1)
   );
 }
 
-} // namespace action
-} // namespace naoqi
+}  // namespace action
+}  // namespace naoqi

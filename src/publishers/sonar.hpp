@@ -25,7 +25,6 @@
 #include <sensor_msgs/msg/range.hpp>
 #include <naoqi_driver/ros_helpers.hpp>
 
-
 namespace naoqi
 {
 namespace publisher
@@ -52,12 +51,9 @@ public:
 
   inline bool isSubscribed() const
   {
-    if (is_initialized_ == false) {return false;}
-    for (std::vector<rclcpp::Publisher<sensor_msgs::msg::Range>::SharedPtr>::const_iterator it =
-      pubs_.begin();
-      it != pubs_.end(); ++it)
-    {
-      if (helpers::Node::count_subscribers((*it)->get_topic_name())) {
+    if (!is_initialized_) {return false;}
+    for (const auto & pub : pubs_) {
+      if (helpers::Node::count_subscribers(pub->get_topic_name())) {
         return true;
       }
     }
@@ -71,7 +67,7 @@ private:
 
 };
 
-} //publisher
-} //naoqi
+}  // namespace publisher
+}  // namespace naoqi
 
 #endif

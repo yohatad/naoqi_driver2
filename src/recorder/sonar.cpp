@@ -18,6 +18,7 @@
 /*
 * LOCAL includes
 */
+#include <naoqi_driver/ros_helpers.hpp>
 #include <memory>
 #include "sonar.hpp"
 
@@ -36,8 +37,10 @@ SonarRecorder::SonarRecorder(const std::vector<std::string> & topics, float buff
 void SonarRecorder::write(const std::vector<sensor_msgs::msg::Range> & sonar_msgs)
 {
   if (topics_.size() != sonar_msgs.size() ) {
-    std::cerr << "Incorrect number of sonar range messages in sonar recorder. " <<
-      sonar_msgs.size() << "/" << topics_.size() << std::endl;
+    RCLCPP_ERROR_STREAM(
+      naoqi::helpers::Node::get_logger(),
+      "Incorrect number of sonar range messages in sonar recorder. " << sonar_msgs.size() << "/" <<
+        topics_.size());
     return;
   }
 
@@ -53,9 +56,8 @@ void SonarRecorder::write(const std::vector<sensor_msgs::msg::Range> & sonar_msg
 void SonarRecorder::writeDump(const rclcpp::Time & time)
 {
   std::lock_guard<std::mutex> lock_write_buffer(mutex_);
-  boost::circular_buffer<std::vector<sensor_msgs::msg::Range>>::iterator it;
-  for (it = buffer_.begin(); it != buffer_.end(); it++) {
-    write(*it);
+  for (auto & ranges : buffer_) {
+    write(ranges);
   }
 }
 
@@ -93,5 +95,5 @@ void SonarRecorder::setBufferDuration(float duration)
   buffer_.set_capacity(buffer_size_);
 }
 
-} //publisher
-} // naoqi
+}  // namespace recorder
+}  // namespace naoqi

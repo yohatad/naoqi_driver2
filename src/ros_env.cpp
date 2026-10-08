@@ -15,6 +15,7 @@
  *
 */
 
+#include <naoqi_driver/ros_helpers.hpp>
 #include "ros_env.hpp"
 #include <iostream>
 #include <stdexcept>
@@ -33,18 +34,17 @@ std::string getROSIP(std::string network_interface)
     network_interface = "eth0";
   }
 
-  typedef std::map<std::string, std::vector<std::string>> Map_IP;
+  using Map_IP = std::map<std::string, std::vector<std::string>>;
   Map_IP map_ip = static_cast<Map_IP>(qi::os::hostIPAddrs());
 
   if (map_ip.find(network_interface) == map_ip.end() ) {
-    std::cerr << "Could not find network interface named " << network_interface <<
-      ", possible interfaces are ... ";
-    for (Map_IP::iterator it = map_ip.begin(); it != map_ip.end(); ++it) {
-      std::cerr << it->first << " ";
+    std::string available;
+    for (const auto & entry : map_ip) {
+      available += entry.first + " ";
     }
-    std::cerr << std::endl;
-
-    // Throw exception instead of calling exit()
+    RCLCPP_ERROR_STREAM(
+      naoqi::helpers::Node::get_logger(), "Could not find network interface named " << network_interface <<
+        ", possible interfaces are: " << available);
     throw std::runtime_error("Network interface '" + network_interface + "' not found");
   }
 
@@ -54,7 +54,7 @@ std::string getROSIP(std::string network_interface)
 void setPrefix(std::string s)
 {
   g_prefix = s;
-  std::cout << "set prefix successfully to " << g_prefix << std::endl;
+  RCLCPP_INFO_STREAM(naoqi::helpers::Node::get_logger(), "set prefix successfully to " << g_prefix);
 }
 
 std::string getPrefix()
@@ -62,5 +62,5 @@ std::string getPrefix()
   return g_prefix;
 }
 
-} // ros_env
-} // naoqi
+}  // namespace ros_env
+}  // namespace naoqi

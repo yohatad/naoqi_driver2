@@ -15,8 +15,9 @@
  *
 */
 
+#include <naoqi_driver/ros_helpers.hpp>
 #include "get_language.hpp"
-#include "../helpers/driver_helpers.hpp"
+#include "helpers/driver_helpers.hpp"
 
 namespace naoqi
 {
@@ -42,10 +43,10 @@ void GetLanguageService::callback(
   const std::shared_ptr<naoqi_bridge_msgs::srv::GetString::Request> req,
   std::shared_ptr<naoqi_bridge_msgs::srv::GetString::Response> resp)
 {
-  std::cout << "Receiving service call of getting language" << std::endl;
+  RCLCPP_INFO_STREAM(
+    naoqi::helpers::Node::get_logger(), "Receiving service call of getting language");
   resp->data = helpers::driver::getLanguage(session_);
 }
 
-
-}
-}
+}  // namespace service
+}  // namespace naoqi

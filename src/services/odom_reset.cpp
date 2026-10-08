@@ -15,10 +15,11 @@
  *
 */
 
+#include <naoqi_driver/ros_helpers.hpp>
 #include "odom_reset.hpp"
 #include <iostream>
-#include "../helpers/driver_helpers.hpp"
-#include "../converters/odom.hpp"
+#include "helpers/driver_helpers.hpp"
+#include "converters/odom.hpp"
 
 namespace naoqi
 {
@@ -44,7 +45,9 @@ void OdomResetService::callback(
   const std::shared_ptr<std_srvs::srv::Trigger::Request> req,
   std::shared_ptr<std_srvs::srv::Trigger::Response> resp)
 {
-  std::cout << "Receiving service call to reset odometry" << std::endl;
+  RCLCPP_INFO_STREAM(
+    naoqi::helpers::Node::get_logger(),
+    "Receiving service call to reset odometry");
 
   try {
     // Get the motion service
@@ -74,16 +77,19 @@ void OdomResetService::callback(
 
     resp->success = true;
     resp->message = "Odometry reset successfully using software offset";
-    std::cout << "Odometry reset successfully" << std::endl;
-    std::cout << "New offsets - X: " << current_pos[0]
-              << " Y: " << current_pos[1]
-              << " Theta: " << current_pos[2] << std::endl;
+    RCLCPP_INFO_STREAM(naoqi::helpers::Node::get_logger(), "Odometry reset successfully");
+    RCLCPP_INFO_STREAM(
+      naoqi::helpers::Node::get_logger(),
+      "New offsets - X: " << current_pos[0] << " Y: " << current_pos[1] << " Theta: " <<
+        current_pos[2]);
   } catch (const std::exception & e) {
     resp->success = false;
     resp->message = std::string("Failed to reset odometry: ") + e.what();
-    std::cerr << "Failed to reset odometry: " << e.what() << std::endl;
+    RCLCPP_ERROR_STREAM(
+      naoqi::helpers::Node::get_logger(),
+      "Failed to reset odometry: " << e.what());
   }
 }
 
-}
-}
+}  // namespace service
+}  // namespace naoqi

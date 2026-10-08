@@ -31,7 +31,6 @@ namespace naoqi
 namespace converter
 {
 
-
 /**
 * @brief Converter concept interface
 * @note this defines an private concept struct,
@@ -76,45 +75,29 @@ public:
 
   void callAll(const std::vector<message_actions::MessageAction> & actions)
   {
-    if (actions.size() > 0) {
+    if (!actions.empty()) {
       convPtr_->callAll(actions);
     }
-
-    rclcpp::Time after = helpers::Time::now();
-    // lapse_time = after - before;
-    before = after;
   }
-
-  // rclcpp::Duration lapseTime() const
-  // {
-  //   return lapse_time;
-  // }
 
   friend bool operator==(const Converter & lhs, const Converter & rhs)
   {
     // decision made for OR-comparison since we want to be more restrictive
-    if (lhs.name() == rhs.name() ) {
-      return true;
-    }
-    return false;
+    return lhs.name() == rhs.name();
   }
 
 private:
-  rclcpp::Time before;
-  // rclcpp::Duration lapse_time;
-
   /**
   * BASE concept struct
   */
   struct ConverterConcept
   {
-    virtual ~ConverterConcept() {}
+    virtual ~ConverterConcept() = default;
     virtual std::string name() const = 0;
     virtual float frequency() const = 0;
     virtual void reset() = 0;
     virtual void callAll(const std::vector<message_actions::MessageAction> & actions) = 0;
   };
-
 
   /**
   * templated instances of base concept
@@ -126,22 +109,22 @@ private:
     : converter_(other)
     {}
 
-    std::string name() const
+    std::string name() const override
     {
       return converter_->name();
     }
 
-    float frequency() const
+    float frequency() const override
     {
       return converter_->frequency();
     }
 
-    void reset()
+    void reset() override
     {
       converter_->reset();
     }
 
-    void callAll(const std::vector<message_actions::MessageAction> & actions)
+    void callAll(const std::vector<message_actions::MessageAction> & actions) override
     {
       converter_->callAll(actions);
     }
@@ -153,7 +136,7 @@ private:
 
 }; // class converter
 
-} //converter
-} //naoqi
+}  // namespace converter
+}  // namespace naoqi
 
 #endif

@@ -40,7 +40,7 @@ static_assert(
   std::atomic<naoqi::Driver *>::is_always_lock_free,
   "the SIGINT handler needs a lock-free pointer");
 
-void sigint_handler(int sig)
+void sigintHandler(int sig)
 {
   // Only async-signal-safe work here: just flag the run() loop to stop.
   // The actual cleanup (driver->stop()) happens afterwards in main(),
@@ -89,10 +89,7 @@ int main(int argc, char ** argv)
     protocol = "tcps://";
     nao_port = (nao_port == 9559) ? 9503 : nao_port;
 #else
-    std::cout << BOLDRED
-              << "No need to set a password, ignored."
-              << RESETCOLOR
-              << std::endl;
+    RCLCPP_WARN_STREAM(bs->get_logger(), "No need to set a password, ignored.");
 #endif
   }
 
@@ -115,7 +112,7 @@ int main(int argc, char ** argv)
   qi::Future<void> connection = session->connect(url);
 
   if (connection.hasError()) {
-    std::cout << BOLDRED << connection.error() << RESETCOLOR << std::endl;
+    RCLCPP_ERROR_STREAM(bs->get_logger(), connection.error());
     return EXIT_FAILURE;
   }
   // The session needs to listen on the network to process audio callbacks.
@@ -128,7 +125,7 @@ int main(int argc, char ** argv)
 
   // Run the driver node. Stop it on SIGINT.
   g_driver = bs.get();
-  signal(SIGINT, sigint_handler);
+  signal(SIGINT, sigintHandler);
   bs->run();
   g_driver = nullptr;
   bs->stop();

@@ -46,7 +46,7 @@ std::string randomString(std::mt19937 & rng, const std::string & alphabet, std::
   return out;
 }
 
-} // namespace
+}  // namespace
 
 TEST(StringHelpersSplit, MatchesBoostOnEdgeCases)
 {

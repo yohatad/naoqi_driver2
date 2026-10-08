@@ -25,5 +25,5 @@ namespace helpers
 
 std::shared_ptr<rclcpp::Node> Node::node_ptr_;
 
-}
-}
+}  // namespace helpers
+}  // namespace naoqi

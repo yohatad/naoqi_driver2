@@ -44,14 +44,14 @@ namespace converter
 class AudioEventConverter : public BaseConverter<AudioEventConverter>
 {
 
-  typedef std::function<void (naoqi_bridge_msgs::msg::AudioBuffer &)> Callback_t;
+  using Callback_t = std::function<void (naoqi_bridge_msgs::msg::AudioBuffer &)>;
 
 public:
   AudioEventConverter(
-    const std::string & name, const float & frequency,
+    const std::string & name, float frequency,
     const qi::SessionPtr & session);
 
-  ~AudioEventConverter();
+  ~AudioEventConverter() override;
 
   virtual void reset();
 
@@ -68,8 +68,8 @@ private:
   naoqi_bridge_msgs::msg::AudioBuffer msg_;
 };
 
-}
+}  // namespace converter
 
-}
+}  // namespace naoqi
 
 #endif // AUDIO_CONVERTER_HPP

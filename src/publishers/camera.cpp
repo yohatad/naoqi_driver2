@@ -23,7 +23,7 @@
 /*
 * ALDEBARAN includes
 */
-#include "../tools/alvisiondefinitions.h" // for kTop...
+#include "tools/alvisiondefinitions.h" // for kTop...
 
 namespace naoqi
 {
@@ -38,8 +38,7 @@ CameraPublisher::CameraPublisher(const std::string & topic, int camera_source)
 }
 
 CameraPublisher::~CameraPublisher()
-{
-}
+= default;
 
 void CameraPublisher::publish(
   const sensor_msgs::msg::Image::SharedPtr & img,
@@ -51,37 +50,10 @@ void CameraPublisher::publish(
 void CameraPublisher::reset(rclcpp::Node * node)
 {
   pub_ = image_transport::create_camera_publisher(node, topic_);
-  /* TODO */
-  /* Specify the QoS or remove unwanted image_transports topics by disabling plugin
-  in the lanchfile. */
-
-  // Unregister compressedDepth topics for non depth cameras
-  // if (camera_source_!=AL::kDepthCamera)
-  // {
-  //   // Get our URI as a caller
-  //   std::string node_name = node->get_name();
-  //   XmlRpc::XmlRpcValue args, result, payload;
-  //   args[0] = node_name;
-  //   args[1] = node_name;
-  //   ros::master::execute("lookupNode", args, result, payload, false);
-  //   args[2] = result[2];
-
-  //   // List the topics to remove
-  //   std::vector<std::string> topic_list;
-  //   topic_list.push_back(std::string("/") + node_name + "/" + topic_ + std::string("/compressedDepth"));
-  //   topic_list.push_back(std::string("/") + node_name + "/" + topic_ + std::string("/compressedDepth/parameter_updates"));
-  //   topic_list.push_back(std::string("/") + node_name + "/" + topic_ + std::string("/compressedDepth/parameter_descriptions"));
-
-  //   // Remove undesirable topics
-  //   for(std::vector<std::string>::const_iterator topic = topic_list.begin(); topic != topic_list.end(); ++topic)
-  //   {
-  //     args[1] = *topic;
-  //     ros::master::execute("unregisterPublisher", args, result, payload, false);
-  //   }
-  // }
+  // TODO: choose the QoS, or disable unwanted image_transport plugins in the launch file.
 
   is_initialized_ = true;
 }
 
-} // publisher
-} //naoqi
+}  // namespace publisher
+}  // namespace naoqi

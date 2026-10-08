@@ -106,9 +106,9 @@ float clampVolume(float v)
   return std::clamp(v, 0.0f, 1.0f);
 }
 
-// ── action: handle_goal ───────────────────────────────────────────────────────
+// ── action: handleGoal ───────────────────────────────────────────────────────
 
-rclcpp_action::GoalResponse handle_goal(
+rclcpp_action::GoalResponse handleGoal(
   std::shared_ptr<AudioPlayerState> state,
   const rclcpp_action::GoalUUID & uuid,
   const std::shared_ptr<const PlayAudio::Goal> goal)
@@ -135,9 +135,9 @@ rclcpp_action::GoalResponse handle_goal(
   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
 
-// ── action: handle_cancel ─────────────────────────────────────────────────────
+// ── action: handleCancel ─────────────────────────────────────────────────────
 
-rclcpp_action::CancelResponse handle_cancel(
+rclcpp_action::CancelResponse handleCancel(
   std::shared_ptr<AudioPlayerState> state,
   const std::shared_ptr<PlayGoalHandle> goal_handle)
 {
@@ -157,13 +157,13 @@ rclcpp_action::CancelResponse handle_cancel(
   return rclcpp_action::CancelResponse::ACCEPT;
 }
 
-// ── action: handle_accepted / execute ────────────────────────────────────────
+// ── action: handleAccepted / execute ────────────────────────────────────────
 
-void handle_accepted(
+void handleAccepted(
   std::shared_ptr<AudioPlayerState> state,
   const std::shared_ptr<PlayGoalHandle> goal_handle)
 {
-  // Claim the goal before returning, so handle_goal rejects a concurrent one
+  // Claim the goal before returning, so handleGoal rejects a concurrent one
   // and a cancel arriving before the thread starts is not reset by it.
   {
     std::lock_guard<std::mutex> lock(state->mutex);
@@ -225,7 +225,7 @@ void handle_accepted(
           }
 
           if (state->cancel_requested.load() || goal_handle->is_canceling()) {
-            // stopAll was already called in handle_cancel; wait for future to settle
+            // stopAll was already called in handleCancel; wait for future to settle
             play_future.wait(500 /*ms*/);
 
             result->success = true;
@@ -529,9 +529,9 @@ AudioPlayerServers createAudioPlayerServers(rclcpp::Node * node, qi::SessionPtr 
 
   servers.play_audio = rclcpp_action::create_server<PlayAudio>(
     node, "/naoqi_driver/play_audio",
-    std::bind(handle_goal, state, ph::_1, ph::_2),
-    std::bind(handle_cancel, state, ph::_1),
-    std::bind(handle_accepted, state, ph::_1)
+    std::bind(handleGoal, state, ph::_1, ph::_2),
+    std::bind(handleCancel, state, ph::_1),
+    std::bind(handleAccepted, state, ph::_1)
   );
 
   servers.load_file = node->create_service<LoadAudioFile>(

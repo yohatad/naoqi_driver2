@@ -47,14 +47,14 @@ template<class T>
 class TouchEventConverter : public BaseConverter<TouchEventConverter<T>>
 {
 
-  typedef std::function<void (T &)> Callback_t;
+  using Callback_t = std::function<void (T &)>;
 
 public:
   TouchEventConverter(
-    const std::string & name, const float & frequency,
+    const std::string & name, float frequency,
     const qi::SessionPtr & session);
 
-  ~TouchEventConverter();
+  ~TouchEventConverter() override;
 
   virtual void reset();
 
@@ -68,8 +68,8 @@ private:
   T msg_;
 };
 
-}
+}  // namespace converter
 
-}
+}  // namespace naoqi
 
 #endif // TOUCH_CONVERTER_HPP

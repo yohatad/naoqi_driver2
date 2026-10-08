@@ -18,6 +18,7 @@
 /*
 * LOCAL includes
 */
+#include <naoqi_driver/ros_helpers.hpp>
 #include "sonar.hpp"
 
 namespace naoqi
@@ -34,8 +35,10 @@ SonarPublisher::SonarPublisher(const std::vector<std::string> & topics)
 void SonarPublisher::publish(const std::vector<sensor_msgs::msg::Range> & sonar_msgs)
 {
   if (pubs_.size() != sonar_msgs.size() ) {
-    std::cerr << "Incorrect number of sonar range messages in sonar publisher. " <<
-      sonar_msgs.size() << "/" << pubs_.size() << std::endl;
+    RCLCPP_ERROR_STREAM(
+      naoqi::helpers::Node::get_logger(),
+      "Incorrect number of sonar range messages in sonar publisher. " << sonar_msgs.size() << "/" <<
+        pubs_.size());
     return;
   }
 
@@ -47,12 +50,12 @@ void SonarPublisher::publish(const std::vector<sensor_msgs::msg::Range> & sonar_
 void SonarPublisher::reset(rclcpp::Node * node)
 {
   pubs_.clear();
-  for (size_t i = 0; i < topics_.size(); ++i) {
-    pubs_.push_back(node->create_publisher<sensor_msgs::msg::Range>(topics_[i], 1) );
+  for (auto & topic : topics_) {
+    pubs_.push_back(node->create_publisher<sensor_msgs::msg::Range>(topic, 1) );
   }
 
   is_initialized_ = true;
 }
 
-} // publisher
-} //naoqi
+}  // namespace publisher
+}  // namespace naoqi

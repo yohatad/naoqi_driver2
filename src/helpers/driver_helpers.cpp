@@ -15,6 +15,7 @@
  *
 */
 
+#include <naoqi_driver/ros_helpers.hpp>
 #include "driver_helpers.hpp"
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/xml_parser.hpp>
@@ -43,7 +44,7 @@ static naoqi_bridge_msgs::msg::RobotInfo & getRobotInfoLocal(const qi::SessionPt
   robot_url = session->url();
 
   // Get the robot type
-  std::cout << "Receiving information about robot model" << std::endl;
+  RCLCPP_INFO_STREAM(naoqi::helpers::Node::get_logger(), "Receiving information about robot model");
   qi::AnyObject p_memory = session->service("ALMemory").value();
   std::string robot = p_memory.call<std::string>("getData", "RobotConfig/Body/Type");
   std::string hardware_version = p_memory.call<std::string>(
@@ -52,22 +53,22 @@ static naoqi_bridge_msgs::msg::RobotInfo & getRobotInfoLocal(const qi::SessionPt
   robot::NaoqiVersion naoqi_version = getNaoqiVersion(session);
   std::transform(robot.begin(), robot.end(), robot.begin(), ::tolower);
 
-  std::cout << BOLDYELLOW << "Robot detected/NAOqi version: " << RESETCOLOR;
-
+  std::string detected = robot;
   if (std::string(robot) == "nao") {
     info.type = naoqi_bridge_msgs::msg::RobotInfo::NAO;
-    std::cout << BOLDCYAN << "NAO " << hardware_version << RESETCOLOR;
+    detected = "NAO";
   }
   if (std::string(robot) == "pepper" || std::string(robot) == "juliette") {
     info.type = naoqi_bridge_msgs::msg::RobotInfo::PEPPER;
-    std::cout << BOLDCYAN << "Pepper " << hardware_version << RESETCOLOR;
+    detected = "Pepper";
   }
   if (std::string(robot) == "romeo") {
     info.type = naoqi_bridge_msgs::msg::RobotInfo::ROMEO;
-    std::cout << BOLDCYAN << "Romeo " << hardware_version << RESETCOLOR;
+    detected = "Romeo";
   }
-
-  std::cout << BOLDCYAN << " / " << naoqi_version.text << RESETCOLOR << std::endl;
+  RCLCPP_INFO_STREAM(
+    naoqi::helpers::Node::get_logger(), "Robot detected/NAOqi version: " << detected << " " << hardware_version <<
+      " / " << naoqi_version.text);
 
   // Get the data from RobotConfig
   qi::AnyObject p_motion = session->service("ALMotion").value();
@@ -82,8 +83,9 @@ static naoqi_bridge_msgs::msg::RobotInfo & getRobotInfoLocal(const qi::SessionPt
         try {
           info.model = config[1][i].as<std::string>();
         } catch (const std::exception & e) {
-          std::cout << "Error in robot config variable " << (config[0][i]).as<std::string>() <<
-            std::endl;
+          RCLCPP_WARN_STREAM(
+            naoqi::helpers::Node::get_logger(),
+            "Error in robot config variable " << (config[0][i]).as<std::string>());
         }
       }
 
@@ -91,8 +93,9 @@ static naoqi_bridge_msgs::msg::RobotInfo & getRobotInfoLocal(const qi::SessionPt
         try {
           info.head_version = config[1][i].as<std::string>();
         } catch (const std::exception & e) {
-          std::cout << "Error in robot config variable " << (config[0][i]).as<std::string>() <<
-            std::endl;
+          RCLCPP_WARN_STREAM(
+            naoqi::helpers::Node::get_logger(),
+            "Error in robot config variable " << (config[0][i]).as<std::string>());
         }
       }
 
@@ -100,8 +103,9 @@ static naoqi_bridge_msgs::msg::RobotInfo & getRobotInfoLocal(const qi::SessionPt
         try {
           info.body_version = config[1][i].as<std::string>();
         } catch (const std::exception & e) {
-          std::cout << "Error in robot config variable " << (config[0][i]).as<std::string>() <<
-            std::endl;
+          RCLCPP_WARN_STREAM(
+            naoqi::helpers::Node::get_logger(),
+            "Error in robot config variable " << (config[0][i]).as<std::string>());
         }
       }
 
@@ -109,8 +113,9 @@ static naoqi_bridge_msgs::msg::RobotInfo & getRobotInfoLocal(const qi::SessionPt
         try {
           info.arm_version = config[1][i].as<std::string>();
         } catch (const std::exception & e) {
-          std::cout << "Error in robot config variable " << (config[0][i]).as<std::string>() <<
-            std::endl;
+          RCLCPP_WARN_STREAM(
+            naoqi::helpers::Node::get_logger(),
+            "Error in robot config variable " << (config[0][i]).as<std::string>());
         }
       }
 
@@ -118,8 +123,9 @@ static naoqi_bridge_msgs::msg::RobotInfo & getRobotInfoLocal(const qi::SessionPt
         try {
           info.has_laser = config[1][i].as<bool>();
         } catch (const std::exception & e) {
-          std::cout << "Error in robot config variable " << (config[0][i]).as<std::string>() <<
-            std::endl;
+          RCLCPP_WARN_STREAM(
+            naoqi::helpers::Node::get_logger(),
+            "Error in robot config variable " << (config[0][i]).as<std::string>());
         }
       }
 
@@ -127,8 +133,9 @@ static naoqi_bridge_msgs::msg::RobotInfo & getRobotInfoLocal(const qi::SessionPt
         try {
           info.has_extended_arms = config[1][i].as<bool>();
         } catch (const std::exception & e) {
-          std::cout << "Error in robot config variable " << (config[0][i]).as<std::string>() <<
-            std::endl;
+          RCLCPP_WARN_STREAM(
+            naoqi::helpers::Node::get_logger(),
+            "Error in robot config variable " << (config[0][i]).as<std::string>());
         }
       }
 
@@ -136,8 +143,9 @@ static naoqi_bridge_msgs::msg::RobotInfo & getRobotInfoLocal(const qi::SessionPt
         try {
           info.number_of_legs = config[1][i].as<int>();
         } catch (const std::exception & e) {
-          std::cout << "Error in robot config variable " << (config[0][i]).as<std::string>() <<
-            std::endl;
+          RCLCPP_WARN_STREAM(
+            naoqi::helpers::Node::get_logger(),
+            "Error in robot config variable " << (config[0][i]).as<std::string>());
         }
       }
 
@@ -145,8 +153,9 @@ static naoqi_bridge_msgs::msg::RobotInfo & getRobotInfoLocal(const qi::SessionPt
         try {
           info.number_of_arms = config[1][i].as<int>();
         } catch (const std::exception & e) {
-          std::cout << "Error in robot config variable " << (config[0][i]).as<std::string>() <<
-            std::endl;
+          RCLCPP_WARN_STREAM(
+            naoqi::helpers::Node::get_logger(),
+            "Error in robot config variable " << (config[0][i]).as<std::string>());
         }
       }
 
@@ -154,30 +163,34 @@ static naoqi_bridge_msgs::msg::RobotInfo & getRobotInfoLocal(const qi::SessionPt
         try {
           info.number_of_hands = config[1][i].as<int>();
         } catch (const std::exception & e) {
-          std::cout << "Error in robot config variable " << (config[0][i]).as<std::string>() <<
-            std::endl;
+          RCLCPP_WARN_STREAM(
+            naoqi::helpers::Node::get_logger(),
+            "Error in robot config variable " << (config[0][i]).as<std::string>());
         }
       }
 
     }
   } catch (...) {
     // NAOqi 2.9
-    std::cout << "ALMotion.getRobotConfig failed (" /*<< e.what()*/ <<
-      "), trying with newer service ALRobotModel" << std::endl;
+    RCLCPP_INFO(
+      naoqi::helpers::Node::get_logger(),
+      "ALMotion.getRobotConfig failed, trying with newer service ALRobotModel");
     auto p_robot_model = session->service("ALRobotModel").value();
 
     try {
       info.model = p_robot_model.call<std::string>("getRobotType");
     } catch (const std::exception & e) {
-      std::cout << "Error getting robot type (with ALRobotModel.getRobotType): " << e.what() <<
-        std::endl;
+      RCLCPP_WARN_STREAM(
+        naoqi::helpers::Node::get_logger(),
+        "Error getting robot type (with ALRobotModel.getRobotType): " << e.what());
     }
 
     try {
       info.number_of_legs = p_robot_model.call<bool>("hasLegs") ? 1 : 0;
     } catch (const std::exception & e) {
-      std::cout << "Error getting robot type (with ALRobotModel.getRobotType): " << e.what() <<
-        std::endl;
+      RCLCPP_WARN_STREAM(
+        naoqi::helpers::Node::get_logger(),
+        "Error getting robot type (with ALRobotModel.getRobotType): " << e.what());
     }
 
     try {
@@ -202,8 +215,9 @@ static naoqi_bridge_msgs::msg::RobotInfo & getRobotInfoLocal(const qi::SessionPt
         }
       }
     } catch (const std::exception & e) {
-      std::cout << "Error getting head version (with ALRobotModel.getConfig): " << e.what() <<
-        std::endl;
+      RCLCPP_WARN_STREAM(
+        naoqi::helpers::Node::get_logger(),
+        "Error getting head version (with ALRobotModel.getConfig): " << e.what());
     }
 
     // Some data is missing, but anyways only Pepper 1.8 is supported by NAOqi 2.9.
@@ -247,9 +261,9 @@ const robot::NaoqiVersion & getNaoqiVersion(const qi::SessionPtr & session)
     naoqi_version.text = p_system.call<std::string>("systemVersion");
 
   } catch (const std::exception & e) {
-    std::cerr << "Could not retrieve the version of NAOqi: "
-              << e.what()
-              << std::endl;
+    RCLCPP_ERROR_STREAM(
+      naoqi::helpers::Node::get_logger(),
+      "Could not retrieve the version of NAOqi: " << e.what());
 
     naoqi_version.text = "unknown";
     return naoqi_version;
@@ -258,24 +272,24 @@ const robot::NaoqiVersion & getNaoqiVersion(const qi::SessionPtr & session)
   std::string buff("");
   std::vector<int> version_numbers;
 
-  for (std::string::size_type i = 0; i < naoqi_version.text.size(); ++i) {
-    if (naoqi_version.text[i] != '.') {
-      buff += naoqi_version.text[i];
-    } else if (naoqi_version.text[i] == '.' && buff != "") {
+  for (char c : naoqi_version.text) {
+    if (c != '.') {
+      buff += c;
+    } else if (c == '.' && !buff.empty()) {
       version_numbers.push_back(std::atoi(buff.c_str()));
       buff = "";
     }
   }
 
-  if (buff != "") {
+  if (!buff.empty()) {
     version_numbers.push_back(std::atoi(buff.c_str()));
   }
 
   if (version_numbers.size() != 4) {
-    std::cerr << "Unconsistent version number for NAOqi, should contain 4 "
-              << "elements: "
-              << naoqi_version.text
-              << std::endl;
+    RCLCPP_ERROR_STREAM(
+      naoqi::helpers::Node::get_logger(),
+      "Unconsistent version number for NAOqi, should contain 4 elements: " <<
+        naoqi_version.text);
 
     return naoqi_version;
   }
@@ -327,18 +341,13 @@ bool isDepthStereo(const qi::SessionPtr & session)
     qi::AnyObject p_motion = session->service("ALMotion").value();
     sensor_names = p_motion.call<std::vector<std::string>>("getSensorNames");
 
-    if (std::find(
-        sensor_names.begin(),
-        sensor_names.end(),
-        "CameraStereo") != sensor_names.end())
-    {
-      return true;
-    } else {
-      return false;
-    }
+    return std::find(
+      sensor_names.begin(),
+      sensor_names.end(),
+      "CameraStereo") != sensor_names.end();
 
   } catch (const std::exception & e) {
-    std::cerr << e.what() << std::endl;
+    RCLCPP_ERROR_STREAM(naoqi::helpers::Node::get_logger(), e.what());
     return false;
   }
 }
@@ -357,10 +366,10 @@ bool isDepthStereo(const qi::SessionPtr & session)
  */
 bool isNaoqiVersionLesser(
   const robot::NaoqiVersion & naoqi_version,
-  const int & major,
-  const int & minor,
-  const int & patch,
-  const int & build)
+  int major,
+  int minor,
+  int patch,
+  int build)
 {
   if (naoqi_version.major < major) {
     return true;
@@ -375,6 +384,6 @@ bool isNaoqiVersionLesser(
   }
 }
 
-} // driver
-} // helpers
-} // naoqi
+}  // namespace driver
+}  // namespace helpers
+}  // namespace naoqi

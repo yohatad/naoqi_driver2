@@ -79,20 +79,20 @@ void TeleopSubscriber::reset(rclcpp::Node * node)
 
   sub_cmd_vel_ = node->create_subscription<geometry_msgs::msg::Twist>(
     cmd_vel_topic_, 10,
-    std::bind(&TeleopSubscriber::cmd_vel_callback, this, std::placeholders::_1));
+    std::bind(&TeleopSubscriber::cmdVelCallback, this, std::placeholders::_1));
 
   sub_joint_angles_ = node->create_subscription<naoqi_bridge_msgs::msg::JointAnglesWithSpeed>(
     joint_angles_topic_, 10,
-    std::bind(&TeleopSubscriber::joint_angles_callback, this, std::placeholders::_1));
+    std::bind(&TeleopSubscriber::jointAnglesCallback, this, std::placeholders::_1));
 
   sub_joint_angle_traj_ = node->create_subscription<naoqi_bridge_msgs::msg::JointAnglesTrajectory>(
     joint_angle_traj_topic_, 10,
-    std::bind(&TeleopSubscriber::joint_angle_traj_callback, this, std::placeholders::_1));
+    std::bind(&TeleopSubscriber::jointAngleTrajCallback, this, std::placeholders::_1));
 
   is_initialized_ = true;
 }
 
-void TeleopSubscriber::cmd_vel_callback(const geometry_msgs::msg::Twist::SharedPtr twist_msg)
+void TeleopSubscriber::cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr twist_msg)
 {
   const std::string error = validation::validateVelocity(
     twist_msg->linear.x, twist_msg->linear.y, twist_msg->angular.z);
@@ -114,7 +114,7 @@ void TeleopSubscriber::cmd_vel_callback(const geometry_msgs::msg::Twist::SharedP
   p_motion_.async<void>("move", vel_x, vel_y, vel_th);
 }
 
-void TeleopSubscriber::joint_angles_callback(
+void TeleopSubscriber::jointAnglesCallback(
   const naoqi_bridge_msgs::msg::JointAnglesWithSpeed::SharedPtr js_msg)
 {
   const std::string error = validation::validateJointAngles(
@@ -131,7 +131,7 @@ void TeleopSubscriber::joint_angles_callback(
   }
 }
 
-void TeleopSubscriber::joint_angle_traj_callback(
+void TeleopSubscriber::jointAngleTrajCallback(
   const naoqi_bridge_msgs::msg::JointAnglesTrajectory::SharedPtr traj_msg)
 {
   // Basic validation
@@ -169,10 +169,10 @@ void TeleopSubscriber::joint_angle_traj_callback(
   try {
     if (use_bezier) {
       // Use Bezier interpolation for smooth biological motion
-      execute_bezier_trajectory(names, angles, times);
+      executeBezierTrajectory(names, angles, times);
     } else {
       // Original angleInterpolation logic
-      execute_angle_interpolation(names, angles, times, is_absolute);
+      executeAngleInterpolation(names, angles, times, is_absolute);
     }
   } catch (const std::exception & e) {
     RCLCPP_ERROR(
@@ -181,7 +181,7 @@ void TeleopSubscriber::joint_angle_traj_callback(
   }
 }
 
-void TeleopSubscriber::execute_angle_interpolation(
+void TeleopSubscriber::executeAngleInterpolation(
   const std::vector<std::string> & names,
   const std::vector<float> & angles,
   const std::vector<float> & times,
@@ -210,7 +210,7 @@ void TeleopSubscriber::execute_angle_interpolation(
   }
 }
 
-void TeleopSubscriber::execute_bezier_trajectory(
+void TeleopSubscriber::executeBezierTrajectory(
   const std::vector<std::string> & names,
   const std::vector<float> & angles,
   const std::vector<float> & times)
@@ -261,5 +261,5 @@ void TeleopSubscriber::execute_bezier_trajectory(
     waypoints_per_joint, waypoints_per_joint == 1 ? "" : "s");
 }
 
-} // namespace subscriber
-} // namespace naoqi
+}  // namespace subscriber
+}  // namespace naoqi

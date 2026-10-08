@@ -50,18 +50,14 @@ void JointStateRecorder::write(
 void JointStateRecorder::writeDump(const rclcpp::Time & time)
 {
   std::lock_guard<std::mutex> lock_write_buffer(mutex_);
-  boost::circular_buffer<std::vector<geometry_msgs::msg::TransformStamped>>::iterator it_tf;
-  for (it_tf = bufferTF_.begin(); it_tf != bufferTF_.end(); it_tf++) {
-    gr_->write("/tf", *it_tf);
+  for (auto & transforms : buffer_tf_) {
+    gr_->write("/tf", transforms);
   }
-  for (boost::circular_buffer<sensor_msgs::msg::JointState>::iterator it_js =
-    bufferJoinState_.begin();
-    it_js != bufferJoinState_.end(); it_js++)
-  {
-    if (!helpers::recorder::isZero(it_js->header.stamp)) {
-      gr_->write(topic_, *it_js, it_js->header.stamp);
+  for (auto & joint_state : buffer_joint_state_) {
+    if (!helpers::recorder::isZero(joint_state.header.stamp)) {
+      gr_->write(topic_, joint_state, joint_state.header.stamp);
     } else {
-      gr_->write(topic_, *it_js);
+      gr_->write(topic_, joint_state);
     }
   }
 }
@@ -77,8 +73,8 @@ void JointStateRecorder::reset(std::shared_ptr<GlobalRecorder> gr, float conv_fr
     max_counter_ = 1;
     buffer_size_ = static_cast<size_t>(buffer_duration_ * conv_frequency);
   }
-  bufferJoinState_.resize(buffer_size_);
-  bufferTF_.resize(buffer_size_);
+  buffer_joint_state_.resize(buffer_size_);
+  buffer_tf_.resize(buffer_size_);
   is_initialized_ = true;
 }
 
@@ -91,8 +87,8 @@ void JointStateRecorder::bufferize(
     counter_++;
   } else {
     counter_ = 1;
-    bufferJoinState_.push_back(js_msg);
-    bufferTF_.push_back(tf_transforms);
+    buffer_joint_state_.push_back(js_msg);
+    buffer_tf_.push_back(tf_transforms);
   }
 }
 
@@ -101,9 +97,9 @@ void JointStateRecorder::setBufferDuration(float duration)
   std::lock_guard<std::mutex> lock_bufferize(mutex_);
   buffer_size_ = static_cast<size_t>(duration * (conv_frequency_ / max_counter_));
   buffer_duration_ = duration;
-  bufferJoinState_.set_capacity(buffer_size_);
-  bufferTF_.set_capacity(buffer_size_);
+  buffer_joint_state_.set_capacity(buffer_size_);
+  buffer_tf_.set_capacity(buffer_size_);
 }
 
-} //publisher
-} // naoqi
+}  // namespace recorder
+}  // namespace naoqi

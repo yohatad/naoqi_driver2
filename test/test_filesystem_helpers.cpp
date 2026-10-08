@@ -62,18 +62,16 @@ inline void getFilesSize(const boost::filesystem::path & root, long & file_size)
 {
   std::vector<boost::filesystem::path> files_path;
   getFiles(root, ".bag", files_path);
-  for (std::vector<boost::filesystem::path>::const_iterator it = files_path.begin();
-    it != files_path.end(); it++)
-  {
+  for (const auto & it : files_path) {
     try {
-      file_size = file_size + boost::filesystem::file_size(*it);
+      file_size = file_size + boost::filesystem::file_size(it);
     } catch (std::exception & e) {
       std::cout << e.what() << std::endl;
     }
   }
 }
 
-} // namespace legacy
+}  // namespace legacy
 
 namespace
 {
@@ -112,7 +110,7 @@ void populate(const TempDir & dir)
   dir.writeFile("sub/deeper/d.bag", 7);
 }
 
-} // namespace
+}  // namespace
 
 TEST(FilesystemHelpers, GetFilesFindsBagsRecursivelyAsBareFilenames)
 {

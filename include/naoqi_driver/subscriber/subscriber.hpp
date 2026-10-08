@@ -18,6 +18,7 @@
 #ifndef SUBSCRIBER_HPP
 #define SUBSCRIBER_HPP
 
+#include <naoqi_driver/ros_helpers.hpp>
 #include <string>
 
 #include <memory>
@@ -28,7 +29,6 @@ namespace naoqi
 {
 namespace subscriber
 {
-
 
 /**
 * @brief Subscriber concept interface
@@ -65,9 +65,9 @@ public:
   */
   void reset(rclcpp::Node * node)
   {
-    std::cout << name() << " is resetting" << std::endl;
+    RCLCPP_DEBUG_STREAM(naoqi::helpers::Node::get_logger(), name() << " is resetting");
     subPtr_->reset(node);
-    std::cout << name() << " reset" << std::endl;
+    RCLCPP_DEBUG_STREAM(naoqi::helpers::Node::get_logger(), name() << " reset");
   }
 
   /**
@@ -91,10 +91,7 @@ public:
   friend bool operator==(const Subscriber & lhs, const Subscriber & rhs)
   {
     // decision made for OR-comparison since we want to be more restrictive
-    if (lhs.name() == rhs.name() || lhs.topic() == rhs.topic() ) {
-      return true;
-    }
-    return false;
+    return lhs.name() == rhs.name() || lhs.topic() == rhs.topic();
   }
 
 private:
@@ -103,13 +100,12 @@ private:
   */
   struct SubscriberConcept
   {
-    virtual ~SubscriberConcept() {}
+    virtual ~SubscriberConcept() = default;
     virtual bool isInitialized() const = 0;
     virtual void reset(rclcpp::Node * node) = 0;
     virtual std::string name() const = 0;
     virtual std::string topic() const = 0;
   };
-
 
   /**
   * templated instances of base concept
@@ -121,22 +117,22 @@ private:
     : subscriber_(other)
     {}
 
-    std::string name() const
+    std::string name() const override
     {
       return subscriber_->name();
     }
 
-    std::string topic() const
+    std::string topic() const override
     {
       return subscriber_->topic();
     }
 
-    bool isInitialized() const
+    bool isInitialized() const override
     {
       return subscriber_->isInitialized();
     }
 
-    void reset(rclcpp::Node * node)
+    void reset(rclcpp::Node * node) override
     {
       subscriber_->reset(node);
     }
@@ -148,7 +144,7 @@ private:
 
 }; // class subscriber
 
-} //subscriber
-} //naoqi
+}  // namespace subscriber
+}  // namespace naoqi
 
 #endif

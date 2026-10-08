@@ -32,20 +32,19 @@ namespace naoqi
 namespace event
 {
 
-
 /**
-* @brief Converter concept interface
+* @brief Event concept interface
 * @note this defines an private concept struct,
 * which each instance has to implement
 * @note a type erasure pattern in implemented here to avoid strict inheritance,
-* thus each possible converter instance has to implement the virtual functions mentioned in the concept
+* thus each possible event instance has to implement the virtual functions mentioned in the concept
 */
 class Event
 {
 
 public:
   /**
-  * @brief Constructor for converter interface
+  * @brief Constructor for event interface
   */
   template<typename T>
   Event(T event)
@@ -103,7 +102,7 @@ private:
   */
   struct EventConcept
   {
-    virtual ~EventConcept() {}
+    virtual ~EventConcept() = default;
     virtual void resetPublisher(rclcpp::Node * node) = 0;
     virtual void resetRecorder(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr) = 0;
     virtual void startProcess() = 0;
@@ -115,7 +114,6 @@ private:
     virtual void isDumping(bool state) = 0;
   };
 
-
   /**
   * templated instances of base concept
   */
@@ -126,47 +124,47 @@ private:
     : converter_(other)
     {}
 
-    void resetPublisher(rclcpp::Node * node)
+    void resetPublisher(rclcpp::Node * node) override
     {
       converter_->resetPublisher(node);
     }
 
-    void resetRecorder(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr)
+    void resetRecorder(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr) override
     {
       converter_->resetRecorder(gr);
     }
 
-    void startProcess()
+    void startProcess() override
     {
       converter_->startProcess();
     }
 
-    void stopProcess()
+    void stopProcess() override
     {
       converter_->stopProcess();
     }
 
-    void writeDump(const rclcpp::Time & time)
+    void writeDump(const rclcpp::Time & time) override
     {
       converter_->writeDump(time);
     }
 
-    void setBufferDuration(float duration)
+    void setBufferDuration(float duration) override
     {
       converter_->setBufferDuration(duration);
     }
 
-    void isRecording(bool state)
+    void isRecording(bool state) override
     {
       converter_->isRecording(state);
     }
 
-    void isPublishing(bool state)
+    void isPublishing(bool state) override
     {
       converter_->isPublishing(state);
     }
 
-    void isDumping(bool state)
+    void isDumping(bool state) override
     {
       converter_->isDumping(state);
     }
@@ -176,9 +174,9 @@ private:
 
   std::shared_ptr<EventConcept> eventPtr_;
 
-}; // class converter
+};  // class Event
 
-} //converter
-} //naoqi
+}  // namespace event
+}  // namespace naoqi
 
 #endif

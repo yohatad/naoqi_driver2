@@ -15,7 +15,6 @@
  *
 */
 
-
 #ifndef DRIVER_HELPERS_HPP
 #define DRIVER_HELPERS_HPP
 
@@ -50,13 +49,13 @@ bool isDepthStereo(const qi::SessionPtr & session);
 
 bool isNaoqiVersionLesser(
   const robot::NaoqiVersion & naoqi_version,
-  const int & major,
-  const int & minor = 0,
-  const int & patch = 0,
-  const int & build = 0);
+  int major,
+  int minor = 0,
+  int patch = 0,
+  int build = 0);
 
-} // driver
-} // helpers
-} // naoqi
+}  // namespace driver
+}  // namespace helpers
+}  // namespace naoqi
 
 #endif

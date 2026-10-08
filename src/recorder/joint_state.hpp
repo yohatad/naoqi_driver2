@@ -28,7 +28,7 @@
 * LOCAL includes
 */
 #include <naoqi_driver/recorder/globalrecorder.hpp>
-#include "../helpers/recorder_helpers.hpp"
+#include "helpers/recorder_helpers.hpp"
 
 /*
 * ROS includes
@@ -83,8 +83,8 @@ public:
 protected:
   std::string topic_;
 
-  boost::circular_buffer<sensor_msgs::msg::JointState> bufferJoinState_;
-  boost::circular_buffer<std::vector<geometry_msgs::msg::TransformStamped>> bufferTF_;
+  boost::circular_buffer<sensor_msgs::msg::JointState> buffer_joint_state_;
+  boost::circular_buffer<std::vector<geometry_msgs::msg::TransformStamped>> buffer_tf_;
   size_t buffer_size_;
   float buffer_duration_;
 
@@ -102,7 +102,7 @@ protected:
 
 }; // class
 
-} //publisher
-} // naoqi
+}  // namespace recorder
+}  // namespace naoqi
 
 #endif

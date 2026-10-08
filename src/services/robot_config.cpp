@@ -16,7 +16,7 @@
 */
 
 #include "robot_config.hpp"
-#include "../helpers/driver_helpers.hpp"
+#include "helpers/driver_helpers.hpp"
 
 namespace naoqi
 {
@@ -45,6 +45,5 @@ void RobotConfigService::callback(
   resp->info = helpers::driver::getRobotInfo(session_);
 }
 
-
-}
-}
+}  // namespace service
+}  // namespace naoqi

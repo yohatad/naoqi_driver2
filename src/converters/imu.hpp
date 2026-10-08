@@ -45,19 +45,19 @@ enum Location
   BASE
 };
 
-}
+}  // namespace IMU
 
 class ImuConverter : public BaseConverter<ImuConverter>
 {
 
-  typedef std::function<void (sensor_msgs::msg::Imu &)> Callback_t;
+  using Callback_t = std::function<void (sensor_msgs::msg::Imu &)>;
 
 public:
   ImuConverter(
-    const std::string & name, const IMU::Location & location, const float & frequency,
+    const std::string & name, const IMU::Location & location, float frequency,
     const qi::SessionPtr & session);
 
-  ~ImuConverter();
+  ~ImuConverter() override;
 
   virtual void reset();
 
@@ -74,8 +74,8 @@ private:
   std::map<message_actions::MessageAction, Callback_t> callbacks_;
 };
 
-}
+}  // namespace converter
 
-}
+}  // namespace naoqi
 
 #endif // IMU_CONVERTER_HPP

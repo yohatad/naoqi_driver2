@@ -30,5 +30,5 @@ LogPublisher::LogPublisher(const std::string & topic)
 {
 }
 
-} // publisher
-} //naoqi
+}  // namespace publisher
+}  // namespace naoqi

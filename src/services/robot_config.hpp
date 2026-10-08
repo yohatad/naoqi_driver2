@@ -15,7 +15,6 @@
  *
 */
 
-
 #ifndef ROBOT_CONFIG_SERVICE_HPP
 #define ROBOT_CONFIG_SERVICE_HPP
 
@@ -38,7 +37,7 @@ public:
     const std::string & name, const std::string & topic,
     const qi::SessionPtr & session);
 
-  ~RobotConfigService() {}
+  ~RobotConfigService() = default;
 
   std::string name() const
   {
@@ -64,6 +63,6 @@ private:
   rclcpp::Service<naoqi_bridge_msgs::srv::GetRobotInfo>::SharedPtr service_;
 };
 
-} // service
-} // naoqi
+}  // namespace service
+}  // namespace naoqi
 #endif

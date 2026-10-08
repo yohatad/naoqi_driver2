@@ -15,7 +15,6 @@
  *
 */
 
-
 #ifndef GET_LANGUAGE_SERVICE_HPP
 #define GET_LANGUAGE_SERVICE_HPP
 
@@ -38,7 +37,7 @@ public:
     const std::string & name, const std::string & topic,
     const qi::SessionPtr & session);
 
-  ~GetLanguageService() {}
+  ~GetLanguageService() = default;
 
   std::string name() const
   {
@@ -64,6 +63,6 @@ private:
   rclcpp::Service<naoqi_bridge_msgs::srv::GetString>::SharedPtr service_;
 };
 
-} // service
-} // naoqi
+}  // namespace service
+}  // namespace naoqi
 #endif

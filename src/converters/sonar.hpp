@@ -39,12 +39,12 @@ namespace converter
 class SonarConverter : public BaseConverter<SonarConverter>
 {
 
-  typedef std::function<void (std::vector<sensor_msgs::msg::Range> &)> Callback_t;
+  using Callback_t = std::function<void (std::vector<sensor_msgs::msg::Range> &)>;
 
 public:
-  SonarConverter(const std::string & name, const float & frequency, const qi::SessionPtr & session);
+  SonarConverter(const std::string & name, float frequency, const qi::SessionPtr & session);
 
-  ~SonarConverter();
+  ~SonarConverter() override;
 
   void reset();
 
@@ -70,7 +70,7 @@ private:
   std::vector<sensor_msgs::msg::Range> msgs_;
 };
 
-} //publisher
-} //naoqi
+}  // namespace converter
+}  // namespace naoqi
 
 #endif

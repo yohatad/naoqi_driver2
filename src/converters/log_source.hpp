@@ -57,7 +57,7 @@ inline LogSource parseLogSource(const std::string & source)
   return out;
 }
 
-} // converter
-} // naoqi
+}  // namespace converter
+}  // namespace naoqi
 
 #endif
