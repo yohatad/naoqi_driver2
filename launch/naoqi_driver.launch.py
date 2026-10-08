@@ -65,6 +65,10 @@ def generate_launch_description():
             default_value="0.0",
             description='Cap on the /cmd_vel angular speed (rad/s); 0 means no cap.'),
         launch.actions.DeclareLaunchArgument(
+            'listen_timeout',
+            default_value="30.0",
+            description='Seconds a listen goal waits for speech before it is aborted; 0 waits forever.'),
+        launch.actions.DeclareLaunchArgument(
             'respawn',
             default_value="true",
             description='Restart the driver when it exits on its own, e.g. after losing '
@@ -89,6 +93,8 @@ def generate_launch_description():
                     launch.substitutions.LaunchConfiguration('max_linear_speed'), value_type=float),
                 'max_angular_speed': launch_ros.parameter_descriptions.ParameterValue(
                     launch.substitutions.LaunchConfiguration('max_angular_speed'), value_type=float),
+                'listen_timeout': launch_ros.parameter_descriptions.ParameterValue(
+                    launch.substitutions.LaunchConfiguration('listen_timeout'), value_type=float),
             }],
             output="screen",
             respawn=launch.substitutions.LaunchConfiguration('respawn'),
