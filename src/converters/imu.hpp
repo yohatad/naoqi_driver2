@@ -59,7 +59,7 @@ public:
 
   ~ImuConverter() override;
 
-  virtual void reset();
+  void reset() override;
 
   void registerCallback(const message_actions::MessageAction action, Callback_t cb);
 

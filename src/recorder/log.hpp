@@ -21,6 +21,7 @@
 /*
 * BOOST includes
 */
+#include <naoqi_driver/recorder/recorder.hpp>
 #include <memory>
 #include <boost/circular_buffer.hpp>
 
@@ -41,7 +42,7 @@ namespace naoqi
 namespace recorder
 {
 
-class LogRecorder
+class LogRecorder : public Recorder
 {
 
 public:
@@ -49,30 +50,30 @@ public:
 
   void write(std::list<rcl_interfaces::msg::Log> & log_msgs);
 
-  void reset(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float conv_frequency);
+  void reset(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float conv_frequency) override;
 
   void bufferize(std::list<rcl_interfaces::msg::Log> & log_msgs);
 
-  void writeDump(const rclcpp::Time & time);
+  void writeDump(const rclcpp::Time & time) override;
 
-  void setBufferDuration(float duration);
+  void setBufferDuration(float duration) override;
 
-  inline std::string topic() const
+  std::string topic() const override
   {
     return topic_;
   }
 
-  inline bool isInitialized() const
+  bool isInitialized() const override
   {
     return is_initialized_;
   }
 
-  inline void subscribe(bool state)
+  void subscribe(bool state) override
   {
     is_subscribed_ = state;
   }
 
-  inline bool isSubscribed() const
+  bool isSubscribed() const override
   {
     return is_subscribed_;
   }

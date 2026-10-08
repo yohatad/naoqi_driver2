@@ -56,7 +56,10 @@ public:
 
   ~TouchEventConverter() override;
 
-  virtual void reset();
+  void reset() override;
+
+  // Event-driven: messages arrive through callAll(actions, msg), never on a schedule.
+  void callAll(const std::vector<message_actions::MessageAction> &) override {}
 
   void registerCallback(const message_actions::MessageAction action, Callback_t cb);
 

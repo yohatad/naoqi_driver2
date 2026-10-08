@@ -119,10 +119,23 @@
 #include "helpers/naoqi_helpers.hpp"
 #include "helpers/driver_helpers.hpp"
 
-namespace ph = std::placeholders;
 
 namespace naoqi
 {
+
+namespace
+{
+using ImuPublisher = publisher::BasicPublisher<sensor_msgs::msg::Imu>;
+using ImuRecorder = recorder::BasicRecorder<sensor_msgs::msg::Imu>;
+using LaserPublisher = publisher::BasicPublisher<sensor_msgs::msg::LaserScan>;
+using LaserRecorder = recorder::BasicRecorder<sensor_msgs::msg::LaserScan>;
+using OdomPublisher = publisher::BasicPublisher<nav_msgs::msg::Odometry>;
+using OdomRecorder = recorder::BasicRecorder<nav_msgs::msg::Odometry>;
+using DiagnosticsPublisher = publisher::BasicPublisher<diagnostic_msgs::msg::DiagnosticArray>;
+using InfoRecorder = recorder::BasicRecorder<naoqi_bridge_msgs::msg::StringStamped>;
+using MemoryListPublisher = publisher::BasicPublisher<naoqi_bridge_msgs::msg::MemoryList>;
+using MemoryListRecorder = recorder::BasicRecorder<naoqi_bridge_msgs::msg::MemoryList>;
+}  // namespace
 
 Driver::Driver()
 : rclcpp::Node("naoqi_driver"),
@@ -168,24 +181,22 @@ void Driver::run()
       // If some converters are already there, then
       // we just need to reset the registered publisher
       // using the ROS node
-      using publisher_map = std::map<std::string, publisher::Publisher>;
-      for (publisher_map::value_type & pub: pub_map_) {
-        pub.second.reset(this);
+      for (auto & [name, pub] : pub_map_) {
+        pub->reset(this);
       }
 
-      for (subscriber::Subscriber & sub: subscribers_) {
-        sub.reset(this);
+      for (auto & sub : subscribers_) {
+        sub->reset(this);
       }
 
-      for (service::Service & srv: services_) {
-        srv.reset(this);
+      for (auto & srv : services_) {
+        srv->reset(this);
       }
     }
 
     if (!event_map_.empty()) {
-      using event_map = std::map<std::string, event::Event>;
-      for (event_map::value_type & event: event_map_) {
-        event.second.resetPublisher(this);
+      for (auto & [name, event] : event_map_) {
+        event->resetPublisher(this);
       }
     }
     // Start publishing again
@@ -218,9 +229,11 @@ void Driver::loadBootConfig()
 {
   const std::string & file_path = helpers::filesystem::getBootConfigFile();
   RCLCPP_INFO_STREAM(get_logger(), "load boot config from " << file_path);
+  boost::property_tree::ptree tree;
   if (!file_path.empty()) {
-    boost::property_tree::read_json(file_path, this->boot_config_);
+    boost::property_tree::read_json(file_path, tree);
   }
+  boot_config_ = parseBootConfig(tree);
 }
 
 void Driver::rosIteration()
@@ -232,15 +245,15 @@ void Driver::rosIteration()
     if (!conv_queue_.empty()) {
       // Wait for the next Publisher to be ready
       size_t conv_index = conv_queue_.top().conv_index_;
-      converter::Converter & conv = converters_[conv_index];
+      const auto & conv = converters_[conv_index];
       rclcpp::Time schedule = conv_queue_.top().schedule_;
 
       // check the publishing condition
       // 1. publishing enabled
       // 2. has to be registered
       // 3. has to be subscribed
-      auto pub_it = pub_map_.find(conv.name() );
-      if (publish_enabled_ && pub_it != pub_map_.end() && pub_it->second.isSubscribed() ) {
+      auto pub_it = pub_map_.find(conv->name() );
+      if (publish_enabled_ && pub_it != pub_map_.end() && pub_it->second->isSubscribed() ) {
         actions.push_back(message_actions::PUBLISH);
       }
 
@@ -248,18 +261,18 @@ void Driver::rosIteration()
       // 1. recording enabled
       // 2. has to be registered
       // 3. has to be subscribed (configured to be recorded)
-      auto rec_it = rec_map_.find(conv.name() );
+      auto rec_it = rec_map_.find(conv->name() );
       {
         std::unique_lock<std::mutex> lock_record(mutex_record_, std::try_to_lock);
         if (lock_record && record_enabled_ && rec_it != rec_map_.end() &&
-          rec_it->second.isSubscribed() )
+          rec_it->second->isSubscribed() )
         {
           actions.push_back(message_actions::RECORD);
         }
       }
 
       // bufferize data in recorder
-      if (log_enabled_ && rec_it != rec_map_.end() && conv.frequency() != 0) {
+      if (log_enabled_ && rec_it != rec_map_.end() && conv->frequency() != 0) {
         actions.push_back(message_actions::LOG);
       }
 
@@ -268,11 +281,11 @@ void Driver::rosIteration()
         // A NAOqi error in one converter (camera busy, network hiccup) must not
         // take the whole driver down; it is retried on its next schedule.
         try {
-          conv.callAll(actions);
+          conv->callAll(actions);
         } catch (const std::exception & e) {
           RCLCPP_ERROR_THROTTLE(
             get_logger(), *get_clock(), 5000,
-            "Converter %s failed: %s", conv.name().c_str(), e.what());
+            "Converter %s failed: %s", conv->name().c_str(), e.what());
         }
       }
 
@@ -283,11 +296,11 @@ void Driver::rosIteration()
 
       // Schedule for a future time or not
       conv_queue_.pop();
-      if (conv.frequency() != 0) {
+      if (conv->frequency() != 0) {
         conv_queue_.push(
           ScheduledConverter(
             schedule +
-            rclcpp::Duration(0, (1.0f / conv.frequency()) * 1e9), conv_index));
+            rclcpp::Duration(0, (1.0f / conv->frequency()) * 1e9), conv_index));
       }
 
     } else { // conv_queue is empty.
@@ -329,7 +342,7 @@ std::string Driver::minidump(const std::string & prefix)
   // STOP BUFFERIZING
   log_enabled_ = false;
   for (auto & [name, event] : event_map_) {
-    event.isDumping(true);
+    event->isDumping(true);
   }
   rclcpp::Time time = this->now();
 
@@ -339,16 +352,16 @@ std::string Driver::minidump(const std::string & prefix)
 
   // WRITE ALL BUFFER INTO THE ROSBAG
   for (auto & [name, event] : event_map_) {
-    event.writeDump(time);
+    event->writeDump(time);
   }
   for (auto & [name, recorder] : rec_map_) {
-    recorder.writeDump(time);
+    recorder->writeDump(time);
   }
 
   // RESTART BUFFERIZING
   log_enabled_ = true;
   for (auto & [name, event] : event_map_) {
-    event.isDumping(false);
+    event->isDumping(false);
   }
   return recorder_->stopRecord(::naoqi::ros_env::getROSIP("eth0"));
 }
@@ -383,7 +396,7 @@ std::string Driver::minidumpConverters(
   // STOP BUFFERIZING
   log_enabled_ = false;
   for (auto & [name, event] : event_map_) {
-    event.isDumping(true);
+    event->isDumping(true);
   }
   rclcpp::Time time = this->now();
 
@@ -398,7 +411,7 @@ std::string Driver::minidumpConverters(
         recorder_->startRecord(prefix);
         is_started = true;
       }
-      it->second.writeDump(time);
+      it->second->writeDump(time);
     } else {
       auto it_event = event_map_.find(name);
       if (it_event != event_map_.end() ) {
@@ -406,14 +419,14 @@ std::string Driver::minidumpConverters(
           recorder_->startRecord(prefix);
           is_started = true;
         }
-        it_event->second.writeDump(time);
+        it_event->second->writeDump(time);
       }
     }
   }
   // RESTART BUFFERIZING
   log_enabled_ = true;
   for (auto & [name, event] : event_map_) {
-    event.isDumping(false);
+    event->isDumping(false);
   }
   if (is_started) {
     return recorder_->stopRecord(::naoqi::ros_env::getROSIP("eth0"));
@@ -429,10 +442,10 @@ std::string Driver::minidumpConverters(
 void Driver::setBufferDuration(float duration)
 {
   for (auto & [name, recorder] : rec_map_) {
-    recorder.setBufferDuration(duration);
+    recorder->setBufferDuration(duration);
   }
   for (auto & [name, event] : event_map_) {
-    event.setBufferDuration(duration);
+    event->setBufferDuration(duration);
   }
   buffer_duration_ = duration;
 }
@@ -442,60 +455,62 @@ float Driver::getBufferDuration()
   return buffer_duration_;
 }
 
-void Driver::registerConverter(converter::Converter & conv)
+void Driver::registerConverter(std::shared_ptr<converter::Converter> conv)
 {
   std::lock_guard<std::mutex> lock(mutex_conv_queue_);
   int conv_index = converters_.size();
   converters_.push_back(conv);
-  conv.reset();
+  conv->reset();
   conv_queue_.push(ScheduledConverter(this->now(), conv_index));
 }
 
-void Driver::registerPublisher(const std::string & conv_name, publisher::Publisher & pub)
+void Driver::registerPublisher(
+  const std::string & conv_name,
+  std::shared_ptr<publisher::Publisher> pub)
 {
   if (publish_enabled_) {
-    pub.reset(this);
+    pub->reset(this);
   }
-  // Concept classes don't have any default constructors needed by operator[]
-  // Cannot use this operator here. So we use insert
-  pub_map_.insert(std::map<std::string, publisher::Publisher>::value_type(conv_name, pub) );
+  pub_map_.emplace(conv_name, pub);
 }
 
 void Driver::registerRecorder(
-  const std::string & conv_name, recorder::Recorder & rec,
+  const std::string & conv_name, std::shared_ptr<recorder::Recorder> rec,
   float frequency)
 {
-  // Concept classes don't have any default constructors needed by operator[]
-  // Cannot use this operator here. So we use insert
-  rec.reset(recorder_, frequency);
-  rec_map_.insert(std::map<std::string, recorder::Recorder>::value_type(conv_name, rec) );
+  rec->reset(recorder_, frequency);
+  rec_map_.emplace(conv_name, rec);
 }
 
-void Driver::insertEventConverter(const std::string & key, event::Event event)
+void Driver::insertEventConverter(const std::string & key, std::shared_ptr<event::Event> event)
 {
-  event.resetRecorder(recorder_);
-  event_map_.insert(std::map<std::string, event::Event>::value_type(key, event) );
+  event->resetRecorder(recorder_);
+  event_map_.emplace(key, event);
 }
 
 void Driver::registerConverter(
-  converter::Converter conv, publisher::Publisher pub,
-  recorder::Recorder rec)
+  std::shared_ptr<converter::Converter> conv, std::shared_ptr<publisher::Publisher> pub,
+  std::shared_ptr<recorder::Recorder> rec)
 {
   registerConverter(conv);
-  registerPublisher(conv.name(), pub);
-  registerRecorder(conv.name(), rec, conv.frequency());
+  registerPublisher(conv->name(), pub);
+  registerRecorder(conv->name(), rec, conv->frequency());
 }
 
-void Driver::registerPublisher(converter::Converter conv, publisher::Publisher pub)
+void Driver::registerPublisher(
+  std::shared_ptr<converter::Converter> conv,
+  std::shared_ptr<publisher::Publisher> pub)
 {
   registerConverter(conv);
-  registerPublisher(conv.name(), pub);
+  registerPublisher(conv->name(), pub);
 }
 
-void Driver::registerRecorder(converter::Converter conv, recorder::Recorder rec)
+void Driver::registerRecorder(
+  std::shared_ptr<converter::Converter> conv,
+  std::shared_ptr<recorder::Recorder> rec)
 {
   registerConverter(conv);
-  registerRecorder(conv.name(), rec, conv.frequency());
+  registerRecorder(conv->name(), rec, conv->frequency());
 }
 
 bool Driver::registerMemoryConverter(
@@ -531,25 +546,25 @@ bool Driver::registerMemoryConverter(
       return false;
       break;
     case 1:
-      _registerMemoryConverter<publisher::BasicPublisher<naoqi_bridge_msgs::msg::FloatStamped>,
+      registerTypedMemoryConverter<publisher::BasicPublisher<naoqi_bridge_msgs::msg::FloatStamped>,
         recorder::BasicRecorder<naoqi_bridge_msgs::msg::FloatStamped>,
         converter::MemoryFloatConverter>(
         key, frequency);
       break;
     case 2:
-      _registerMemoryConverter<publisher::BasicPublisher<naoqi_bridge_msgs::msg::IntStamped>,
+      registerTypedMemoryConverter<publisher::BasicPublisher<naoqi_bridge_msgs::msg::IntStamped>,
         recorder::BasicRecorder<naoqi_bridge_msgs::msg::IntStamped>, converter::MemoryIntConverter>(
         key,
         frequency);
       break;
     case 3:
-      _registerMemoryConverter<publisher::BasicPublisher<naoqi_bridge_msgs::msg::StringStamped>,
+      registerTypedMemoryConverter<publisher::BasicPublisher<naoqi_bridge_msgs::msg::StringStamped>,
         recorder::BasicRecorder<naoqi_bridge_msgs::msg::StringStamped>,
         converter::MemoryStringConverter>(
         key, frequency);
       break;
     case 4:
-      _registerMemoryConverter<publisher::BasicPublisher<naoqi_bridge_msgs::msg::BoolStamped>,
+      registerTypedMemoryConverter<publisher::BasicPublisher<naoqi_bridge_msgs::msg::BoolStamped>,
         recorder::BasicRecorder<naoqi_bridge_msgs::msg::BoolStamped>,
         converter::MemoryBoolConverter>(
         key,
@@ -573,504 +588,232 @@ void Driver::registerDefaultConverter()
   tf2_buffer_.reset<tf2_ros::Buffer>(new tf2_ros::Buffer(this->get_clock()) );
   tf2_buffer_->setUsingDedicatedThread(true);
 
-  // replace this with proper configuration struct
-  bool info_enabled = boot_config_.get("converters.info.enabled", true);
-  size_t info_frequency = boot_config_.get("converters.info.frequency", 1);
-
-  bool audio_enabled = boot_config_.get("converters.audio.enabled", true);
-  size_t audio_frequency = boot_config_.get("converters.audio.frequency", 1);
-
-  bool logs_enabled = boot_config_.get("converters.logs.enabled", true);
-  size_t logs_frequency = boot_config_.get("converters.logs.frequency", 10);
-
-  bool diag_enabled = boot_config_.get("converters.diag.enabled", true);
-  size_t diag_frequency = boot_config_.get("converters.diag.frequency", 10);
-
-  bool imu_torso_enabled = boot_config_.get("converters.imu_torso.enabled", true);
-  size_t imu_torso_frequency = boot_config_.get("converters.imu_torso.frequency", 10);
-
-  bool imu_base_enabled = boot_config_.get("converters.imu_base.enabled", true);
-  size_t imu_base_frequency = boot_config_.get("converters.imu_base.frequency", 10);
-
-  bool camera_front_enabled = boot_config_.get("converters.front_camera.enabled", true);
-  size_t camera_front_resolution = boot_config_.get("converters.front_camera.resolution", 1);       // VGA
-  size_t camera_front_fps = boot_config_.get("converters.front_camera.fps", 10);
-  size_t camera_front_recorder_fps = boot_config_.get("converters.front_camera.recorder_fps", 5);
-
-  bool camera_bottom_enabled = boot_config_.get("converters.bottom_camera.enabled", true);
-  size_t camera_bottom_resolution = boot_config_.get("converters.bottom_camera.resolution", 1);      // VGA
-  size_t camera_bottom_fps = boot_config_.get("converters.bottom_camera.fps", 10);
-  size_t camera_bottom_recorder_fps = boot_config_.get("converters.bottom_camera.recorder_fps", 5);
-
-  size_t camera_depth_resolution;
-  bool camera_depth_enabled = boot_config_.get("converters.depth_camera.enabled", true);
-  size_t camera_depth_xtion_resolution = boot_config_.get(
-    "converters.depth_camera.xtion_resolution", 1);                                                         // QVGA
-  size_t camera_depth_stereo_resolution = boot_config_.get(
-    "converters.depth_camera.stereo_resolution", 9);                                                         // Q720p
-  size_t camera_depth_fps = boot_config_.get("converters.depth_camera.fps", 10);
-  size_t camera_depth_recorder_fps = boot_config_.get("converters.depth_camera.recorder_fps", 5);
-
-  bool camera_stereo_enabled = boot_config_.get("converters.stereo_camera.enabled", true);
-  size_t camera_stereo_resolution = boot_config_.get("converters.stereo_camera.resolution", 15);      // QQ720px2
-  size_t camera_stereo_fps = boot_config_.get("converters.stereo_camera.fps", 10);
-  size_t camera_stereo_recorder_fps = boot_config_.get("converters.stereo_camera.recorder_fps", 5);
-
-  bool camera_ir_enabled = boot_config_.get("converters.ir_camera.enabled", true);
-  size_t camera_ir_resolution = boot_config_.get("converters.ir_camera.resolution", 1);          // QVGA
-  size_t camera_ir_fps = boot_config_.get("converters.ir_camera.fps", 10);
-  size_t camera_ir_recorder_fps = boot_config_.get("converters.ir_camera.recorder_fps", 5);
-
-  bool joint_states_enabled = boot_config_.get("converters.joint_states.enabled", true);
-  size_t joint_states_frequency = boot_config_.get("converters.joint_states.frequency", 50);
-
-  bool laser_enabled = boot_config_.get("converters.laser.enabled", true);
-  size_t laser_frequency = boot_config_.get("converters.laser.frequency", 10);
-  float laser_range_min = boot_config_.get<float>("converters.laser.range_min", 0.1);
-  float laser_range_max = boot_config_.get<float>("converters.laser.range_max", 3.0);
-
-  bool sonar_enabled = boot_config_.get("converters.sonar.enabled", true);
-  size_t sonar_frequency = boot_config_.get("converters.sonar.frequency", 10);
-
-  bool odom_enabled = boot_config_.get("converters.odom.enabled", true);
-  size_t odom_frequency = boot_config_.get("converters.odom.frequency", 10);
-
-  bool bumper_enabled = boot_config_.get("converters.bumper.enabled", true);
-  bool hand_enabled = boot_config_.get("converters.touch_hand.enabled", true);
-  bool head_enabled = boot_config_.get("converters.touch_head.enabled", true);
-
-  // Load the correct variables depending on the type of the depth camera
-  // (XTION or stereo). IR disabled if the robot uses a stereo camera to
-  // compute the depth
-  if (this->has_stereo_) {
-    camera_ir_enabled = false;
-    camera_depth_resolution = camera_depth_stereo_resolution;
-  } else {
-    camera_depth_resolution = camera_depth_xtion_resolution;
+  BootConfig config = boot_config_;
+  // When depth comes from the stereo pair, the infrared camera is not available.
+  if (has_stereo_) {
+    config.ir_camera.enabled = false;
   }
 
-  /*
-   * The info converter will be called once after it was added to the priority queue. Once it is its turn to be called, its
-   * callAll method will be triggered (because InfoPublisher is considered to always have subscribers, isSubscribed always
-   * return true).
-   * A message is therefore published through InfoPublisher, even if there is nobody to receive it.
-   * Then, InfoConverter will never be called again, because of its 0Hz frequency. But if a new user subscribes to the "info"
-   * topic, he/she will receive the information published before, as the publisher is latched.
-   */
-  /** Info publisher **/
-  if (info_enabled) {
-    static const auto topic = "info";
-    auto inp = std::make_shared<publisher::InfoPublisher>(topic);
-    auto inr = std::make_shared<recorder::BasicRecorder<naoqi_bridge_msgs::msg::StringStamped>>(
-      topic);
-    std::shared_ptr<converter::InfoConverter> inc = std::make_shared<converter::InfoConverter>(
-      topic, 0, session_);
-    inc->registerCallback(
-      message_actions::PUBLISH,
-      std::bind(&publisher::InfoPublisher::publish, inp, ph::_1));
-    inc->registerCallback(
-      message_actions::RECORD,
-      std::bind(
-        &recorder::BasicRecorder<naoqi_bridge_msgs::msg::StringStamped>::write, inr,
-        ph::_1));
-    inc->registerCallback(
-      message_actions::LOG,
-      std::bind(
-        &recorder::BasicRecorder<naoqi_bridge_msgs::msg::StringStamped>::bufferize, inr,
-        ph::_1));
-    registerConverter(inc, inp, inr);
+  // Converters are scheduled in the order they are registered.
+  registerStatusConverters(config);
+  registerImuConverters(config);
+  registerCameraConverters(config);
+  registerMotionConverters(config);
+  registerEventRegisters(config);
+}
+
+void Driver::registerStatusConverters(const BootConfig & config)
+{
+  // The info converter runs once (0 Hz): its publisher is latched and always counts as
+  // subscribed, so later subscribers still get the robot information.
+  if (config.info.enabled) {
+    wireConverter(
+      std::make_shared<converter::InfoConverter>("info", 0, session_),
+      std::make_shared<publisher::InfoPublisher>("info"),
+      std::make_shared<InfoRecorder>("info"));
   }
 
-  /** g_logs */
-  if (logs_enabled) {
-    std::shared_ptr<converter::LogConverter> lc = std::make_shared<converter::LogConverter>(
-      "log",
-      logs_frequency,
-      session_);
-    std::shared_ptr<publisher::LogPublisher> lp = std::make_shared<publisher::LogPublisher>(
-      "/rosout");
-    lc->registerCallback(
-      message_actions::PUBLISH,
-      std::bind(&publisher::LogPublisher::publish, lp, ph::_1) );
-    registerPublisher(lc, lp);
+  // NAOqi logs go to /rosout only; they are not recorded.
+  if (config.logs.enabled) {
+    auto log_converter =
+      std::make_shared<converter::LogConverter>("log", config.logs.frequency, session_);
+    auto log_publisher = std::make_shared<publisher::LogPublisher>("/rosout");
+    log_converter->registerCallback(
+      message_actions::PUBLISH, [log_publisher](auto & msg) {log_publisher->publish(msg);});
+    registerPublisher(log_converter, log_publisher);
   }
 
-  /** DIAGNOSTICS */
-  if (diag_enabled) {
-    std::shared_ptr<converter::DiagnosticsConverter> dc =
-      std::make_shared<converter::DiagnosticsConverter>("diag", diag_frequency, session_);
-    std::shared_ptr<publisher::BasicPublisher<diagnostic_msgs::msg::DiagnosticArray>> dp =
-      std::make_shared<publisher::BasicPublisher<diagnostic_msgs::msg::DiagnosticArray>>(
-      "/diagnostics");
-    std::shared_ptr<recorder::DiagnosticsRecorder> dr =
-      std::make_shared<recorder::DiagnosticsRecorder>("/diagnostics");
-    dc->registerCallback(
-      message_actions::PUBLISH,
-      std::bind(
-        &publisher::BasicPublisher<diagnostic_msgs::msg::DiagnosticArray>::publish, dp,
-        ph::_1) );
-    dc->registerCallback(
-      message_actions::RECORD,
-      std::bind(&recorder::DiagnosticsRecorder::write, dr, ph::_1) );
-    dc->registerCallback(
-      message_actions::LOG,
-      std::bind(&recorder::DiagnosticsRecorder::bufferize, dr, ph::_1) );
-    registerConverter(dc, dp, dr);
+  if (config.diag.enabled) {
+    wireConverter(
+      std::make_shared<converter::DiagnosticsConverter>("diag", config.diag.frequency, session_),
+      std::make_shared<DiagnosticsPublisher>("/diagnostics"),
+      std::make_shared<recorder::DiagnosticsRecorder>("/diagnostics"));
+  }
+}
+
+void Driver::registerImuConverters(const BootConfig & config)
+{
+  if (config.imu_torso.enabled) {
+    wireConverter(
+      std::make_shared<converter::ImuConverter>(
+        "imu_torso", converter::IMU::TORSO, config.imu_torso.frequency, session_),
+      std::make_shared<ImuPublisher>("imu/torso"),
+      std::make_shared<ImuRecorder>("imu/torso"));
   }
 
-  /** IMU TORSO **/
-  if (imu_torso_enabled) {
-    std::shared_ptr<publisher::BasicPublisher<sensor_msgs::msg::Imu>> imutp =
-      std::make_shared<publisher::BasicPublisher<sensor_msgs::msg::Imu>>("imu/torso");
-    std::shared_ptr<recorder::BasicRecorder<sensor_msgs::msg::Imu>> imutr =
-      std::make_shared<recorder::BasicRecorder<sensor_msgs::msg::Imu>>("imu/torso");
-    std::shared_ptr<converter::ImuConverter> imutc = std::make_shared<converter::ImuConverter>(
-      "imu_torso", converter::IMU::TORSO, imu_torso_frequency, session_);
-    imutc->registerCallback(
-      message_actions::PUBLISH,
-      std::bind(&publisher::BasicPublisher<sensor_msgs::msg::Imu>::publish, imutp, ph::_1) );
-    imutc->registerCallback(
-      message_actions::RECORD,
-      std::bind(&recorder::BasicRecorder<sensor_msgs::msg::Imu>::write, imutr, ph::_1) );
-    imutc->registerCallback(
-      message_actions::LOG,
-      std::bind(&recorder::BasicRecorder<sensor_msgs::msg::Imu>::bufferize, imutr, ph::_1) );
-    registerConverter(imutc, imutp, imutr);
+  if (robot_ == robot::PEPPER && config.imu_base.enabled) {
+    wireConverter(
+      std::make_shared<converter::ImuConverter>(
+        "imu_base", converter::IMU::BASE, config.imu_base.frequency, session_),
+      std::make_shared<ImuPublisher>("imu/base"),
+      std::make_shared<ImuRecorder>("imu/base"));
+  }
+}
+
+void Driver::registerCameraConverters(const BootConfig & config)
+{
+  // Depth comes from the Xtion sensor or, on newer robots, from the stereo pair.
+  const size_t depth_resolution = has_stereo_ ?
+    config.depth_camera.stereo_resolution : config.depth_camera.xtion_resolution;
+
+  if (config.front_camera.enabled) {
+    wireConverter(
+      std::make_shared<converter::CameraConverter>(
+        "front_camera", config.front_camera.fps, session_, AL::kTopCamera,
+        config.front_camera.resolution),
+      std::make_shared<publisher::CameraPublisher>("camera/front/image_raw", AL::kTopCamera),
+      std::make_shared<recorder::CameraRecorder>(
+        "camera/front", config.front_camera.recorder_fps));
+  }
+
+  if (config.bottom_camera.enabled) {
+    wireConverter(
+      std::make_shared<converter::CameraConverter>(
+        "bottom_camera", config.bottom_camera.fps, session_, AL::kBottomCamera,
+        config.bottom_camera.resolution),
+      std::make_shared<publisher::CameraPublisher>("camera/bottom/image_raw", AL::kBottomCamera),
+      std::make_shared<recorder::CameraRecorder>(
+        "camera/bottom", config.bottom_camera.recorder_fps));
   }
 
   if (robot_ == robot::PEPPER) {
-    /** IMU BASE **/
-    if (imu_base_enabled) {
-      std::shared_ptr<publisher::BasicPublisher<sensor_msgs::msg::Imu>> imubp =
-        std::make_shared<publisher::BasicPublisher<sensor_msgs::msg::Imu>>("imu/base");
-      std::shared_ptr<recorder::BasicRecorder<sensor_msgs::msg::Imu>> imubr =
-        std::make_shared<recorder::BasicRecorder<sensor_msgs::msg::Imu>>("imu/base");
-      std::shared_ptr<converter::ImuConverter> imubc = std::make_shared<converter::ImuConverter>(
-        "imu_base", converter::IMU::BASE, imu_base_frequency, session_);
-      imubc->registerCallback(
-        message_actions::PUBLISH,
-        std::bind(&publisher::BasicPublisher<sensor_msgs::msg::Imu>::publish, imubp, ph::_1) );
-      imubc->registerCallback(
-        message_actions::RECORD,
-        std::bind(&recorder::BasicRecorder<sensor_msgs::msg::Imu>::write, imubr, ph::_1) );
-      imubc->registerCallback(
-        message_actions::LOG,
-        std::bind(&recorder::BasicRecorder<sensor_msgs::msg::Imu>::bufferize, imubr, ph::_1) );
-      registerConverter(imubc, imubp, imubr);
-    }
-  } // endif PEPPER
-
-  /** Front Camera */
-  if (camera_front_enabled) {
-    std::shared_ptr<publisher::CameraPublisher> fcp = std::make_shared<publisher::CameraPublisher>(
-      "camera/front/image_raw", AL::kTopCamera);
-    std::shared_ptr<recorder::CameraRecorder> fcr = std::make_shared<recorder::CameraRecorder>(
-      "camera/front", camera_front_recorder_fps);
-    std::shared_ptr<converter::CameraConverter> fcc = std::make_shared<converter::CameraConverter>(
-      "front_camera", camera_front_fps, session_, AL::kTopCamera, camera_front_resolution);
-    fcc->registerCallback(
-      message_actions::PUBLISH,
-      std::bind(&publisher::CameraPublisher::publish, fcp, ph::_1, ph::_2) );
-    fcc->registerCallback(
-      message_actions::RECORD,
-      std::bind(&recorder::CameraRecorder::write, fcr, ph::_1, ph::_2) );
-    fcc->registerCallback(
-      message_actions::LOG,
-      std::bind(&recorder::CameraRecorder::bufferize, fcr, ph::_1, ph::_2) );
-    registerConverter(fcc, fcp, fcr);
-  }
-
-  /** Front Camera */
-  if (camera_bottom_enabled) {
-    std::shared_ptr<publisher::CameraPublisher> bcp = std::make_shared<publisher::CameraPublisher>(
-      "camera/bottom/image_raw", AL::kBottomCamera);
-    std::shared_ptr<recorder::CameraRecorder> bcr = std::make_shared<recorder::CameraRecorder>(
-      "camera/bottom", camera_bottom_recorder_fps);
-    std::shared_ptr<converter::CameraConverter> bcc = std::make_shared<converter::CameraConverter>(
-      "bottom_camera", camera_bottom_fps, session_, AL::kBottomCamera,
-      camera_bottom_resolution);
-    bcc->registerCallback(
-      message_actions::PUBLISH,
-      std::bind(&publisher::CameraPublisher::publish, bcp, ph::_1, ph::_2) );
-    bcc->registerCallback(
-      message_actions::RECORD,
-      std::bind(&recorder::CameraRecorder::write, bcr, ph::_1, ph::_2) );
-    bcc->registerCallback(
-      message_actions::LOG,
-      std::bind(&recorder::CameraRecorder::bufferize, bcr, ph::_1, ph::_2) );
-    registerConverter(bcc, bcp, bcr);
-  }
-
-  if (robot_ == robot::PEPPER) {
-    /** Depth Camera */
-    if (camera_depth_enabled) {
-      std::shared_ptr<publisher::CameraPublisher> dcp =
-        std::make_shared<publisher::CameraPublisher>("camera/depth/image_raw", AL::kDepthCamera);
-      std::shared_ptr<recorder::CameraRecorder> dcr = std::make_shared<recorder::CameraRecorder>(
-        "camera/depth", camera_depth_recorder_fps);
-      std::shared_ptr<converter::CameraConverter> dcc =
+    if (config.depth_camera.enabled) {
+      wireConverter(
         std::make_shared<converter::CameraConverter>(
-        "depth_camera",
-        camera_depth_fps,
-        session_,
-        AL::kDepthCamera,
-        camera_depth_resolution,
-        this->has_stereo_);
-
-      dcc->registerCallback(
-        message_actions::PUBLISH,
-        std::bind(&publisher::CameraPublisher::publish, dcp, ph::_1, ph::_2) );
-      dcc->registerCallback(
-        message_actions::RECORD,
-        std::bind(&recorder::CameraRecorder::write, dcr, ph::_1, ph::_2) );
-      dcc->registerCallback(
-        message_actions::LOG,
-        std::bind(&recorder::CameraRecorder::bufferize, dcr, ph::_1, ph::_2) );
-      registerConverter(dcc, dcp, dcr);
+          "depth_camera", config.depth_camera.fps, session_, AL::kDepthCamera,
+          depth_resolution, has_stereo_),
+        std::make_shared<publisher::CameraPublisher>("camera/depth/image_raw", AL::kDepthCamera),
+        std::make_shared<recorder::CameraRecorder>(
+          "camera/depth", config.depth_camera.recorder_fps));
     }
 
-    /** Stereo Camera */
-    if (this->has_stereo_ && camera_stereo_enabled) {
-      std::shared_ptr<publisher::CameraPublisher> scp =
+    if (has_stereo_ && config.stereo_camera.enabled) {
+      wireConverter(
+        std::make_shared<converter::CameraConverter>(
+          "stereo_camera", config.stereo_camera.fps, session_, AL::kInfraredOrStereoCamera,
+          config.stereo_camera.resolution, has_stereo_),
         std::make_shared<publisher::CameraPublisher>(
-        "camera/stereo/image_raw",
-        AL::kInfraredOrStereoCamera);
-      std::shared_ptr<recorder::CameraRecorder> scr = std::make_shared<recorder::CameraRecorder>(
-        "camera/stereo", camera_stereo_recorder_fps);
-
-      std::shared_ptr<converter::CameraConverter> scc =
-        std::make_shared<converter::CameraConverter>(
-        "stereo_camera",
-        camera_stereo_fps,
-        session_,
-        AL::kInfraredOrStereoCamera,
-        camera_stereo_resolution,
-        this->has_stereo_);
-
-      scc->registerCallback(
-        message_actions::PUBLISH,
-        std::bind(&publisher::CameraPublisher::publish, scp, ph::_1, ph::_2) );
-      scc->registerCallback(
-        message_actions::RECORD,
-        std::bind(&recorder::CameraRecorder::write, scr, ph::_1, ph::_2) );
-      scc->registerCallback(
-        message_actions::LOG,
-        std::bind(&recorder::CameraRecorder::bufferize, scr, ph::_1, ph::_2) );
-      registerConverter(scc, scp, scr);
+          "camera/stereo/image_raw", AL::kInfraredOrStereoCamera),
+        std::make_shared<recorder::CameraRecorder>(
+          "camera/stereo", config.stereo_camera.recorder_fps));
     }
 
-    /** Infrared Camera */
-    if (camera_ir_enabled) {
-      std::shared_ptr<publisher::CameraPublisher> icp =
+    if (config.ir_camera.enabled) {
+      wireConverter(
+        std::make_shared<converter::CameraConverter>(
+          "infrared_camera", config.ir_camera.fps, session_, AL::kInfraredOrStereoCamera,
+          config.ir_camera.resolution),
         std::make_shared<publisher::CameraPublisher>(
-        "camera/ir/image_raw",
-        AL::kInfraredOrStereoCamera);
-      std::shared_ptr<recorder::CameraRecorder> icr = std::make_shared<recorder::CameraRecorder>(
-        "camera/ir", camera_ir_recorder_fps);
-      std::shared_ptr<converter::CameraConverter> icc =
-        std::make_shared<converter::CameraConverter>(
-        "infrared_camera", camera_ir_fps,
-        session_, AL::kInfraredOrStereoCamera,
-        camera_ir_resolution);
-      icc->registerCallback(
-        message_actions::PUBLISH,
-        std::bind(&publisher::CameraPublisher::publish, icp, ph::_1, ph::_2) );
-      icc->registerCallback(
-        message_actions::RECORD,
-        std::bind(&recorder::CameraRecorder::write, icr, ph::_1, ph::_2) );
-      icc->registerCallback(
-        message_actions::LOG,
-        std::bind(&recorder::CameraRecorder::bufferize, icr, ph::_1, ph::_2) );
-      registerConverter(icc, icp, icr);
+          "camera/ir/image_raw", AL::kInfraredOrStereoCamera),
+        std::make_shared<recorder::CameraRecorder>("camera/ir", config.ir_camera.recorder_fps));
     }
-  } // endif PEPPER
+  }
+}
 
-  /** Joint States */
-  if (joint_states_enabled) {
-    std::shared_ptr<publisher::JointStatePublisher> jsp =
-      std::make_shared<publisher::JointStatePublisher>("/joint_states");
-    std::shared_ptr<recorder::JointStateRecorder> jsr =
-      std::make_shared<recorder::JointStateRecorder>("/joint_states");
-    std::shared_ptr<converter::JointStateConverter> jsc =
+void Driver::registerMotionConverters(const BootConfig & config)
+{
+  if (config.joint_states.enabled) {
+    wireConverter(
       std::make_shared<converter::JointStateConverter>(
-      "joint_states", joint_states_frequency,
-      tf2_buffer_, session_);
-    jsc->registerCallback(
-      message_actions::PUBLISH,
-      std::bind(&publisher::JointStatePublisher::publish, jsp, ph::_1, ph::_2) );
-    jsc->registerCallback(
-      message_actions::RECORD,
-      std::bind(&recorder::JointStateRecorder::write, jsr, ph::_1, ph::_2) );
-    jsc->registerCallback(
-      message_actions::LOG,
-      std::bind(&recorder::JointStateRecorder::bufferize, jsr, ph::_1, ph::_2) );
-    registerConverter(jsc, jsp, jsr);
+        "joint_states", config.joint_states.frequency, tf2_buffer_, session_),
+      std::make_shared<publisher::JointStatePublisher>("/joint_states"),
+      std::make_shared<recorder::JointStateRecorder>("/joint_states"));
   }
 
-  if (robot_ == robot::PEPPER) {
-    /** Laser */
-    if (laser_enabled) {
-      std::shared_ptr<publisher::BasicPublisher<sensor_msgs::msg::LaserScan>> lp =
-        std::make_shared<publisher::BasicPublisher<sensor_msgs::msg::LaserScan>>("laser");
-      std::shared_ptr<recorder::BasicRecorder<sensor_msgs::msg::LaserScan>> lr =
-        std::make_shared<recorder::BasicRecorder<sensor_msgs::msg::LaserScan>>("laser");
-      std::shared_ptr<converter::LaserConverter> lc = std::make_shared<converter::LaserConverter>(
-        "laser", laser_frequency, session_);
-
-      lc->setLaserRanges(laser_range_min, laser_range_max);
-      lc->registerCallback(
-        message_actions::PUBLISH,
-        std::bind(&publisher::BasicPublisher<sensor_msgs::msg::LaserScan>::publish, lp, ph::_1) );
-      lc->registerCallback(
-        message_actions::RECORD,
-        std::bind(&recorder::BasicRecorder<sensor_msgs::msg::LaserScan>::write, lr, ph::_1) );
-      lc->registerCallback(
-        message_actions::LOG,
-        std::bind(&recorder::BasicRecorder<sensor_msgs::msg::LaserScan>::bufferize, lr, ph::_1) );
-      registerConverter(lc, lp, lr);
-    }
+  if (robot_ == robot::PEPPER && config.laser.enabled) {
+    auto laser = std::make_shared<converter::LaserConverter>(
+      "laser", config.laser.frequency, session_);
+    laser->setLaserRanges(config.laser.range_min, config.laser.range_max);
+    wireConverter(
+      laser, std::make_shared<LaserPublisher>("laser"), std::make_shared<LaserRecorder>("laser"));
   }
 
-  /** Sonar */
-  if (sonar_enabled) {
-    std::vector<std::string> sonar_topics;
-    if (robot_ == robot::PEPPER) {
-      sonar_topics.push_back("sonar/front");
-      sonar_topics.push_back("sonar/back");
-    } else {
-      sonar_topics.push_back("sonar/left");
-      sonar_topics.push_back("sonar/right");
-    }
-    std::shared_ptr<publisher::SonarPublisher> usp = std::make_shared<publisher::SonarPublisher>(
-      sonar_topics);
-    std::shared_ptr<recorder::SonarRecorder> usr = std::make_shared<recorder::SonarRecorder>(
-      sonar_topics);
-    std::shared_ptr<converter::SonarConverter> usc = std::make_shared<converter::SonarConverter>(
-      "sonar", sonar_frequency, session_);
-    usc->registerCallback(
-      message_actions::PUBLISH,
-      std::bind(&publisher::SonarPublisher::publish, usp, ph::_1) );
-    usc->registerCallback(
-      message_actions::RECORD,
-      std::bind(&recorder::SonarRecorder::write, usr, ph::_1) );
-    usc->registerCallback(
-      message_actions::LOG,
-      std::bind(&recorder::SonarRecorder::bufferize, usr, ph::_1) );
-    registerConverter(usc, usp, usr);
+  if (config.sonar.enabled) {
+    const std::vector<std::string> sonar_topics = robot_ == robot::PEPPER ?
+      std::vector<std::string>{"sonar/front", "sonar/back"} :
+    std::vector<std::string>{"sonar/left", "sonar/right"};
+    wireConverter(
+      std::make_shared<converter::SonarConverter>("sonar", config.sonar.frequency, session_),
+      std::make_shared<publisher::SonarPublisher>(sonar_topics),
+      std::make_shared<recorder::SonarRecorder>(sonar_topics));
   }
 
-  if (audio_enabled) {
-    /** Audio */
-    // boost, not std: AudioEventRegister registers itself as a qi service (see audio.hpp).
-    auto event_register = boost::make_shared<AudioEventRegister>("audio", 0, session_);
-    insertEventConverter("audio", event_register);
+  if (config.odom.enabled) {
+    wireConverter(
+      std::make_shared<converter::OdomConverter>("pepper_odom", config.odom.frequency, session_),
+      std::make_shared<OdomPublisher>("pepper_odom"),
+      std::make_shared<OdomRecorder>("pepper_odom"));
+  }
+}
+
+void Driver::registerEventRegisters(const BootConfig & config)
+{
+  if (config.audio.enabled) {
+    insertEventConverter("audio", makeAudioEventRegister("audio", 0, session_));
     if (keep_looping_) {
       try {
-        event_map_.at("audio").startProcess();
+        event_map_.at("audio")->startProcess();
       } catch (const std::exception & e) {
         RCLCPP_ERROR_STREAM(get_logger(), "Failed to start audio extraction: " << e.what());
         RCLCPP_WARN_STREAM(
           get_logger(),
-          "Audio is being disabled automatically.\nTry specifying the --qi_listen_url option to an endpoint reachable by the robot fix that.");
+          "Audio is being disabled automatically.\nTry specifying the --qi_listen_url option to an endpoint reachable by the robot to fix that.");
       }
     }
     if (publish_enabled_) {
-      event_map_.at("audio").isPublishing(true);
+      event_map_.at("audio")->isPublishing(true);
     }
   }
 
-  /** TOUCH **/
-  if (bumper_enabled) {
-    std::vector<std::string> bumper_events;
-    bumper_events.push_back("RightBumperPressed");
-    bumper_events.push_back("LeftBumperPressed");
+  if (config.bumper.enabled) {
+    std::vector<std::string> bumper_events{"RightBumperPressed", "LeftBumperPressed"};
     if (robot_ == robot::PEPPER) {
       bumper_events.push_back("BackBumperPressed");
     }
-    std::shared_ptr<BumperEventRegister> event_register =
-      std::make_shared<BumperEventRegister>("bumper", bumper_events, 0, session_);
-    insertEventConverter("bumper", event_register);
-    if (keep_looping_) {
-      event_map_.at("bumper").startProcess();
-    }
-    if (publish_enabled_) {
-      event_map_.at("bumper").isPublishing(true);
-    }
+    startEventRegister(
+      "bumper", std::make_shared<BumperEventRegister>("bumper", bumper_events, 0, session_));
   }
 
-  if (hand_enabled) {
-    std::vector<std::string> hand_touch_events;
-    hand_touch_events.push_back("HandRightBackTouched");
-    hand_touch_events.push_back("HandRightLeftTouched");
-    hand_touch_events.push_back("HandRightRightTouched");
-    hand_touch_events.push_back("HandLeftBackTouched");
-    hand_touch_events.push_back("HandLeftLeftTouched");
-    hand_touch_events.push_back("HandLeftRightTouched");
-    std::shared_ptr<HandTouchEventRegister> event_register =
-      std::make_shared<HandTouchEventRegister>("hand_touch", hand_touch_events, 0, session_);
-    insertEventConverter("hand_touch", event_register);
-    if (keep_looping_) {
-      event_map_.at("hand_touch").startProcess();
-    }
-    if (publish_enabled_) {
-      event_map_.at("hand_touch").isPublishing(true);
-    }
+  if (config.touch_hand.enabled) {
+    const std::vector<std::string> hand_touch_events{
+      "HandRightBackTouched", "HandRightLeftTouched", "HandRightRightTouched",
+      "HandLeftBackTouched", "HandLeftLeftTouched", "HandLeftRightTouched"};
+    startEventRegister(
+      "hand_touch",
+      std::make_shared<HandTouchEventRegister>("hand_touch", hand_touch_events, 0, session_));
   }
 
-  if (head_enabled) {
-    std::vector<std::string> head_touch_events;
-    head_touch_events.push_back("FrontTactilTouched");
-    head_touch_events.push_back("MiddleTactilTouched");
-    head_touch_events.push_back("RearTactilTouched");
-    std::shared_ptr<HeadTouchEventRegister> event_register =
-      std::make_shared<HeadTouchEventRegister>("head_touch", head_touch_events, 0, session_);
-    insertEventConverter("head_touch", event_register);
-    if (keep_looping_) {
-      event_map_.at("head_touch").startProcess();
-    }
-    if (publish_enabled_) {
-      event_map_.at("head_touch").isPublishing(true);
-    }
+  if (config.touch_head.enabled) {
+    const std::vector<std::string> head_touch_events{
+      "FrontTactilTouched", "MiddleTactilTouched", "RearTactilTouched"};
+    startEventRegister(
+      "head_touch",
+      std::make_shared<HeadTouchEventRegister>("head_touch", head_touch_events, 0, session_));
   }
+}
 
-  /** Odom */
-  if (odom_enabled) {
-    std::shared_ptr<publisher::BasicPublisher<nav_msgs::msg::Odometry>> lp =
-      std::make_shared<publisher::BasicPublisher<nav_msgs::msg::Odometry>>("pepper_odom");
-    std::shared_ptr<recorder::BasicRecorder<nav_msgs::msg::Odometry>> lr =
-      std::make_shared<recorder::BasicRecorder<nav_msgs::msg::Odometry>>("pepper_odom");
-    std::shared_ptr<converter::OdomConverter> lc = std::make_shared<converter::OdomConverter>(
-      "pepper_odom", odom_frequency, session_);
-    lc->registerCallback(
-      message_actions::PUBLISH,
-      std::bind(&publisher::BasicPublisher<nav_msgs::msg::Odometry>::publish, lp, ph::_1) );
-    lc->registerCallback(
-      message_actions::RECORD,
-      std::bind(&recorder::BasicRecorder<nav_msgs::msg::Odometry>::write, lr, ph::_1) );
-    lc->registerCallback(
-      message_actions::LOG,
-      std::bind(&recorder::BasicRecorder<nav_msgs::msg::Odometry>::bufferize, lr, ph::_1) );
-    registerConverter(lc, lp, lr);
+void Driver::startEventRegister(const std::string & name, std::shared_ptr<event::Event> event)
+{
+  insertEventConverter(name, event);
+  if (keep_looping_) {
+    event_map_.at(name)->startProcess();
   }
-
+  if (publish_enabled_) {
+    event_map_.at(name)->isPublishing(true);
+  }
 }
 
 // public interface here
-void Driver::registerSubscriber(subscriber::Subscriber sub)
+void Driver::registerSubscriber(std::shared_ptr<subscriber::Subscriber> sub)
 {
-  std::vector<subscriber::Subscriber>::iterator it;
-  it = std::find(subscribers_.begin(), subscribers_.end(), sub);
-  size_t sub_index = 0;
-
-  // if subscriber is not found, register it!
-  if (it == subscribers_.end() ) {
-    sub_index = subscribers_.size();
+  const auto it = std::find_if(
+    subscribers_.begin(), subscribers_.end(),
+    [&sub](const auto & existing) {return existing->name() == sub->name();});
+  if (it == subscribers_.end()) {
     subscribers_.push_back(sub);
-    RCLCPP_INFO_STREAM(get_logger(), "registered subscriber:\t" << sub.name());
-  }
-  // if found, re-init them
-  else {
-    RCLCPP_INFO_STREAM(get_logger(), "re-initialized existing subscriber:\t" << it->name());
+    RCLCPP_INFO_STREAM(get_logger(), "registered subscriber:\t" << sub->name());
+  } else {
+    RCLCPP_INFO_STREAM(get_logger(), "re-initialized existing subscriber:\t" << (*it)->name());
   }
 }
 
@@ -1093,7 +836,7 @@ void Driver::registerDefaultSubscriber()
       session_) );
 }
 
-void Driver::registerService(service::Service srv)
+void Driver::registerService(std::shared_ptr<service::Service> srv)
 {
   services_.push_back(srv);
 }
@@ -1121,8 +864,8 @@ void Driver::registerDefaultServices()
 std::vector<std::string> Driver::getAvailableConverters()
 {
   std::vector<std::string> conv_list;
-  for (const converter::Converter & conv: converters_) {
-    conv_list.push_back(conv.name());
+  for (const auto & conv : converters_) {
+    conv_list.push_back(conv->name());
   }
   for (const auto & [name, event] : event_map_) {
     conv_list.push_back(name);
@@ -1135,7 +878,7 @@ void Driver::startPublishing()
 {
   publish_enabled_ = true;
   for (auto & [name, event] : event_map_) {
-    event.isPublishing(true);
+    event->isPublishing(true);
   }
 }
 
@@ -1143,7 +886,7 @@ void Driver::stopPublishing()
 {
   publish_enabled_ = false;
   for (auto & [name, event] : event_map_) {
-    event.isPublishing(false);
+    event->isPublishing(false);
   }
 }
 
@@ -1151,8 +894,8 @@ std::vector<std::string> Driver::getSubscribedPublishers() const
 {
   std::vector<std::string> publisher;
   for (const auto & [name, pub] : pub_map_) {
-    if (pub.isSubscribed() ) {
-      publisher.push_back(pub.topic() );
+    if (pub->isSubscribed()) {
+      publisher.push_back(pub->topic());
     }
   }
   return publisher;
@@ -1162,15 +905,15 @@ void Driver::startRecording()
 {
   std::lock_guard<std::mutex> lock_record(mutex_record_);
   recorder_->startRecord();
-  for (converter::Converter & conv: converters_) {
-    auto it = rec_map_.find(conv.name());
+  for (const auto & conv : converters_) {
+    auto it = rec_map_.find(conv->name());
     if (it != rec_map_.end() ) {
-      it->second.subscribe(true);
-      RCLCPP_INFO_STREAM(get_logger(), "Topic " << conv.name() << " is subscribed for recording");
+      it->second->subscribe(true);
+      RCLCPP_INFO_STREAM(get_logger(), "Topic " << conv->name() << " is subscribed for recording");
     }
   }
   for (auto & [name, event] : event_map_) {
-    event.isRecording(true);
+    event->isRecording(true);
     RCLCPP_INFO_STREAM(get_logger(), "Topic " << name << " is subscribed for recording");
   }
   record_enabled_ = true;
@@ -1189,14 +932,14 @@ void Driver::startRecordingConverters(const std::vector<std::string> & names)
         recorder_->startRecord();
         is_started = true;
       }
-      it_rec->second.subscribe(true);
+      it_rec->second->subscribe(true);
       RCLCPP_INFO_STREAM(get_logger(), "Topic " << name << " is subscribed for recording");
     } else if (it_ev != event_map_.end() ) {
       if (!is_started) {
         recorder_->startRecord();
         is_started = true;
       }
-      it_ev->second.isRecording(true);
+      it_ev->second->isRecording(true);
       RCLCPP_INFO_STREAM(get_logger(), "Topic " << name << " is subscribed for recording");
     } else {
       RCLCPP_ERROR_STREAM(
@@ -1218,14 +961,14 @@ std::string Driver::stopRecording()
 {
   std::lock_guard<std::mutex> lock_record(mutex_record_);
   record_enabled_ = false;
-  for (converter::Converter & conv: converters_) {
-    auto it = rec_map_.find(conv.name());
+  for (const auto & conv : converters_) {
+    auto it = rec_map_.find(conv->name());
     if (it != rec_map_.end() ) {
-      it->second.subscribe(false);
+      it->second->subscribe(false);
     }
   }
   for (auto & [name, event] : event_map_) {
-    event.isRecording(false);
+    event->isRecording(false);
   }
   return recorder_->stopRecord();
 }
@@ -1266,7 +1009,7 @@ void Driver::stop()
   }
 
   for (auto & [name, event] : event_map_) {
-    event.stopProcess();
+    event->stopProcess();
   }
 
   {
@@ -1340,27 +1083,10 @@ void Driver::addMemoryConverters(std::string filepath)
     return;
   }
 
-  // Create converter, publisher and recorder
-  std::shared_ptr<publisher::BasicPublisher<naoqi_bridge_msgs::msg::MemoryList>> mlp =
-    std::make_shared<publisher::BasicPublisher<naoqi_bridge_msgs::msg::MemoryList>>(topic);
-  std::shared_ptr<recorder::BasicRecorder<naoqi_bridge_msgs::msg::MemoryList>> mlr =
-    std::make_shared<recorder::BasicRecorder<naoqi_bridge_msgs::msg::MemoryList>>(topic);
-  std::shared_ptr<converter::MemoryListConverter> mlc =
-    std::make_shared<converter::MemoryListConverter>(list, topic, frequency, session_);
-  mlc->registerCallback(
-    message_actions::PUBLISH,
-    std::bind(
-      &publisher::BasicPublisher<naoqi_bridge_msgs::msg::MemoryList>::publish, mlp,
-      ph::_1) );
-  mlc->registerCallback(
-    message_actions::RECORD,
-    std::bind(&recorder::BasicRecorder<naoqi_bridge_msgs::msg::MemoryList>::write, mlr, ph::_1) );
-  mlc->registerCallback(
-    message_actions::LOG,
-    std::bind(
-      &recorder::BasicRecorder<naoqi_bridge_msgs::msg::MemoryList>::bufferize, mlr,
-      ph::_1) );
-  registerConverter(mlc, mlp, mlr);
+  wireConverter(
+    std::make_shared<converter::MemoryListConverter>(list, topic, frequency, session_),
+    std::make_shared<MemoryListPublisher>(topic),
+    std::make_shared<MemoryListRecorder>(topic));
 }
 
 bool Driver::registerEventConverter(const std::string & key, const dataType::DataType & type)
@@ -1447,10 +1173,10 @@ bool Driver::registerEventConverter(const std::string & key, const dataType::Dat
   }
 
   if (keep_looping_) {
-    event_map_.at(key).startProcess();
+    event_map_.at(key)->startProcess();
   }
   if (publish_enabled_) {
-    event_map_.at(key).isPublishing(true);
+    event_map_.at(key)->isPublishing(true);
   }
 
   return true;

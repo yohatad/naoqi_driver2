@@ -18,10 +18,7 @@
 #ifndef SUBSCRIBER_HPP
 #define SUBSCRIBER_HPP
 
-#include <naoqi_driver/ros_helpers.hpp>
 #include <string>
-
-#include <memory>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -31,118 +28,25 @@ namespace subscriber
 {
 
 /**
-* @brief Subscriber concept interface
-* @note this defines an private concept struct,
-* which each instance has to implement
-* @note a type erasure pattern in implemented here to avoid strict inheritance,
-* thus each possible subscriber instance has to implement the virtual functions mentioned in the concept
-*/
+ * @brief A ROS subscription that forwards incoming commands to NAOqi.
+ * Implemented through subscriber::BaseSubscriber.
+ */
 class Subscriber
 {
-
 public:
-  /**
-  * @brief Constructor for subscriber interface
-  */
-  template<typename T>
-  Subscriber(T sub)
-  : subPtr_(std::make_shared<SubscriberModel<T>>(sub) )
-  {}
+  virtual ~Subscriber() = default;
 
-  /**
-  * @brief checks if the subscriber is correctly initialized
-  @ @return bool value indicating true for success
-  */
-  bool isInitialized() const
-  {
-    return subPtr_->isInitialized();
-  }
+  /** Descriptive name, unique among the driver's subscribers. */
+  virtual std::string name() const = 0;
 
-  /**
-  * @brief initializes/resets the subscriber into ROS with a given Node,
-  * this will be called at first for initialization
-  * @param node rclcpp::Node pointer object used to create the subscriber
-  */
-  void reset(rclcpp::Node * node)
-  {
-    RCLCPP_DEBUG_STREAM(naoqi::helpers::Node::get_logger(), name() << " is resetting");
-    subPtr_->reset(node);
-    RCLCPP_DEBUG_STREAM(naoqi::helpers::Node::get_logger(), name() << " reset");
-  }
+  /** Topic subscribed to. */
+  virtual std::string topic() const = 0;
 
-  /**
-  * @brief getting the descriptive name for this subscriber instance
-  * @return string with the name
-  */
-  std::string name() const
-  {
-    return subPtr_->name();
-  }
+  virtual bool isInitialized() const = 0;
 
-  /**
-  * @brief getting the topic to subscriber on
-  * @return string indicating the topic
-  */
-  std::string topic() const
-  {
-    return subPtr_->topic();
-  }
-
-  friend bool operator==(const Subscriber & lhs, const Subscriber & rhs)
-  {
-    // decision made for OR-comparison since we want to be more restrictive
-    return lhs.name() == rhs.name() || lhs.topic() == rhs.topic();
-  }
-
-private:
-  /**
-  * BASE concept struct
-  */
-  struct SubscriberConcept
-  {
-    virtual ~SubscriberConcept() = default;
-    virtual bool isInitialized() const = 0;
-    virtual void reset(rclcpp::Node * node) = 0;
-    virtual std::string name() const = 0;
-    virtual std::string topic() const = 0;
-  };
-
-  /**
-  * templated instances of base concept
-  */
-  template<typename T>
-  struct SubscriberModel : public SubscriberConcept
-  {
-    SubscriberModel(const T & other)
-    : subscriber_(other)
-    {}
-
-    std::string name() const override
-    {
-      return subscriber_->name();
-    }
-
-    std::string topic() const override
-    {
-      return subscriber_->topic();
-    }
-
-    bool isInitialized() const override
-    {
-      return subscriber_->isInitialized();
-    }
-
-    void reset(rclcpp::Node * node) override
-    {
-      subscriber_->reset(node);
-    }
-
-    T subscriber_;
-  };
-
-  std::shared_ptr<SubscriberConcept> subPtr_;
-
-}; // class subscriber
+  /** Creates (or re-creates) the subscription on the given node. */
+  virtual void reset(rclcpp::Node * node) = 0;
+};
 
 }  // namespace subscriber
 }  // namespace naoqi

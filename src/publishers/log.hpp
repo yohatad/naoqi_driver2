@@ -56,7 +56,7 @@ public:
   // check whether a real copy of the log message should be more safe
   // remove const ref here
 
-  inline bool isSubscribed() const override
+  bool isSubscribed() const override
   {
     // We assume it is essential
     return true;

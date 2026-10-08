@@ -21,6 +21,7 @@
 /*
 * ROS includes
 */
+#include <naoqi_driver/publisher/publisher.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/range.hpp>
 #include <naoqi_driver/ros_helpers.hpp>
@@ -30,26 +31,26 @@ namespace naoqi
 namespace publisher
 {
 
-class SonarPublisher
+class SonarPublisher : public Publisher
 {
 public:
   SonarPublisher(const std::vector<std::string> & topics);
 
-  inline std::string topic() const
+  std::string topic() const override
   {
     return "sonar";
   }
 
-  inline bool isInitialized() const
+  bool isInitialized() const override
   {
     return is_initialized_;
   }
 
   void publish(const std::vector<sensor_msgs::msg::Range> & sonar_msgs);
 
-  void reset(rclcpp::Node * node);
+  void reset(rclcpp::Node * node) override;
 
-  inline bool isSubscribed() const
+  bool isSubscribed() const override
   {
     if (!is_initialized_) {return false;}
     for (const auto & pub : pubs_) {

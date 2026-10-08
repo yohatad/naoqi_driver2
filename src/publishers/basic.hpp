@@ -18,6 +18,7 @@
 #ifndef BASIC_PUBLISHER_HPP
 #define BASIC_PUBLISHER_HPP
 
+#include <naoqi_driver/publisher/publisher.hpp>
 #include <string>
 
 /*
@@ -32,7 +33,7 @@ namespace publisher
 {
 
 template<class T>
-class BasicPublisher
+class BasicPublisher : public Publisher
 {
 
 public:
@@ -43,17 +44,17 @@ public:
 
   virtual ~BasicPublisher() = default;
 
-  inline std::string topic() const
+  std::string topic() const override
   {
     return topic_;
   }
 
-  inline bool isInitialized() const
+  bool isInitialized() const override
   {
     return is_initialized_;
   }
 
-  virtual inline bool isSubscribed() const
+  bool isSubscribed() const override
   {
     if (!is_initialized_) {
       return false;
@@ -67,7 +68,7 @@ public:
     pub_->publish(msg);
   }
 
-  virtual void reset(rclcpp::Node * node)
+  void reset(rclcpp::Node * node) override
   {
     pub_ = node->create_publisher<T>(this->topic_, 10);
     is_initialized_ = true;

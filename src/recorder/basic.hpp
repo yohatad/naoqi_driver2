@@ -21,6 +21,7 @@
 /*
 * LOCAL includes
 */
+#include <naoqi_driver/recorder/recorder.hpp>
 #include <memory>
 #include <naoqi_driver/recorder/globalrecorder.hpp>
 #include "helpers/recorder_helpers.hpp"
@@ -37,7 +38,7 @@ namespace recorder
 {
 
 template<class T>
-class BasicRecorder
+class BasicRecorder : public Recorder
 {
 
 public:
@@ -52,22 +53,22 @@ public:
 
   virtual ~BasicRecorder() = default;
 
-  inline std::string topic() const
+  std::string topic() const override
   {
     return topic_;
   }
 
-  inline bool isInitialized() const
+  bool isInitialized() const override
   {
     return is_initialized_;
   }
 
-  inline void subscribe(bool state)
+  void subscribe(bool state) override
   {
     is_subscribed_ = state;
   }
 
-  inline bool isSubscribed() const
+  bool isSubscribed() const override
   {
     return is_subscribed_;
   }
@@ -81,7 +82,7 @@ public:
     }
   }
 
-  virtual void writeDump(const rclcpp::Time & time)
+  void writeDump(const rclcpp::Time & time) override
   {
     std::lock_guard<std::mutex> lock_write_buffer(mutex_);
     typename boost::circular_buffer<T>::iterator it;
@@ -105,7 +106,7 @@ public:
     }
   }
 
-  virtual void reset(std::shared_ptr<GlobalRecorder> gr, float conv_frequency)
+  void reset(std::shared_ptr<GlobalRecorder> gr, float conv_frequency) override
   {
     gr_ = gr;
     conv_frequency_ = conv_frequency;
@@ -120,7 +121,7 @@ public:
     is_initialized_ = true;
   }
 
-  virtual void setBufferDuration(float duration)
+  void setBufferDuration(float duration) override
   {
     std::lock_guard<std::mutex> lock_bufferize(mutex_);
     buffer_size_ = static_cast<size_t>(duration * (conv_frequency_ / max_counter_));

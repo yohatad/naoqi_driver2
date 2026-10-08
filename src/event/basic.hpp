@@ -18,6 +18,7 @@
 #ifndef EVENT_REGISTER_HPP
 #define EVENT_REGISTER_HPP
 
+#include <naoqi_driver/event/event.hpp>
 #include <string>
 
 #include <memory>
@@ -42,7 +43,7 @@ namespace naoqi
 * thus each possible publisher instance has to implement the virtual functions mentioned in the concept
 */
 template<typename Converter, typename Publisher, typename Recorder>
-class EventRegister
+class EventRegister : public event::Event
 {
 
 public:
@@ -51,20 +52,20 @@ public:
   */
   EventRegister();
   EventRegister(const std::string & key, const qi::SessionPtr & session);
-  ~EventRegister();
+  ~EventRegister() override;
 
-  void resetPublisher(rclcpp::Node * node);
-  void resetRecorder(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr);
+  void resetPublisher(rclcpp::Node * node) override;
+  void resetRecorder(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr) override;
 
-  void startProcess();
-  void stopProcess();
+  void startProcess() override;
+  void stopProcess() override;
 
-  void writeDump(const rclcpp::Time & time);
-  void setBufferDuration(float duration);
+  void writeDump(const rclcpp::Time & time) override;
+  void setBufferDuration(float duration) override;
 
-  void isRecording(bool state);
-  void isPublishing(bool state);
-  void isDumping(bool state);
+  void isRecording(bool state) override;
+  void isPublishing(bool state) override;
+  void isDumping(bool state) override;
 
 private:
   void registerCallback();

@@ -44,11 +44,11 @@ class InfoConverter : public BaseConverter<InfoConverter>
 public:
   InfoConverter(const std::string & name, float frequency, const qi::SessionPtr & sessions);
 
-  void reset();
+  void reset() override;
 
   void registerCallback(const message_actions::MessageAction action, Callback_t cb);
 
-  void callAll(const std::vector<message_actions::MessageAction> & actions);
+  void callAll(const std::vector<message_actions::MessageAction> & actions) override;
 
 private:
   /** Memory (Proxy) configurations */

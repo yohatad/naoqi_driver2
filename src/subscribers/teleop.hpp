@@ -47,7 +47,7 @@ public:
     const qi::SessionPtr & session);
   ~TeleopSubscriber() override = default;
 
-  void reset(rclcpp::Node * node);
+  void reset(rclcpp::Node * node) override;
   void cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr twist_msg);
   void jointAnglesCallback(const naoqi_bridge_msgs::msg::JointAnglesWithSpeed::SharedPtr js_msg);
   void jointAngleTrajCallback(

@@ -62,9 +62,9 @@ public:
 
   void registerCallback(message_actions::MessageAction action, Callback_t cb);
 
-  void callAll(const std::vector<message_actions::MessageAction> & actions);
+  void callAll(const std::vector<message_actions::MessageAction> & actions) override;
 
-  void reset();
+  void reset() override;
 
   void setLaserRanges(float range_min, float range_max);
 

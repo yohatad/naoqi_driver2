@@ -18,14 +18,11 @@
 #ifndef EVENT_HPP
 #define EVENT_HPP
 
-#include <string>
-
 #include <memory>
 
 #include <rclcpp/rclcpp.hpp>
-#include <naoqi_driver/message_actions.h>
+
 #include <naoqi_driver/recorder/globalrecorder.hpp>
-#include <naoqi_driver/tools.hpp>
 
 namespace naoqi
 {
@@ -33,148 +30,35 @@ namespace event
 {
 
 /**
-* @brief Event concept interface
-* @note this defines an private concept struct,
-* which each instance has to implement
-* @note a type erasure pattern in implemented here to avoid strict inheritance,
-* thus each possible event instance has to implement the virtual functions mentioned in the concept
-*/
+ * @brief Publishes and records data that NAOqi pushes as it happens (audio buffers,
+ * touch and memory events), as opposed to converters, which poll on a schedule.
+ */
 class Event
 {
-
 public:
-  /**
-  * @brief Constructor for event interface
-  */
-  template<typename T>
-  Event(T event)
-  : eventPtr_(std::make_shared<EventModel<T>>(event) )
-  {}
+  virtual ~Event() = default;
 
-  void resetPublisher(rclcpp::Node * node)
-  {
-    eventPtr_->resetPublisher(node);
-  }
+  /** Creates (or re-creates) the ROS publisher on the given node. */
+  virtual void resetPublisher(rclcpp::Node * node) = 0;
 
-  void resetRecorder(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr)
-  {
-    eventPtr_->resetRecorder(gr);
-  }
+  /** Attaches the shared bag state. */
+  virtual void resetRecorder(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr) = 0;
 
-  void startProcess()
-  {
-    eventPtr_->startProcess();
-  }
+  /** Starts / stops listening to NAOqi. */
+  virtual void startProcess() = 0;
+  virtual void stopProcess() = 0;
 
-  void stopProcess()
-  {
-    eventPtr_->stopProcess();
-  }
+  /** Writes the buffered messages to the bag. */
+  virtual void writeDump(const rclcpp::Time & time) = 0;
 
-  void writeDump(const rclcpp::Time & time)
-  {
-    eventPtr_->writeDump(time);
-  }
+  /** Seconds of messages kept for writeDump(). */
+  virtual void setBufferDuration(float duration) = 0;
 
-  void setBufferDuration(float duration)
-  {
-    eventPtr_->setBufferDuration(duration);
-  }
-
-  void isRecording(bool state)
-  {
-    eventPtr_->isRecording(state);
-  }
-
-  void isPublishing(bool state)
-  {
-    eventPtr_->isPublishing(state);
-  }
-
-  void isDumping(bool state)
-  {
-    eventPtr_->isDumping(state);
-  }
-
-private:
-  /**
-  * BASE concept struct
-  */
-  struct EventConcept
-  {
-    virtual ~EventConcept() = default;
-    virtual void resetPublisher(rclcpp::Node * node) = 0;
-    virtual void resetRecorder(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr) = 0;
-    virtual void startProcess() = 0;
-    virtual void stopProcess() = 0;
-    virtual void writeDump(const rclcpp::Time & time) = 0;
-    virtual void setBufferDuration(float duration) = 0;
-    virtual void isRecording(bool state) = 0;
-    virtual void isPublishing(bool state) = 0;
-    virtual void isDumping(bool state) = 0;
-  };
-
-  /**
-  * templated instances of base concept
-  */
-  template<typename T>
-  struct EventModel : public EventConcept
-  {
-    EventModel(const T & other)
-    : converter_(other)
-    {}
-
-    void resetPublisher(rclcpp::Node * node) override
-    {
-      converter_->resetPublisher(node);
-    }
-
-    void resetRecorder(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr) override
-    {
-      converter_->resetRecorder(gr);
-    }
-
-    void startProcess() override
-    {
-      converter_->startProcess();
-    }
-
-    void stopProcess() override
-    {
-      converter_->stopProcess();
-    }
-
-    void writeDump(const rclcpp::Time & time) override
-    {
-      converter_->writeDump(time);
-    }
-
-    void setBufferDuration(float duration) override
-    {
-      converter_->setBufferDuration(duration);
-    }
-
-    void isRecording(bool state) override
-    {
-      converter_->isRecording(state);
-    }
-
-    void isPublishing(bool state) override
-    {
-      converter_->isPublishing(state);
-    }
-
-    void isDumping(bool state) override
-    {
-      converter_->isDumping(state);
-    }
-
-    T converter_;
-  };
-
-  std::shared_ptr<EventConcept> eventPtr_;
-
-};  // class Event
+  /** Which actions run on each new message. */
+  virtual void isRecording(bool state) = 0;
+  virtual void isPublishing(bool state) = 0;
+  virtual void isDumping(bool state) = 0;
+};
 
 }  // namespace event
 }  // namespace naoqi

@@ -185,3 +185,21 @@ TEST_F(RecorderTest, GlobalRecorderConcurrentStartStopAndWriteDoNotDeadlock)
 
   EXPECT_FALSE(global.isStarted());
 }
+
+TEST_F(RecorderTest, BasicRecorderWorksThroughTheRecorderInterface)
+{
+  // The driver only sees recorders as recorder::Recorder.
+  std::shared_ptr<naoqi::recorder::Recorder> rec = std::make_shared<ProbeRecorder>("imu");
+  auto global = std::make_shared<GlobalRecorder>("naoqi_driver");
+
+  EXPECT_FALSE(rec->isInitialized());
+  rec->reset(global, 10.f);
+  EXPECT_TRUE(rec->isInitialized());
+  EXPECT_EQ(rec->topic(), "imu");
+
+  rec->subscribe(true);
+  EXPECT_TRUE(rec->isSubscribed());
+  rec->setBufferDuration(2.f);
+  EXPECT_EQ(std::static_pointer_cast<ProbeRecorder>(rec)->capacity(), 20u);
+  EXPECT_NO_THROW(rec->writeDump(node_->now()));
+}

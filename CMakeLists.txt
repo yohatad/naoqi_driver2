@@ -105,6 +105,7 @@ set(
 set(
   DRIVER_SRC
   src/naoqi_driver.cpp
+  src/boot_config.cpp
   src/helpers/driver_helpers.cpp
   src/helpers/ros_helpers.cpp
   src/recorder/globalrecorder.cpp
@@ -197,6 +198,7 @@ if(BUILD_TESTING)
   function(naoqi_driver_add_test name)
     ament_add_gtest(${name} test/${name}.cpp TIMEOUT 120)
     target_include_directories(${name} PRIVATE test)
+    target_compile_definitions(${name} PRIVATE NAOQI_DRIVER_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
     target_link_libraries(${name} naoqi_driver Boost::filesystem ${naoqi_libqi_LIBRARIES})
     ament_target_dependencies(${name}
       rclcpp
@@ -211,9 +213,11 @@ if(BUILD_TESTING)
   naoqi_driver_add_test(test_string_helpers)
   naoqi_driver_add_test(test_filesystem_helpers)
   naoqi_driver_add_test(test_camera_info)
-  naoqi_driver_add_test(test_type_erasure)
+  naoqi_driver_add_test(test_boost_ownership)
   naoqi_driver_add_test(test_recorder)
   naoqi_driver_add_test(test_driver)
+  naoqi_driver_add_test(test_route_actions)
+  naoqi_driver_add_test(test_boot_config)
   naoqi_driver_add_test(test_recorder_state)
   naoqi_driver_add_test(test_log_source)
   naoqi_driver_add_test(test_naoqi_image)

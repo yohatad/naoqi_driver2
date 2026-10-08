@@ -26,6 +26,7 @@
 /*
  * LOCAL includes
  */
+#include <naoqi_driver/subscriber/subscriber.hpp>
 #include <naoqi_driver/tools.hpp>
 #include "helpers/driver_helpers.hpp"
 
@@ -36,7 +37,7 @@ namespace subscriber
 
 // CRTP
 template<class T>
-class BaseSubscriber
+class BaseSubscriber : public Subscriber
 {
 
 public:
@@ -50,17 +51,17 @@ public:
 
   virtual ~BaseSubscriber() = default;
 
-  inline std::string name() const
+  std::string name() const override
   {
     return name_;
   }
 
-  inline std::string topic() const
+  std::string topic() const override
   {
     return topic_;
   }
 
-  inline bool isInitialized() const
+  bool isInitialized() const override
   {
     return is_initialized_;
   }

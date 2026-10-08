@@ -21,6 +21,7 @@
 /*
 * ROS includes
 */
+#include <naoqi_driver/publisher/publisher.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <image_transport/image_transport.hpp>
 #include <sensor_msgs/msg/image.hpp>
@@ -33,19 +34,19 @@ namespace naoqi
 namespace publisher
 {
 
-class CameraPublisher
+class CameraPublisher : public Publisher
 {
 public:
   CameraPublisher(const std::string & topic, int camera_source);
 
   ~CameraPublisher();
 
-  inline std::string topic() const
+  std::string topic() const override
   {
     return topic_;
   }
 
-  inline bool isInitialized() const
+  bool isInitialized() const override
   {
     return is_initialized_;
   }
@@ -54,9 +55,9 @@ public:
     const sensor_msgs::msg::Image::SharedPtr & img,
     const sensor_msgs::msg::CameraInfo & camera_info);
 
-  void reset(rclcpp::Node * node);
+  void reset(rclcpp::Node * node) override;
 
-  inline bool isSubscribed() const
+  bool isSubscribed() const override
   {
     if (!is_initialized_) {
       return false;

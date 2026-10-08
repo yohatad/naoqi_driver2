@@ -48,9 +48,9 @@ public:
 
   void registerCallback(message_actions::MessageAction action, Callback_t cb);
 
-  void callAll(const std::vector<message_actions::MessageAction> & actions);
+  void callAll(const std::vector<message_actions::MessageAction> & actions) override;
 
-  void reset();
+  void reset() override;
 
   // Method to reset odometry offset (uses instance's motion proxy)
   void resetOdometry();

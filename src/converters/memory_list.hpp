@@ -46,7 +46,7 @@ public:
     const std::vector<std::string> & key_list, const std::string & name,
     float frequency, const qi::SessionPtr & session);
 
-  virtual void reset();
+  void reset() override;
 
   void registerCallback(const message_actions::MessageAction action, Callback_t cb);
 

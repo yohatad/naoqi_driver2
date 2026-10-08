@@ -18,10 +18,7 @@
 #ifndef PUBLISHER_HPP
 #define PUBLISHER_HPP
 
-#include <naoqi_driver/ros_helpers.hpp>
 #include <string>
-
-#include <memory>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -30,126 +27,23 @@ namespace naoqi
 namespace publisher
 {
 
-/**
-* @brief Publisher concept interface
-* @note this defines an private concept struct,
-* which each instance has to implement
-* @note a type erasure pattern in implemented here to avoid strict inheritance,
-* thus each possible publisher instance has to implement the virtual functions mentioned in the concept
-*/
+/** @brief A ROS publisher fed by a converter. */
 class Publisher
 {
-
 public:
-  /**
-  * @brief Constructor for publisher interface
-  */
-  template<typename T>
-  Publisher(const T & pub)
-  : pubPtr_(std::make_shared<PublisherModel<T>>(pub) )
-  {}
+  virtual ~Publisher() = default;
 
-  /**
-  * @brief checks if the publisher is correctly initialized on the ros-master
-  @ @return bool value indicating true for success
-  */
-  bool isInitialized() const
-  {
-    return pubPtr_->isInitialized();
-  }
+  /** Topic published on. */
+  virtual std::string topic() const = 0;
 
-  /**
-  * @brief checks if the publisher has a subscription and is hence allowed to publish
-  * @return bool value indicating true for number of sub > 0
-  */
-  bool isSubscribed() const
-  {
-    return pubPtr_->isSubscribed();
-  }
+  virtual bool isInitialized() const = 0;
 
-  /**
-  * @brief initializes/resets the publisher into ROS with a given Node object,
-  * this will be called at first for initialization
-  * @param node rclcpp::Node pointer from which the publisher is created
-  */
-  void reset(rclcpp::Node * node)
-  {
-    RCLCPP_DEBUG_STREAM(naoqi::helpers::Node::get_logger(), topic() << " is resetting");
-    pubPtr_->reset(node);
-    RCLCPP_DEBUG_STREAM(naoqi::helpers::Node::get_logger(), topic() << " reset");
-  }
+  /** True when someone listens, so the converter is worth running. */
+  virtual bool isSubscribed() const = 0;
 
-  /**
-  * @brief getting the topic to publish on
-  * @return string indicating the topic
-  */
-  std::string topic() const
-  {
-    return pubPtr_->topic();
-  }
-
-  friend bool operator==(const Publisher & lhs, const Publisher & rhs)
-  {
-    // decision made for OR-comparison since we want to be more restrictive
-    return lhs.topic() == rhs.topic();
-  }
-
-  friend bool operator==(
-    const std::shared_ptr<Publisher> & lhs,
-    const std::shared_ptr<Publisher> & rhs)
-  {
-    return operator==(*lhs, *rhs);
-  }
-
-private:
-  /**
-  * BASE concept struct
-  */
-  struct PublisherConcept
-  {
-    virtual ~PublisherConcept() = default;
-    virtual bool isInitialized() const = 0;
-    virtual bool isSubscribed() const = 0;
-    virtual void reset(rclcpp::Node * node) = 0;
-    virtual std::string topic() const = 0;
-  };
-
-  /**
-  * templated instances of base concept
-  */
-  template<typename T>
-  struct PublisherModel : public PublisherConcept
-  {
-    PublisherModel(const T & other)
-    : publisher_(other)
-    {}
-
-    std::string topic() const override
-    {
-      return publisher_->topic();
-    }
-
-    bool isInitialized() const override
-    {
-      return publisher_->isInitialized();
-    }
-
-    bool isSubscribed() const override
-    {
-      return publisher_->isSubscribed();
-    }
-
-    void reset(rclcpp::Node * node) override
-    {
-      publisher_->reset(node);
-    }
-
-    T publisher_;
-  };
-
-  std::shared_ptr<PublisherConcept> pubPtr_;
-
-}; // class publisher
+  /** Creates (or re-creates) the ROS publisher on the given node. */
+  virtual void reset(rclcpp::Node * node) = 0;
+};
 
 }  // namespace publisher
 }  // namespace naoqi

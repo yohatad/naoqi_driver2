@@ -21,6 +21,7 @@
 /*
 * LOCAL includes
 */
+#include <naoqi_driver/converter/converter.hpp>
 #include <naoqi_driver/tools.hpp>
 #include "helpers/driver_helpers.hpp"
 
@@ -37,7 +38,7 @@ namespace converter
 
 // CRTP
 template<class T>
-class BaseConverter
+class BaseConverter : public Converter
 {
 
 public:
@@ -52,12 +53,12 @@ public:
 
   virtual ~BaseConverter() = default;
 
-  inline std::string name() const
+  std::string name() const override
   {
     return name_;
   }
 
-  inline float frequency() const
+  float frequency() const override
   {
     return frequency_;
   }

@@ -28,6 +28,7 @@
 #include <naoqi_driver/message_actions.h>
 
 #include "audio.hpp"
+#include "helpers/boost_ownership.hpp"
 
 namespace naoqi
 {
@@ -204,6 +205,12 @@ void AudioEventRegister::processRemote(
     }
   }
 
+}
+
+std::shared_ptr<AudioEventRegister> makeAudioEventRegister(
+  const std::string & name, float frequency, const qi::SessionPtr & session)
+{
+  return helpers::shareBoostOwned(boost::make_shared<AudioEventRegister>(name, frequency, session));
 }
 
 }  // namespace naoqi

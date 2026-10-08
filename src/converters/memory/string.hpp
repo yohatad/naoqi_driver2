@@ -45,11 +45,11 @@ public:
     const std::string & name, float frequency,
     const qi::SessionPtr & session, const std::string & memory_key);
 
-  void reset();
+  void reset() override;
 
   void registerCallback(const message_actions::MessageAction action, Callback_t cb);
 
-  void callAll(const std::vector<message_actions::MessageAction> & actions);
+  void callAll(const std::vector<message_actions::MessageAction> & actions) override;
 
 private:
   bool convert();

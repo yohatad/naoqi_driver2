@@ -18,6 +18,7 @@
 #ifndef GET_LANGUAGE_SERVICE_HPP
 #define GET_LANGUAGE_SERVICE_HPP
 
+#include <naoqi_driver/service/service.hpp>
 #include <iostream>
 
 #include <rclcpp/rclcpp.hpp>
@@ -30,7 +31,7 @@ namespace naoqi
 namespace service
 {
 
-class GetLanguageService
+class GetLanguageService : public Service
 {
 public:
   GetLanguageService(
@@ -39,17 +40,17 @@ public:
 
   ~GetLanguageService() = default;
 
-  std::string name() const
+  std::string name() const override
   {
     return name_;
   }
 
-  std::string topic() const
+  std::string topic() const override
   {
     return topic_;
   }
 
-  void reset(rclcpp::Node * node);
+  void reset(rclcpp::Node * node) override;
 
   void callback(
     const std::shared_ptr<naoqi_bridge_msgs::srv::GetString::Request> req,

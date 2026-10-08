@@ -38,7 +38,9 @@
 /*
 * PUBLIC INTERFACE
 */
+#include <naoqi_driver/boot_config.hpp>
 #include <naoqi_driver/converter/converter.hpp>
+#include <naoqi_driver/converter/route_actions.hpp>
 #include <naoqi_driver/publisher/publisher.hpp>
 #include <naoqi_driver/subscriber/subscriber.hpp>
 #include <naoqi_driver/service/service.hpp>
@@ -115,38 +117,44 @@ public:
    * @brief registers generall converter units
    * they are connected via callbacks to various actions such as record, log, publish
    */
-  void registerConverter(converter::Converter & conv);
+  void registerConverter(std::shared_ptr<converter::Converter> conv);
 
   /**
    * @brief prepare and register a publisher
    * @param conv_name the name of the converter related to the publisher
    * @param pub       the publisher to add
    */
-  void registerPublisher(const std::string & conv_name, publisher::Publisher & pub);
+  void registerPublisher(const std::string & conv_name, std::shared_ptr<publisher::Publisher> pub);
 
   /**
    * @brief prepare and register a recorder
    * @param conv_name the name of the converter related to the recorder
    * @param rec       the recorder to add
    */
-  void registerRecorder(const std::string & conv_name, recorder::Recorder & rec, float frequency);
+  void registerRecorder(
+    const std::string & conv_name, std::shared_ptr<recorder::Recorder> rec,
+    float frequency);
 
   /**
    * @brief register a converter with an associated publisher and recorder
    */
   void registerConverter(
-    converter::Converter conv, publisher::Publisher pub,
-    recorder::Recorder rec);
+    std::shared_ptr<converter::Converter> conv, std::shared_ptr<publisher::Publisher> pub,
+    std::shared_ptr<recorder::Recorder> rec);
 
   /**
    * @brief register a converter with an associated publisher instance
    */
-  void registerPublisher(converter::Converter conv, publisher::Publisher pub);
+  void registerPublisher(
+    std::shared_ptr<converter::Converter> conv,
+    std::shared_ptr<publisher::Publisher> pub);
 
   /**
    * @brief register a converter with an associated recorder instance
    */
-  void registerRecorder(converter::Converter conv, recorder::Recorder rec);
+  void registerRecorder(
+    std::shared_ptr<converter::Converter> conv,
+    std::shared_ptr<recorder::Recorder> rec);
 
   /**
    * @brief qicli call function to register a converter for a given memory key
@@ -182,7 +190,7 @@ public:
   * @note it will be called by value to expose that internally there will be a copy,
   * eventually this should be replaced by move semantics C++11
   */
-  void registerSubscriber(subscriber::Subscriber sub);
+  void registerSubscriber(std::shared_ptr<subscriber::Subscriber> sub);
 
   /**
    * @brief registers a service
@@ -191,7 +199,7 @@ public:
    * @note it will be called by value to expose that internally there will be a copy,
    * eventually this should be replaced by move semantics C++11
    */
-  void registerService(service::Service srv);
+  void registerService(std::shared_ptr<service::Service> srv);
 
   /**
   * @brief qicli call function to start/enable publishing all registered publisher
@@ -250,31 +258,39 @@ private:
   std::shared_ptr<recorder::GlobalRecorder> recorder_;
 
   /* boot config */
-  boost::property_tree::ptree boot_config_;
+  BootConfig boot_config_;
   void loadBootConfig();
 
   void registerDefaultConverter();
+  // Groups called by registerDefaultConverter(), in registration order.
+  void registerStatusConverters(const BootConfig & config);  // info, NAOqi logs, diagnostics
+  void registerImuConverters(const BootConfig & config);
+  void registerCameraConverters(const BootConfig & config);
+  void registerMotionConverters(const BootConfig & config);  // joint states, laser, sonar, odom
+  void registerEventRegisters(const BootConfig & config);  // audio, bumpers, hand and head touch
+  /** Adds an event register, starting it and enabling publishing if the driver already is. */
+  void startEventRegister(const std::string & name, std::shared_ptr<event::Event> event);
   void registerDefaultSubscriber();
   void registerDefaultServices();
-  void insertEventConverter(const std::string & key, event::Event event);
+  void insertEventConverter(const std::string & key, std::shared_ptr<event::Event> event);
 
-  template<typename T1, typename T2, typename T3>
-  void _registerMemoryConverter(const std::string & key, float frequency)
+  /** Routes the converter's actions to the publisher and recorder, then registers them. */
+  template<typename Converter, typename Publisher, typename Recorder>
+  void wireConverter(
+    std::shared_ptr<Converter> converter, std::shared_ptr<Publisher> publisher,
+    std::shared_ptr<Recorder> recorder)
   {
-    std::shared_ptr<T1> mfp = std::make_shared<T1>(key);
-    std::shared_ptr<T2> mfr = std::make_shared<T2>(key);
-    std::shared_ptr<T3> mfc = std::make_shared<T3>(key, frequency, session_, key);
-    mfc->registerCallback(
-      message_actions::PUBLISH,
-      std::bind(&T1::publish, mfp, std::placeholders::_1) );
-    mfc->registerCallback(
-      message_actions::RECORD,
-      std::bind(&T2::write, mfr, std::placeholders::_1) );
-    mfc->registerCallback(
-      message_actions::LOG, std::bind(
-        &T2::bufferize, mfr,
-        std::placeholders::_1) );
-    registerConverter(mfc, mfp, mfr);
+    converter::routeActions(*converter, publisher, recorder);
+    registerConverter(converter, publisher, recorder);
+  }
+
+  template<typename Publisher, typename Recorder, typename Converter>
+  void registerTypedMemoryConverter(const std::string & key, float frequency)
+  {
+    wireConverter(
+      std::make_shared<Converter>(key, frequency, session_, key),
+      std::make_shared<Publisher>(key),
+      std::make_shared<Recorder>(key));
   }
 
   void rosIteration();
@@ -282,13 +298,13 @@ private:
   std::mutex mutex_conv_queue_;
   std::mutex mutex_record_;
 
-  std::vector<converter::Converter> converters_;
-  std::map<std::string, publisher::Publisher> pub_map_;
-  std::map<std::string, recorder::Recorder> rec_map_;
-  std::map<std::string, event::Event> event_map_;
+  std::vector<std::shared_ptr<converter::Converter>> converters_;
+  std::map<std::string, std::shared_ptr<publisher::Publisher>> pub_map_;
+  std::map<std::string, std::shared_ptr<recorder::Recorder>> rec_map_;
+  std::map<std::string, std::shared_ptr<event::Event>> event_map_;
 
-  std::vector<subscriber::Subscriber> subscribers_;
-  std::vector<service::Service> services_;
+  std::vector<std::shared_ptr<subscriber::Subscriber>> subscribers_;
+  std::vector<std::shared_ptr<service::Service>> services_;
 
   float buffer_duration_;
 

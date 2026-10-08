@@ -49,9 +49,9 @@ class DiagnosticsConverter : public BaseConverter<DiagnosticsConverter>
 public:
   DiagnosticsConverter(const std::string & name, float frequency, const qi::SessionPtr & session);
 
-  void reset();
+  void reset() override;
 
-  void callAll(const std::vector<message_actions::MessageAction> & actions);
+  void callAll(const std::vector<message_actions::MessageAction> & actions) override;
 
   void registerCallback(const message_actions::MessageAction action, Callback_t cb);
 

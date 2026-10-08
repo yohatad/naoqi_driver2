@@ -29,6 +29,8 @@
 
 #include <qi/session.hpp>
 
+#include <naoqi_driver/event/event.hpp>
+
 #include <rclcpp/rclcpp.hpp>
 #include <naoqi_bridge_msgs/msg/audio_buffer.h>
 #include <naoqi_driver/ros_helpers.hpp>
@@ -50,32 +52,31 @@ namespace naoqi
 * @brief Streams the robot microphones as naoqi_bridge_msgs/AudioBuffer.
 * @note Registered as a qi service, so ALAudioDevice pushes buffers into processRemote().
 */
-// Stays on boost::enable_shared_from_this: startProcess() registers this object as a
-// qi service, and qi::Object can only be built from a boost::shared_ptr.
-class AudioEventRegister : public boost::enable_shared_from_this<AudioEventRegister>
+// Must be owned by a boost::shared_ptr: startProcess() registers this object as a qi
+// service, and qi::Object can only be built from one. Create it with
+// makeAudioEventRegister().
+class AudioEventRegister
+  : public boost::enable_shared_from_this<AudioEventRegister>, public event::Event
 {
 
 public:
-  /**
-  * @brief Constructor for recorder interface
-  */
   AudioEventRegister(
     const std::string & name, float frequency,
     const qi::SessionPtr & session);
-  ~AudioEventRegister();
+  ~AudioEventRegister() override;
 
-  void resetPublisher(rclcpp::Node * node);
-  void resetRecorder(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr);
+  void resetPublisher(rclcpp::Node * node) override;
+  void resetRecorder(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr) override;
 
-  void startProcess();
-  void stopProcess();
+  void startProcess() override;
+  void stopProcess() override;
 
-  void writeDump(const rclcpp::Time & time);
-  void setBufferDuration(float duration);
+  void writeDump(const rclcpp::Time & time) override;
+  void setBufferDuration(float duration) override;
 
-  void isRecording(bool state);
-  void isPublishing(bool state);
-  void isDumping(bool state);
+  void isRecording(bool state) override;
+  void isPublishing(bool state) override;
+  void isDumping(bool state) override;
 
   void processRemote(
     int nbOfChannels, int samplesByChannel, qi::AnyValue altimestamp,
@@ -92,7 +93,6 @@ private:
   recorder::BasicEventRecorder<naoqi_bridge_msgs::msg::AudioBuffer> recorder_;
   converter::AudioEventConverter converter_;
   qi::AnyObject p_audio_;
-  qi::FutureSync<qi::AnyObject> p_audio_extractor_request_;
   std::vector<uint8_t> channel_map_;
   unsigned int service_id_;
 
@@ -107,6 +107,10 @@ private:
 }; // class
 
 QI_REGISTER_OBJECT(AudioEventRegister, processRemote)
+
+/** Creates a boost-owned AudioEventRegister and returns a std::shared_ptr sharing that ownership. */
+std::shared_ptr<AudioEventRegister> makeAudioEventRegister(
+  const std::string & name, float frequency, const qi::SessionPtr & session);
 
 }  // namespace naoqi
 

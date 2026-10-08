@@ -45,7 +45,7 @@ public:
     const std::shared_ptr<tf2_ros::Buffer> & tf2_buffer);
   ~MovetoSubscriber() override = default;
 
-  void reset(rclcpp::Node * node);
+  void reset(rclcpp::Node * node) override;
   void callback(const geometry_msgs::msg::PoseStamped::SharedPtr pose_msg);
 
 private:

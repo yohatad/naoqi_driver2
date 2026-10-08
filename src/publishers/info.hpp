@@ -41,7 +41,7 @@ public:
   {
   }
 
-  inline bool isSubscribed() const override
+  bool isSubscribed() const override
   {
     return true;
   }

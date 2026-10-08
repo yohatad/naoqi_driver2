@@ -53,11 +53,11 @@ public:
 
   ~CameraConverter() override;
 
-  void reset();
+  void reset() override;
 
   void registerCallback(const message_actions::MessageAction action, Callback_t cb);
 
-  void callAll(const std::vector<message_actions::MessageAction> & actions);
+  void callAll(const std::vector<message_actions::MessageAction> & actions) override;
 
 private:
   std::map<message_actions::MessageAction, Callback_t> callbacks_;

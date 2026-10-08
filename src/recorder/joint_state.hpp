@@ -21,6 +21,7 @@
 /*
 * BOOST includes
 */
+#include <naoqi_driver/recorder/recorder.hpp>
 #include <memory>
 #include <boost/circular_buffer.hpp>
 
@@ -40,7 +41,7 @@ namespace naoqi
 namespace recorder
 {
 
-class JointStateRecorder
+class JointStateRecorder : public Recorder
 {
 
 public:
@@ -50,32 +51,32 @@ public:
     const sensor_msgs::msg::JointState & js_msg,
     const std::vector<geometry_msgs::msg::TransformStamped> & tf_transforms);
 
-  void reset(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float conv_frequency);
+  void reset(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float conv_frequency) override;
 
   void bufferize(
     const sensor_msgs::msg::JointState & js_msg,
     const std::vector<geometry_msgs::msg::TransformStamped> & tf_transforms);
 
-  void writeDump(const rclcpp::Time & time);
+  void writeDump(const rclcpp::Time & time) override;
 
-  void setBufferDuration(float duration);
+  void setBufferDuration(float duration) override;
 
-  inline std::string topic() const
+  std::string topic() const override
   {
     return topic_;
   }
 
-  inline bool isInitialized() const
+  bool isInitialized() const override
   {
     return is_initialized_;
   }
 
-  inline void subscribe(bool state)
+  void subscribe(bool state) override
   {
     is_subscribed_ = state;
   }
 
-  inline bool isSubscribed() const
+  bool isSubscribed() const override
   {
     return is_subscribed_;
   }

@@ -19,12 +19,9 @@
 #define CONVERTER_HPP
 
 #include <string>
+#include <vector>
 
-#include <memory>
-
-#include <rclcpp/rclcpp.hpp>
 #include <naoqi_driver/message_actions.h>
-#include <naoqi_driver/ros_helpers.hpp>
 
 namespace naoqi
 {
@@ -32,109 +29,25 @@ namespace converter
 {
 
 /**
-* @brief Converter concept interface
-* @note this defines an private concept struct,
-* which each instance has to implement
-* @note a type erasure pattern in implemented here to avoid strict inheritance,
-* thus each possible converter instance has to implement the virtual functions mentioned in the concept
-*/
+ * @brief Turns NAOqi data into ROS messages on a schedule. Implemented through
+ * converter::BaseConverter. Each call to callAll() fetches the data once and runs the
+ * requested actions (publish, record, buffer) on it.
+ */
 class Converter
 {
-
 public:
-  /**
-  * @brief Constructor for converter interface
-  */
-  template<typename T>
-  Converter(T conv)
-  : convPtr_(std::make_shared<ConverterModel<T>>(conv) )
-  {}
+  virtual ~Converter() = default;
 
-  /**
-  * @brief getting the descriptive name for this converter instance
-  * @return string with the name
-  */
-  std::string name() const
-  {
-    return convPtr_->name();
-  }
+  /** Descriptive name; also the key of its publisher and recorder. */
+  virtual std::string name() const = 0;
 
-  /**
-  * @brief getting the assigned frequency of this converter instance
-  * @return float value indicating the frequency
-  */
-  float frequency() const
-  {
-    return convPtr_->frequency();
-  }
+  /** Hz; 0 means "run once". */
+  virtual float frequency() const = 0;
 
-  void reset()
-  {
-    convPtr_->reset();
-  }
+  virtual void reset() = 0;
 
-  void callAll(const std::vector<message_actions::MessageAction> & actions)
-  {
-    if (!actions.empty()) {
-      convPtr_->callAll(actions);
-    }
-  }
-
-  friend bool operator==(const Converter & lhs, const Converter & rhs)
-  {
-    // decision made for OR-comparison since we want to be more restrictive
-    return lhs.name() == rhs.name();
-  }
-
-private:
-  /**
-  * BASE concept struct
-  */
-  struct ConverterConcept
-  {
-    virtual ~ConverterConcept() = default;
-    virtual std::string name() const = 0;
-    virtual float frequency() const = 0;
-    virtual void reset() = 0;
-    virtual void callAll(const std::vector<message_actions::MessageAction> & actions) = 0;
-  };
-
-  /**
-  * templated instances of base concept
-  */
-  template<typename T>
-  struct ConverterModel : public ConverterConcept
-  {
-    ConverterModel(const T & other)
-    : converter_(other)
-    {}
-
-    std::string name() const override
-    {
-      return converter_->name();
-    }
-
-    float frequency() const override
-    {
-      return converter_->frequency();
-    }
-
-    void reset() override
-    {
-      converter_->reset();
-    }
-
-    void callAll(const std::vector<message_actions::MessageAction> & actions) override
-    {
-      converter_->callAll(actions);
-    }
-
-    T converter_;
-  };
-
-  std::shared_ptr<ConverterConcept> convPtr_;
-
-}; // class converter
+  virtual void callAll(const std::vector<message_actions::MessageAction> & actions) = 0;
+};
 
 }  // namespace converter
 }  // namespace naoqi

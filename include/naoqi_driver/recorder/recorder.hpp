@@ -18,13 +18,10 @@
 #ifndef RECORDER_HPP
 #define RECORDER_HPP
 
+#include <memory>
 #include <string>
 
-#include <memory>
-#include <mutex>
-
 #include <rclcpp/rclcpp.hpp>
-#include <geometry_msgs/msg/transform_stamped.hpp>
 
 #include "naoqi_driver/recorder/globalrecorder.hpp"
 
@@ -33,149 +30,31 @@ namespace naoqi
 namespace recorder
 {
 
-/**
-* @brief Recorder concept interface
-* @note this defines an private concept struct,
-* which each instance has to implement
-* @note a type erasure pattern in implemented here to avoid strict inheritance,
-* thus each possible recorder instance has to implement the virtual functions mentioned in the concept
-*/
+/** @brief Records a converter's messages and keeps a buffer of the last ones for dumps. */
 class Recorder
 {
-
 public:
-  /**
-  * @brief Constructor for recorder interface
-  */
-  template<typename T>
-  Recorder(T rec)
-  : recPtr_(std::make_shared<RecorderModel<T>>(rec) )
-  {}
+  virtual ~Recorder() = default;
 
-  /**
-  * @brief checks if the recorder is correctly initialized
-  @ @return bool value indicating true for success
-  */
-  bool isInitialized() const
-  {
-    return recPtr_->isInitialized();
-  }
+  /** Topic recorded, relative to the bag's prefix. */
+  virtual std::string topic() const = 0;
 
-  void subscribe(bool state)
-  {
-    recPtr_->subscribe(state);
-  }
+  virtual bool isInitialized() const = 0;
 
-  /**
-  * @brief checks if the recorder has a subscription and is hence allowed to record
-  * @return bool value indicating true for number of sub > 0
-  */
-  bool isSubscribed() const
-  {
-    return recPtr_->isSubscribed();
-  }
+  /** Includes this topic in, or excludes it from, the next recordings. */
+  virtual void subscribe(bool state) = 0;
 
-  std::string topic() const
-  {
-    return recPtr_->topic();
-  }
+  virtual bool isSubscribed() const = 0;
 
-  /**
-   * @brief initializes/resets the recorder into ROS with a given
-   * GlobalRecorder pointer and a frequency, this will be called at first for
-   * initialization
-   *
-   * @param gr GlobalRecorder pointer
-   * @param frequency the frequency of the recoder
-   */
-  void reset(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float frequency)
-  {
-    recPtr_->reset(gr, frequency);
-  }
+  /** Attaches the shared bag state and sizes the buffer for the converter frequency. */
+  virtual void reset(std::shared_ptr<GlobalRecorder> gr, float conv_frequency) = 0;
 
-  void writeDump(const rclcpp::Time & time)
-  {
-    recPtr_->writeDump(time);
-  }
+  /** Writes the buffered messages to the bag. */
+  virtual void writeDump(const rclcpp::Time & time) = 0;
 
-  void setBufferDuration(float duration)
-  {
-    recPtr_->setBufferDuration(duration);
-  }
-
-  friend bool operator==(const Recorder & lhs, const Recorder & rhs)
-  {
-    // decision made for OR-comparison since we want to be more restrictive
-    return lhs.topic() == rhs.topic();
-  }
-
-private:
-  /**
-  * BASE concept struct
-  */
-  struct RecorderConcept
-  {
-    virtual ~RecorderConcept() = default;
-    virtual bool isInitialized() const = 0;
-    virtual void subscribe(bool state) = 0;
-    virtual bool isSubscribed() const = 0;
-    virtual std::string topic() const = 0;
-    virtual void writeDump(const rclcpp::Time & time) = 0;
-    virtual void setBufferDuration(float duration) = 0;
-    virtual void reset(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float frequency) = 0;
-  };
-
-  /**
-  * templated instances of base concept
-  */
-  template<typename T>
-  struct RecorderModel : public RecorderConcept
-  {
-    RecorderModel(const T & other)
-    : recorder_(other)
-    {}
-
-    void reset(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float frequency) override
-    {
-      recorder_->reset(gr, frequency);
-    }
-
-    bool isInitialized() const override
-    {
-      return recorder_->isInitialized();
-    }
-
-    void subscribe(bool state) override
-    {
-      recorder_->subscribe(state);
-    }
-
-    bool isSubscribed() const override
-    {
-      return recorder_->isSubscribed();
-    }
-
-    std::string topic() const override
-    {
-      return recorder_->topic();
-    }
-
-    void writeDump(const rclcpp::Time & time) override
-    {
-      recorder_->writeDump(time);
-    }
-
-    void setBufferDuration(float duration) override
-    {
-      recorder_->setBufferDuration(duration);
-    }
-
-    T recorder_;
-  };
-
-  std::shared_ptr<RecorderConcept> recPtr_;
-
-}; // class recorder
+  /** Seconds of messages kept for writeDump(). */
+  virtual void setBufferDuration(float duration) = 0;
+};
 
 }  // namespace recorder
 }  // namespace naoqi

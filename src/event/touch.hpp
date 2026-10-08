@@ -18,6 +18,7 @@
 #ifndef TOUCH_EVENT_REGISTER_HPP
 #define TOUCH_EVENT_REGISTER_HPP
 
+#include <naoqi_driver/event/event.hpp>
 #include <string>
 #include <tuple>
 
@@ -53,7 +54,8 @@ namespace naoqi
 * thus each possible publisher instance has to implement the virtual functions mentioned in the concept
 */
 template<class T>
-class TouchEventRegister : public std::enable_shared_from_this<TouchEventRegister<T>>
+class TouchEventRegister
+  : public std::enable_shared_from_this<TouchEventRegister<T>>, public event::Event
 {
 
 public:
@@ -64,20 +66,20 @@ public:
   TouchEventRegister(
     const std::string & name, const std::vector<std::string> keys,
     float frequency, const qi::SessionPtr & session);
-  ~TouchEventRegister();
+  ~TouchEventRegister() override;
 
-  void resetPublisher(rclcpp::Node * node);
-  void resetRecorder(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr);
+  void resetPublisher(rclcpp::Node * node) override;
+  void resetRecorder(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr) override;
 
-  void startProcess();
-  void stopProcess();
+  void startProcess() override;
+  void stopProcess() override;
 
-  void writeDump(const rclcpp::Time & time);
-  void setBufferDuration(float duration);
+  void writeDump(const rclcpp::Time & time) override;
+  void setBufferDuration(float duration) override;
 
-  void isRecording(bool state);
-  void isPublishing(bool state);
-  void isDumping(bool state);
+  void isRecording(bool state) override;
+  void isPublishing(bool state) override;
+  void isDumping(bool state) override;
 
 private:
   void touchCallback(const std::string & key, const qi::AnyValue & value);

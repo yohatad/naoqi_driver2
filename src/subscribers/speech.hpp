@@ -42,7 +42,7 @@ public:
     const qi::SessionPtr & session);
   ~SpeechSubscriber() override = default;
 
-  void reset(rclcpp::Node * node);
+  void reset(rclcpp::Node * node) override;
   void speechCallback(const std_msgs::msg::String::SharedPtr msg);
 
 private:

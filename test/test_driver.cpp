@@ -78,3 +78,30 @@ TEST_F(DriverTest, MinidumpRefusesWhenLoggingIsDisabled)
     driver->minidump("unit"),
     "Log is not enabled, please enable logging before calling minidump");
 }
+
+namespace
+{
+
+/** Minimal converter, registered through the converter::Converter interface. */
+struct CountingConverter : naoqi::converter::Converter
+{
+  std::string name() const override {return "counting";}
+  float frequency() const override {return 0.f;}
+  void reset() override {++resets;}
+  void callAll(const std::vector<naoqi::message_actions::MessageAction> &) override {++calls;}
+  int resets = 0;
+  int calls = 0;
+};
+
+}  // namespace
+
+TEST_F(DriverTest, RegisteredConvertersAreResetAndListed)
+{
+  auto driver = std::make_shared<naoqi::Driver>();
+  auto converter = std::make_shared<CountingConverter>();
+  driver->registerConverter(converter);
+
+  EXPECT_EQ(converter->resets, 1);
+  const auto names = driver->getAvailableConverters();
+  EXPECT_NE(std::find(names.begin(), names.end(), "counting"), names.end());
+}

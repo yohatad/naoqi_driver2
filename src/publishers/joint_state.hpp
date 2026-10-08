@@ -21,6 +21,7 @@
 /*
 * ROS includes
 */
+#include <naoqi_driver/publisher/publisher.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/transform.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
@@ -33,18 +34,18 @@ namespace naoqi
 namespace publisher
 {
 
-class JointStatePublisher
+class JointStatePublisher : public Publisher
 {
 
 public:
   JointStatePublisher(const std::string & topic = "/joint_states");
 
-  inline std::string topic() const
+  std::string topic() const override
   {
     return topic_;
   }
 
-  inline bool isInitialized() const
+  bool isInitialized() const override
   {
     return is_initialized_;
   }
@@ -53,9 +54,9 @@ public:
     const sensor_msgs::msg::JointState & js_msg,
     const std::vector<geometry_msgs::msg::TransformStamped> & tf_transforms);
 
-  virtual void reset(rclcpp::Node * node);
+  void reset(rclcpp::Node * node) override;
 
-  virtual bool isSubscribed() const;
+  bool isSubscribed() const override;
 
 private:
   std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcasterPtr_;

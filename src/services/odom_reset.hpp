@@ -18,6 +18,7 @@
 #ifndef ODOM_RESET_SERVICE_HPP
 #define ODOM_RESET_SERVICE_HPP
 
+#include <naoqi_driver/service/service.hpp>
 #include <iostream>
 
 #include <rclcpp/rclcpp.hpp>
@@ -30,7 +31,7 @@ namespace naoqi
 namespace service
 {
 
-class OdomResetService
+class OdomResetService : public Service
 {
 public:
   OdomResetService(
@@ -39,17 +40,17 @@ public:
 
   ~OdomResetService() = default;
 
-  std::string name() const
+  std::string name() const override
   {
     return name_;
   }
 
-  std::string topic() const
+  std::string topic() const override
   {
     return topic_;
   }
 
-  void reset(rclcpp::Node * node);
+  void reset(rclcpp::Node * node) override;
 
   void callback(
     const std::shared_ptr<std_srvs::srv::Trigger::Request> req,

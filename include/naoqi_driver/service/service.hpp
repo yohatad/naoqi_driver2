@@ -18,10 +18,7 @@
 #ifndef SERVICE_HPP
 #define SERVICE_HPP
 
-#include <naoqi_driver/ros_helpers.hpp>
 #include <string>
-
-#include <memory>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -30,103 +27,21 @@ namespace naoqi
 namespace service
 {
 
-/**
-* @brief Service concept interface
-* @note this defines an private concept struct,
-* which each instance has to implement
-* @note a type erasure pattern in implemented here to avoid strict inheritance,
-* thus each possible service instance has to implement the virtual functions mentioned in the concept
-*/
+/** @brief A ROS service backed by NAOqi calls. */
 class Service
 {
-
 public:
-  /**
-  * @brief Constructor for service interface
-  */
-  template<typename T>
-  Service(T srv)
-  : srvPtr_(std::make_shared<ServiceModel<T>>(srv) )
-  {}
+  virtual ~Service() = default;
 
-  /**
-  * @brief initializes/resets the service into ROS with a given node,
-  * this will be called at first for initialization
-  * @param node rclcpp::Node pointer used to create the service
-  */
-  void reset(rclcpp::Node * node)
-  {
-    RCLCPP_DEBUG_STREAM(naoqi::helpers::Node::get_logger(), name() << " is resetting");
-    srvPtr_->reset(node);
-    RCLCPP_DEBUG_STREAM(naoqi::helpers::Node::get_logger(), name() << " reset");
-  }
+  /** Descriptive name. */
+  virtual std::string name() const = 0;
 
-  /**
-  * @brief getting the descriptive name for this service instance
-  * @return string with the name
-  */
-  std::string name() const
-  {
-    return srvPtr_->name();
-  }
+  /** Service name in the ROS graph. */
+  virtual std::string topic() const = 0;
 
-  /**
-  * @brief getting the topic to service on
-  * @return string indicating the topic
-  */
-  std::string topic() const
-  {
-    return srvPtr_->topic();
-  }
-
-private:
-  /**
-  * BASE concept struct
-  */
-  struct ServiceConcept
-  {
-    virtual ~ServiceConcept() = default;
-    virtual void reset(rclcpp::Node * node) = 0;
-    virtual std::string name() const = 0;
-    virtual std::string topic() const = 0;
-  };
-
-  /**
-  * templated instances of base concept
-  */
-  template<typename T>
-  struct ServiceModel : public ServiceConcept
-  {
-    ServiceModel(const T & other)
-    : service_(other)
-    {}
-
-    std::string name() const override
-    {
-      return service_->name();
-    }
-
-    std::string topic() const override
-    {
-      return service_->topic();
-    }
-
-    bool isInitialized() const
-    {
-      return service_->isInitialized();
-    }
-
-    void reset(rclcpp::Node * node) override
-    {
-      service_->reset(node);
-    }
-
-    T service_;
-  };
-
-  std::shared_ptr<ServiceConcept> srvPtr_;
-
-}; // class service
+  /** Creates (or re-creates) the service on the given node. */
+  virtual void reset(rclcpp::Node * node) = 0;
+};
 
 }  // namespace service
 }  // namespace naoqi
