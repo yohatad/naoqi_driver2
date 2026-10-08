@@ -18,6 +18,7 @@
 #ifndef DRIVER_AUTHENTICATOR_HPP
 #define DRIVER_AUTHENTICATOR_HPP
 
+#include <boost/make_shared.hpp>
 #include <qi/messaging/authprovider.hpp>
 
 namespace naoqi {
@@ -55,6 +56,7 @@ public:
   std::string pass;
 
   qi::ClientAuthenticatorPtr newAuthenticator() {
+    // qi::ClientAuthenticatorPtr is a boost::shared_ptr, so this must stay boost.
     return boost::make_shared<DriverAuthenticator>(user, pass);
   }
 };

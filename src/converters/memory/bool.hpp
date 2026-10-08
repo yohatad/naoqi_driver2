@@ -21,6 +21,7 @@
 /*
 * LOCAL includes
 */
+#include <functional>
 #include "../converter_base.hpp"
 #include <naoqi_driver/message_actions.h>
 #include <naoqi_driver/ros_helpers.hpp>
@@ -37,7 +38,7 @@ namespace converter
 
 class MemoryBoolConverter : public BaseConverter<MemoryBoolConverter>
 {
-  typedef boost::function<void(naoqi_bridge_msgs::msg::BoolStamped&)> Callback_t;
+  typedef std::function<void(naoqi_bridge_msgs::msg::BoolStamped&)> Callback_t;
 
 public:
 

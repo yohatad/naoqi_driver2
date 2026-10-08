@@ -20,8 +20,7 @@
 
 #include <string>
 
-#include <boost/make_shared.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 
 #include <rclcpp/rclcpp.hpp>
 #include <naoqi_driver/message_actions.h>
@@ -50,7 +49,7 @@ public:
   */
   template<typename T>
   Converter( T conv ):
-    convPtr_( boost::make_shared<ConverterModel<T> >(conv) )
+    convPtr_( std::make_shared<ConverterModel<T> >(conv) )
   {}
 
   /**
@@ -152,7 +151,7 @@ private:
     T converter_;
   };
 
-  boost::shared_ptr<ConverterConcept> convPtr_;
+  std::shared_ptr<ConverterConcept> convPtr_;
 
 }; // class converter
 

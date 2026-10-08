@@ -15,10 +15,11 @@
  *
 */
 
+#include <functional>
 #include <iostream>
 #include <vector>
 
-#include <boost/make_shared.hpp>
+#include <memory>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -45,13 +46,13 @@ TouchEventRegister<T>::TouchEventRegister( const std::string& name, const std::v
     isRecording_(false),
     isDumping_(false)
 {
-  publisher_ = boost::make_shared<publisher::BasicPublisher<T> >( name );
-  //recorder_ = boost::make_shared<recorder::BasicEventRecorder<T> >( name );
-  converter_ = boost::make_shared<converter::TouchEventConverter<T> >( name, frequency, session );
+  publisher_ = std::make_shared<publisher::BasicPublisher<T> >( name );
+  //recorder_ = std::make_shared<recorder::BasicEventRecorder<T> >( name );
+  converter_ = std::make_shared<converter::TouchEventConverter<T> >( name, frequency, session );
 
-  converter_->registerCallback( message_actions::PUBLISH, boost::bind(&publisher::BasicPublisher<T>::publish, publisher_, boost::placeholders::_1) );
-  //converter_->registerCallback( message_actions::RECORD, boost::bind(&recorder::BasicEventRecorder<T>::write, recorder_, _1) );
-  //converter_->registerCallback( message_actions::LOG, boost::bind(&recorder::BasicEventRecorder<T>::bufferize, recorder_, _1) );
+  converter_->registerCallback( message_actions::PUBLISH, std::bind(&publisher::BasicPublisher<T>::publish, publisher_, std::placeholders::_1) );
+  //converter_->registerCallback( message_actions::RECORD, std::bind(&recorder::BasicEventRecorder<T>::write, recorder_, _1) );
+  //converter_->registerCallback( message_actions::LOG, std::bind(&recorder::BasicEventRecorder<T>::bufferize, recorder_, _1) );
 
   keys_.resize(keys.size());
   size_t i = 0;
@@ -74,7 +75,7 @@ void TouchEventRegister<T>::resetPublisher(rclcpp::Node* node)
 }
 
 template<class T>
-void TouchEventRegister<T>::resetRecorder( boost::shared_ptr<naoqi::recorder::GlobalRecorder> gr )
+void TouchEventRegister<T>::resetRecorder( std::shared_ptr<naoqi::recorder::GlobalRecorder> gr )
 {
   //recorder_->reset(gr, converter_->frequency());
 }
@@ -82,7 +83,7 @@ void TouchEventRegister<T>::resetRecorder( boost::shared_ptr<naoqi::recorder::Gl
 template<class T>
 void TouchEventRegister<T>::startProcess()
 {
-  boost::mutex::scoped_lock start_lock(mutex_);
+  std::lock_guard<std::mutex> start_lock(mutex_);
   if (!isStarted_)
   {
     if (subscriptions_.empty())
@@ -100,7 +101,7 @@ void TouchEventRegister<T>::startProcess()
 template<class T>
 void TouchEventRegister<T>::stopProcess()
 {
-  boost::mutex::scoped_lock stop_lock(mutex_);
+  std::lock_guard<std::mutex> stop_lock(mutex_);
   if (isStarted_)
   {
     if (!subscriptions_.empty()){
@@ -135,21 +136,21 @@ void TouchEventRegister<T>::setBufferDuration(float duration)
 template<class T>
 void TouchEventRegister<T>::isRecording(bool state)
 {
-  boost::mutex::scoped_lock rec_lock(mutex_);
+  std::lock_guard<std::mutex> rec_lock(mutex_);
   isRecording_ = state;
 }
 
 template<class T>
 void TouchEventRegister<T>::isPublishing(bool state)
 {
-  boost::mutex::scoped_lock pub_lock(mutex_);
+  std::lock_guard<std::mutex> pub_lock(mutex_);
   isPublishing_ = state;
 }
 
 template<class T>
 void TouchEventRegister<T>::isDumping(bool state)
 {
-  boost::mutex::scoped_lock dump_lock(mutex_);
+  std::lock_guard<std::mutex> dump_lock(mutex_);
   isDumping_ = state;
 }
 
@@ -172,7 +173,7 @@ void TouchEventRegister<T>::touchCallback(const std::string &key, const qi::AnyV
   touchCallbackMessage(key, state, msg);
 
   std::vector<message_actions::MessageAction> actions;
-  boost::mutex::scoped_lock callback_lock(mutex_);
+  std::lock_guard<std::mutex> callback_lock(mutex_);
   if (isStarted_) {
     // CHECK FOR PUBLISH
     if ( isPublishing_ && publisher_->isSubscribed() )

@@ -21,6 +21,7 @@
 /*
 * LOCAL includes
 */
+#include <functional>
 #include "converter_base.hpp"
 #include <naoqi_driver/message_actions.h>
 #include <naoqi_driver/ros_helpers.hpp>
@@ -46,7 +47,7 @@ enum Location{
 class ImuConverter : public BaseConverter<ImuConverter>
 {
 
-  typedef boost::function<void(sensor_msgs::msg::Imu&) > Callback_t;
+  typedef std::function<void(sensor_msgs::msg::Imu&) > Callback_t;
 
 public:
   ImuConverter(const std::string& name, const IMU::Location& location, const float& frequency, const qi::SessionPtr& session);

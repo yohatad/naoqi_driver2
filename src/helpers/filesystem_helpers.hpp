@@ -22,9 +22,9 @@
 #include <iostream>
 #include <qi/session.hpp>
 
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/operations.hpp>
-#include <boost/algorithm/string/replace.hpp>
+#include <filesystem>
+
+#include "string_helpers.hpp"
 
 #ifdef AMENT_BUILD
 #include <ament_index_cpp/get_package_share_directory.hpp>
@@ -40,18 +40,18 @@ namespace filesystem
 static const long folderMaximumSize = 2000000000;
 
 inline void getFoldersize(std::string rootFolder, long& file_size){
-  boost::algorithm::replace_all(rootFolder, "\\\\", "\\");
-  boost::filesystem::path folderPath(rootFolder);
-  if (boost::filesystem::exists(folderPath)){
-    boost::filesystem::directory_iterator end_itr;
+  helpers::string::replaceAll(rootFolder, "\\\\", "\\");
+  std::filesystem::path folderPath(rootFolder);
+  if (std::filesystem::exists(folderPath)){
+    std::filesystem::directory_iterator end_itr;
 
-    for (boost::filesystem::directory_iterator dirIte(rootFolder); dirIte != end_itr; ++dirIte )
+    for (std::filesystem::directory_iterator dirIte(rootFolder); dirIte != end_itr; ++dirIte )
     {
-      boost::filesystem::path filePath(dirIte->path());
+      std::filesystem::path filePath(dirIte->path());
       try{
-        if (!boost::filesystem::is_directory(dirIte->status()) )
+        if (!std::filesystem::is_directory(dirIte->status()) )
         {
-          file_size = file_size + boost::filesystem::file_size(filePath);
+          file_size = file_size + std::filesystem::file_size(filePath);
         }else{
           getFoldersize(filePath.string(),file_size);
         }
@@ -62,16 +62,16 @@ inline void getFoldersize(std::string rootFolder, long& file_size){
   }
 }
 
-inline void getFiles(const boost::filesystem::path& root, const std::string& ext, std::vector<boost::filesystem::path>& ret)
+inline void getFiles(const std::filesystem::path& root, const std::string& ext, std::vector<std::filesystem::path>& ret)
 {
-  if(!boost::filesystem::exists(root) || !boost::filesystem::is_directory(root)) return;
+  if(!std::filesystem::exists(root) || !std::filesystem::is_directory(root)) return;
 
-  boost::filesystem::recursive_directory_iterator it(root);
-  boost::filesystem::recursive_directory_iterator endit;
+  std::filesystem::recursive_directory_iterator it(root);
+  std::filesystem::recursive_directory_iterator endit;
 
   while(it != endit)
   {
-    if(boost::filesystem::is_regular_file(*it) && it->path().extension() == ext)
+    if(std::filesystem::is_regular_file(*it) && it->path().extension() == ext)
     {
       ret.push_back(it->path().filename());
     }
@@ -79,15 +79,15 @@ inline void getFiles(const boost::filesystem::path& root, const std::string& ext
   }
 }
 
-inline void getFilesSize(const boost::filesystem::path& root, long& file_size)
+inline void getFilesSize(const std::filesystem::path& root, long& file_size)
 {
-  std::vector<boost::filesystem::path> files_path;
+  std::vector<std::filesystem::path> files_path;
   getFiles(root, ".bag", files_path);
-  for (std::vector<boost::filesystem::path>::const_iterator it=files_path.begin();
+  for (std::vector<std::filesystem::path>::const_iterator it=files_path.begin();
        it!=files_path.end(); it++)
   {
     try{
-      file_size = file_size + boost::filesystem::file_size(*it);
+      file_size = file_size + std::filesystem::file_size(*it);
     }catch(std::exception& e){
       std::cout << e.what() << std::endl;
     }

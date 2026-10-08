@@ -22,6 +22,7 @@
 /*
  * LOCAL includes
  */
+#include <memory>
 #include "subscriber_base.hpp"
 /*
  * ROS includes
@@ -39,7 +40,7 @@ namespace subscriber
 class MovetoSubscriber: public BaseSubscriber<MovetoSubscriber>
 {
 public:
-  MovetoSubscriber( const std::string& name, const std::string& topic, const qi::SessionPtr& session, const boost::shared_ptr<tf2_ros::Buffer>& tf2_buffer );
+  MovetoSubscriber( const std::string& name, const std::string& topic, const qi::SessionPtr& session, const std::shared_ptr<tf2_ros::Buffer>& tf2_buffer );
   ~MovetoSubscriber(){}
 
   void reset( rclcpp::Node* node );
@@ -48,7 +49,7 @@ public:
 private:
   qi::AnyObject p_motion_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_moveto_;
-  boost::shared_ptr<tf2_ros::Buffer> tf2_buffer_;
+  std::shared_ptr<tf2_ros::Buffer> tf2_buffer_;
 }; // class Teleop
 
 } // subscriber

@@ -20,8 +20,7 @@
 
 #include <string>
 
-#include <boost/make_shared.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -48,7 +47,7 @@ public:
   */
   template<typename T>
   Subscriber( T sub ):
-    subPtr_( boost::make_shared<SubscriberModel<T> >(sub) )
+    subPtr_( std::make_shared<SubscriberModel<T> >(sub) )
   {}
 
   /**
@@ -146,7 +145,7 @@ private:
     T subscriber_;
   };
 
-  boost::shared_ptr<SubscriberConcept> subPtr_;
+  std::shared_ptr<SubscriberConcept> subPtr_;
 
 }; // class subscriber
 

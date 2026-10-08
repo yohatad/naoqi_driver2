@@ -15,6 +15,7 @@
  *
 */
 
+#include <memory>
 #include <iostream>
 #include <vector>
 
@@ -87,14 +88,14 @@ void AudioEventRegister::resetPublisher(rclcpp::Node* node)
   publisher_.reset(node);
 }
 
-void AudioEventRegister::resetRecorder( boost::shared_ptr<naoqi::recorder::GlobalRecorder> gr )
+void AudioEventRegister::resetRecorder( std::shared_ptr<naoqi::recorder::GlobalRecorder> gr )
 {
   recorder_.reset(gr, converter_.frequency());
 }
 
 void AudioEventRegister::startProcess()
 {
-  boost::mutex::scoped_lock start_lock(subscription_mutex_);
+  std::lock_guard<std::mutex> start_lock(subscription_mutex_);
   if (!isStarted_)
   {
     if(!serviceId)
@@ -116,7 +117,7 @@ void AudioEventRegister::startProcess()
 
 void AudioEventRegister::stopProcess()
 {
-  boost::mutex::scoped_lock stop_lock(subscription_mutex_);
+  std::lock_guard<std::mutex> stop_lock(subscription_mutex_);
   if (isStarted_)
   {
     if(serviceId){
@@ -144,19 +145,19 @@ void AudioEventRegister::setBufferDuration(float duration)
 
 void AudioEventRegister::isRecording(bool state)
 {
-  boost::mutex::scoped_lock rec_lock(processing_mutex_);
+  std::lock_guard<std::mutex> rec_lock(processing_mutex_);
   isRecording_ = state;
 }
 
 void AudioEventRegister::isPublishing(bool state)
 {
-  boost::mutex::scoped_lock pub_lock(processing_mutex_);
+  std::lock_guard<std::mutex> pub_lock(processing_mutex_);
   isPublishing_ = state;
 }
 
 void AudioEventRegister::isDumping(bool state)
 {
-  boost::mutex::scoped_lock dump_lock(processing_mutex_);
+  std::lock_guard<std::mutex> dump_lock(processing_mutex_);
   isDumping_ = state;
 }
 
@@ -182,7 +183,7 @@ void AudioEventRegister::processRemote(int nbOfChannels, int samplesByChannel, q
   msg.data = std::vector<int16_t>(remoteBuffer, remoteBuffer+bufferSize);
 
   std::vector<message_actions::MessageAction> actions;
-  boost::mutex::scoped_lock callback_lock(processing_mutex_);
+  std::lock_guard<std::mutex> callback_lock(processing_mutex_);
   if (isStarted_) {
     // CHECK FOR PUBLISH
     if ( isPublishing_ && publisher_.isSubscribed() )

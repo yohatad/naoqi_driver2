@@ -21,6 +21,7 @@
 /*
 * LOCAL includes
 */
+#include <functional>
 #include "converter_base.hpp"
 #include <naoqi_driver/message_actions.h>
 #include <naoqi_driver/ros_helpers.hpp>
@@ -38,7 +39,7 @@ namespace converter
 class SonarConverter : public BaseConverter<SonarConverter>
 {
 
-  typedef boost::function<void(std::vector<sensor_msgs::msg::Range>&)> Callback_t;
+  typedef std::function<void(std::vector<sensor_msgs::msg::Range>&)> Callback_t;
 
 
 public:

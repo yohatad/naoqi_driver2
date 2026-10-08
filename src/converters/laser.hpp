@@ -21,6 +21,7 @@
 /*
 * LOCAL includes
 */
+#include <functional>
 #include "converter_base.hpp"
 #include <naoqi_driver/message_actions.h>
 #include <naoqi_driver/ros_helpers.hpp>
@@ -54,7 +55,7 @@ static const double kFrameStaleSeconds = 1.0;
 class LaserConverter : public BaseConverter<LaserConverter>
 {
 
-  typedef boost::function<void(sensor_msgs::msg::LaserScan&)> Callback_t;
+  typedef std::function<void(sensor_msgs::msg::LaserScan&)> Callback_t;
 
 public:
   LaserConverter( const std::string& name, const float& frequency, const qi::SessionPtr& session );

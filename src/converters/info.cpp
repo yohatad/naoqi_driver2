@@ -24,7 +24,6 @@
 /*
 * BOOST includes
 */
-#include <boost/assign/list_of.hpp>
 
 namespace naoqi
 {

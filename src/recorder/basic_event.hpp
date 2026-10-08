@@ -21,6 +21,7 @@
 /*
 * LOCAL includes
 */
+#include <memory>
 #include <naoqi_driver/recorder/globalrecorder.hpp>
 #include <naoqi_driver/ros_helpers.hpp>
 #include "../helpers/recorder_helpers.hpp"
@@ -82,7 +83,7 @@ public:
 
   virtual void writeDump(const rclcpp::Time& time)
   {
-    boost::mutex::scoped_lock lock_write_buffer( mutex_ );
+    std::lock_guard<std::mutex> lock_write_buffer( mutex_ );
     removeOlderThan(time);
     typename std::list<T>::iterator it;
     for (it = buffer_.begin(); it != buffer_.end(); it++)
@@ -98,14 +99,14 @@ public:
 
   virtual void bufferize(const T& msg)
   {
-    boost::mutex::scoped_lock lock_bufferize( mutex_ );
+    std::lock_guard<std::mutex> lock_bufferize( mutex_ );
     typename std::list<T>::iterator it;
     removeOld();
     buffer_.push_back(msg);
 
   }
 
-  virtual void reset(boost::shared_ptr<GlobalRecorder> gr, float conv_frequency)
+  virtual void reset(std::shared_ptr<GlobalRecorder> gr, float conv_frequency)
   {
     gr_ = gr;
     is_initialized_ = true;
@@ -113,7 +114,7 @@ public:
 
   virtual void setBufferDuration(float duration)
   {
-    boost::mutex::scoped_lock lock_bufferize( mutex_ );
+    std::lock_guard<std::mutex> lock_bufferize( mutex_ );
     buffer_duration_ = duration;
   }
 
@@ -158,12 +159,12 @@ protected:
 
   std::list<T> buffer_;
   float buffer_duration_;
-  boost::mutex mutex_;
+  std::mutex mutex_;
 
   bool is_initialized_;
   bool is_subscribed_;
 
-  boost::shared_ptr<naoqi::recorder::GlobalRecorder> gr_;
+  std::shared_ptr<naoqi::recorder::GlobalRecorder> gr_;
 }; // class
 
 } // recorder

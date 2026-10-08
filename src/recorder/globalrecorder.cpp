@@ -30,9 +30,8 @@
 /*
 * BOOST includes
 */
-#include <boost/filesystem.hpp>
-#include <boost/make_shared.hpp>
-#include <boost/shared_ptr.hpp>
+#include <filesystem>
+#include <memory>
 
 /*
 * ALDEBARAN includes
@@ -63,11 +62,11 @@ namespace recorder
   }
 
   void GlobalRecorder::startRecord(const std::string& prefix_bag) {
-    boost::mutex::scoped_lock startLock( _processMutex );
+    std::lock_guard<std::mutex> startLock( _processMutex );
     if (!_isStarted) {
       try {
         // Get current path
-        boost::filesystem::path cur_path( boost::filesystem::current_path() );
+        std::filesystem::path cur_path( std::filesystem::current_path() );
 
         // Get time
         time_t rawtime;
@@ -100,7 +99,7 @@ namespace recorder
   }
 
   std::string GlobalRecorder::stopRecord(const std::string& robot_ip) {
-    boost::mutex::scoped_lock stopLock( _processMutex );
+    std::lock_guard<std::mutex> stopLock( _processMutex );
     if (_isStarted) {
       // _bag.close();
       _isStarted = false;
@@ -153,7 +152,7 @@ namespace recorder
       {
         message.transforms.push_back(*it);
       }
-      boost::mutex::scoped_lock writeLock( _processMutex );
+      std::lock_guard<std::mutex> writeLock( _processMutex );
       if (_isStarted) {
         // _bag.write(ros_topic, now, message);
       }

@@ -21,6 +21,7 @@
 /*
 * LOCAL includes
 */
+#include <functional>
 #include "converter_base.hpp"
 #include <naoqi_driver/message_actions.h>
 #include <naoqi_driver/ros_helpers.hpp>
@@ -36,7 +37,7 @@ namespace converter {
 
 class MemoryListConverter : public BaseConverter<MemoryListConverter>
 {
-  typedef boost::function<void(naoqi_bridge_msgs::msg::MemoryList&) > Callback_t;
+  typedef std::function<void(naoqi_bridge_msgs::msg::MemoryList&) > Callback_t;
 
 public:
   MemoryListConverter(const std::vector<std::string>& key_list, const std::string& name, const float& frequency, const qi::SessionPtr& session);

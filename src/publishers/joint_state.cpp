@@ -18,6 +18,7 @@
 /*
 * LOCAL includes
 */
+#include <memory>
 #include "joint_state.hpp"
 
 namespace naoqi
@@ -45,7 +46,7 @@ void JointStatePublisher::reset( rclcpp::Node* node )
 {
   pub_joint_states_ = node->create_publisher<sensor_msgs::msg::JointState>( topic_, 10 );
 
-  tf_broadcasterPtr_ = boost::make_shared<tf2_ros::TransformBroadcaster>(node);
+  tf_broadcasterPtr_ = std::make_shared<tf2_ros::TransformBroadcaster>(node);
 
   is_initialized_ = true;
 }

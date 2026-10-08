@@ -33,8 +33,7 @@
 /*
 * BOOST includes
 */
-#include <boost/algorithm/string.hpp>
-#include <boost/thread/mutex.hpp>
+#include <mutex>
 
 /*
 * ALDEBARAN includes

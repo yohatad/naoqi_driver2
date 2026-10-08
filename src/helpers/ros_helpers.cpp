@@ -15,12 +15,13 @@
  *
 */
 
+#include <memory>
 #include <naoqi_driver/ros_helpers.hpp>
 
 namespace naoqi {
 namespace helpers {
 
-boost::shared_ptr<rclcpp::Node> Node::node_ptr_;
+std::shared_ptr<rclcpp::Node> Node::node_ptr_;
 
 }
 }

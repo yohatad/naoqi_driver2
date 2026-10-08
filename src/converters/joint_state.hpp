@@ -21,6 +21,8 @@
 /*
 * LOCAL includes
 */
+#include <memory>
+#include <functional>
 #include "converter_base.hpp"
 #include "../tools/robot_description.hpp"
 #include <naoqi_driver/message_actions.h>
@@ -43,9 +45,9 @@ namespace converter
 class JointStateConverter : public BaseConverter<JointStateConverter>
 {
 
-  typedef boost::function<void(sensor_msgs::msg::JointState&, std::vector<geometry_msgs::msg::TransformStamped>&) > Callback_t;
+  typedef std::function<void(sensor_msgs::msg::JointState&, std::vector<geometry_msgs::msg::TransformStamped>&) > Callback_t;
 
-  typedef boost::shared_ptr<tf2_ros::Buffer> BufferPtr;
+  typedef std::shared_ptr<tf2_ros::Buffer> BufferPtr;
 
   typedef std::map<std::string, urdf::JointMimicSharedPtr> MimicMap;
 

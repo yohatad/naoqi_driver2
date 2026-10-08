@@ -21,6 +21,7 @@
 /*
 * LOCAL includes
 */
+#include <functional>
 #include "converter_base.hpp"
 #include <naoqi_driver/message_actions.h>
 
@@ -41,7 +42,7 @@ namespace converter{
 class AudioEventConverter : public BaseConverter<AudioEventConverter>
 {
 
-  typedef boost::function<void(naoqi_bridge_msgs::msg::AudioBuffer&) > Callback_t;
+  typedef std::function<void(naoqi_bridge_msgs::msg::AudioBuffer&) > Callback_t;
 
 public:
   AudioEventConverter(const std::string& name, const float& frequency, const qi::SessionPtr& session);

@@ -15,6 +15,7 @@
  *
 */
 
+#include <memory>
 #include <signal.h>
 
 #include <rclcpp/rclcpp.hpp>
@@ -31,7 +32,7 @@
 #include "naoqi_driver/tools.hpp"
 #include "naoqi_driver/ros_helpers.hpp"
 
-boost::weak_ptr<naoqi::Driver> driver_weak;
+std::weak_ptr<naoqi::Driver> driver_weak;
 
 void sigint_handler(int sig)
 {
@@ -57,7 +58,7 @@ int main(int argc, char** argv)
 
   // Initialize ROS and create the driver Node
   rclcpp::init(argc, argv);
-  auto bs = boost::make_shared<naoqi::Driver>();
+  auto bs = std::make_shared<naoqi::Driver>();
 
   // Setup the time helper
   naoqi::helpers::Node::setNode(bs);

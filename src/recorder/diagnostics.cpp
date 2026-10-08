@@ -18,6 +18,7 @@
 /*
 * LOCAL includes
 */
+#include <memory>
 #include "diagnostics.hpp"
 
 namespace naoqi
@@ -46,7 +47,7 @@ void DiagnosticsRecorder::write(diagnostic_msgs::msg::DiagnosticArray& msg)
 
 void DiagnosticsRecorder::writeDump(const rclcpp::Time& time)
 {
-  boost::mutex::scoped_lock lock_write_buffer( mutex_ );
+  std::lock_guard<std::mutex> lock_write_buffer( mutex_ );
   boost::circular_buffer<diagnostic_msgs::msg::DiagnosticArray>::iterator it;
   for (it = buffer_.begin(); it != buffer_.end(); it++)
   {
@@ -59,7 +60,7 @@ void DiagnosticsRecorder::writeDump(const rclcpp::Time& time)
   }
 }
 
-void DiagnosticsRecorder::reset(boost::shared_ptr<GlobalRecorder> gr, float conv_frequency)
+void DiagnosticsRecorder::reset(std::shared_ptr<GlobalRecorder> gr, float conv_frequency)
 {
   gr_ = gr;
   conv_frequency_ = conv_frequency;
@@ -79,7 +80,7 @@ void DiagnosticsRecorder::reset(boost::shared_ptr<GlobalRecorder> gr, float conv
 
 void DiagnosticsRecorder::bufferize(diagnostic_msgs::msg::DiagnosticArray& msg )
 {
-  boost::mutex::scoped_lock lock_bufferize( mutex_ );
+  std::lock_guard<std::mutex> lock_bufferize( mutex_ );
   if (counter_ < max_counter_)
   {
     counter_++;
@@ -93,7 +94,7 @@ void DiagnosticsRecorder::bufferize(diagnostic_msgs::msg::DiagnosticArray& msg )
 
 void DiagnosticsRecorder::setBufferDuration(float duration)
 {
-  boost::mutex::scoped_lock lock_bufferize( mutex_ );
+  std::lock_guard<std::mutex> lock_bufferize( mutex_ );
   buffer_size_ = static_cast<size_t>(duration*(conv_frequency_/max_counter_));
   buffer_duration_ = duration;
   buffer_.set_capacity(buffer_size_);

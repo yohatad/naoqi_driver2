@@ -26,8 +26,7 @@
 #include <sensor_msgs/msg/joint_state.hpp>
 #include <tf2_ros/transform_broadcaster.h>
 
-#include <boost/shared_ptr.hpp>
-#include <boost/make_shared.hpp>
+#include <memory>
 
 namespace naoqi
 {
@@ -58,7 +57,7 @@ public:
   virtual bool isSubscribed() const;
 
 private:
-  boost::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcasterPtr_;
+  std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcasterPtr_;
 
   /** initialize separate publishers for js and odom */
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr pub_joint_states_;

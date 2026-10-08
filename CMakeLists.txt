@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.5)
 project(naoqi_driver)
 
+# C++17 is required for std::filesystem
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 # Limit parallel compilation to prevent OOM
 if(CMAKE_GENERATOR MATCHES "Ninja")
   set_property(GLOBAL PROPERTY JOB_POOLS single_job=1)
@@ -31,7 +35,7 @@ find_package(tf2_msgs REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(OpenCV REQUIRED)
-find_package(Boost QUIET COMPONENTS chrono filesystem program_options regex system thread random)
+find_package(Boost QUIET COMPONENTS chrono program_options regex system thread random)
 
 set(
   CONVERTERS_SRC
@@ -179,6 +183,33 @@ install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 
 # install the rviz2 configurations
 install(DIRECTORY rviz2 DESTINATION share/${PROJECT_NAME})
+
+if(BUILD_TESTING)
+  find_package(ament_cmake_gtest REQUIRED)
+  # The pre-migration boost implementations are used as reference in the tests
+  find_package(Boost REQUIRED COMPONENTS filesystem)
+
+  function(naoqi_driver_add_test name)
+    ament_add_gtest(${name} test/${name}.cpp TIMEOUT 120)
+    target_include_directories(${name} PRIVATE src test)
+    target_link_libraries(${name} naoqi_driver Boost::filesystem ${naoqi_libqi_LIBRARIES})
+    ament_target_dependencies(${name}
+      rclcpp
+      geometry_msgs
+      naoqi_bridge_msgs
+      naoqi_libqi
+      sensor_msgs
+      tf2_msgs
+    )
+  endfunction()
+
+  naoqi_driver_add_test(test_string_helpers)
+  naoqi_driver_add_test(test_filesystem_helpers)
+  naoqi_driver_add_test(test_camera_info)
+  naoqi_driver_add_test(test_type_erasure)
+  naoqi_driver_add_test(test_recorder)
+  naoqi_driver_add_test(test_driver)
+endif()
 
 ament_export_libraries(naoqi_driver)
 ament_package()

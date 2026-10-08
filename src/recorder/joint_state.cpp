@@ -18,6 +18,7 @@
 /*
 * LOCAL includes
 */
+#include <memory>
 #include "joint_state.hpp"
 
 namespace naoqi
@@ -48,7 +49,7 @@ void JointStateRecorder::write( const sensor_msgs::msg::JointState& js_msg,
 
 void JointStateRecorder::writeDump(const rclcpp::Time& time)
 {
-  boost::mutex::scoped_lock lock_write_buffer( mutex_ );
+  std::lock_guard<std::mutex> lock_write_buffer( mutex_ );
   boost::circular_buffer< std::vector<geometry_msgs::msg::TransformStamped> >::iterator it_tf;
   for (it_tf = bufferTF_.begin(); it_tf != bufferTF_.end(); it_tf++)
   {
@@ -66,7 +67,7 @@ void JointStateRecorder::writeDump(const rclcpp::Time& time)
   }
 }
 
-void JointStateRecorder::reset(boost::shared_ptr<GlobalRecorder> gr, float conv_frequency)
+void JointStateRecorder::reset(std::shared_ptr<GlobalRecorder> gr, float conv_frequency)
 {
   gr_ = gr;
   conv_frequency_ = conv_frequency;
@@ -88,7 +89,7 @@ void JointStateRecorder::reset(boost::shared_ptr<GlobalRecorder> gr, float conv_
 void JointStateRecorder::bufferize( const sensor_msgs::msg::JointState& js_msg,
                 const std::vector<geometry_msgs::msg::TransformStamped>& tf_transforms )
 {
-  boost::mutex::scoped_lock lock_bufferize( mutex_ );
+  std::lock_guard<std::mutex> lock_bufferize( mutex_ );
   if (counter_ < max_counter_)
   {
     counter_++;
@@ -103,7 +104,7 @@ void JointStateRecorder::bufferize( const sensor_msgs::msg::JointState& js_msg,
 
 void JointStateRecorder::setBufferDuration(float duration)
 {
-  boost::mutex::scoped_lock lock_bufferize( mutex_ );
+  std::lock_guard<std::mutex> lock_bufferize( mutex_ );
   buffer_size_ = static_cast<size_t>(duration*(conv_frequency_/max_counter_));
   buffer_duration_ = duration;
   bufferJoinState_.set_capacity(buffer_size_);

@@ -1,5 +1,5 @@
 #include "listen.hpp"
-#include <boost/algorithm/string.hpp>
+#include "../helpers/string_helpers.hpp"
 #include <chrono>
 #include <mutex>
 #include <thread>
@@ -67,7 +67,7 @@ namespace
   std::string topic_name_for_goal_id(const rclcpp_action::GoalUUID& goal_id)
   {
     std::string topic_name = rclcpp_action::to_string(goal_id);
-    boost::algorithm::replace_all(topic_name, "-", "");
+    naoqi::helpers::string::replaceAll(topic_name, "-", "");
     return std::string("ros_") + topic_name;
   }
 
@@ -131,7 +131,7 @@ namespace
     auto result = std::make_shared<Listen::Result>();
 
     const auto& session = state->session;
-    boost::algorithm::replace_all(goal_id, "-", "");
+    naoqi::helpers::string::replaceAll(goal_id, "-", "");
     auto topic_name = std::string("ros_") + goal_id;
 
     try
@@ -182,7 +182,7 @@ namespace
       dialog.call<void>("subscribe", topic_name);
       dialog.call<void>("setFocus", topic_name);
 
-      // auto memory_receiver = boost::make_shared<MemoryReceiver>();
+      // auto memory_receiver = std::make_shared<MemoryReceiver>();
       // auto service_id = session->registerService(topic_name, memory_receiver);
       auto memory = session->service("ALMemory").value();
       // memory.call<void>("subscribeToEvent", "Dialog/Answered", topic_name, "callback");

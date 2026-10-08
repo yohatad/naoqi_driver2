@@ -18,11 +18,12 @@
 #ifndef AUDIO_EVENT_REGISTER_HPP
 #define AUDIO_EVENT_REGISTER_HPP
 
+#include <memory>
 #include <string>
 
+#include <mutex>
+
 #include <boost/make_shared.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/thread/mutex.hpp>
 #include <boost/enable_shared_from_this.hpp>
 
 #include <qi/session.hpp>
@@ -51,6 +52,8 @@ namespace naoqi
 * @note a type erasure pattern in implemented here to avoid strict inheritance,
 * thus each possible publisher instance has to implement the virtual functions mentioned in the concept
 */
+// Stays on boost::enable_shared_from_this: startProcess() registers this object as a
+// qi service, and qi::Object can only be built from a boost::shared_ptr.
 class AudioEventRegister: public boost::enable_shared_from_this<AudioEventRegister>
 {
 
@@ -63,7 +66,7 @@ public:
   ~AudioEventRegister();
 
   void resetPublisher( rclcpp::Node* node );
-  void resetRecorder( boost::shared_ptr<naoqi::recorder::GlobalRecorder> gr );
+  void resetRecorder( std::shared_ptr<naoqi::recorder::GlobalRecorder> gr );
 
   void startProcess();
   void stopProcess();
@@ -92,8 +95,8 @@ private:
   std::vector<uint8_t> channelMap;
   unsigned int serviceId;
 
-  boost::mutex subscription_mutex_;
-  boost::mutex processing_mutex_;
+  std::mutex subscription_mutex_;
+  std::mutex processing_mutex_;
 
   bool isStarted_;
   bool isPublishing_;

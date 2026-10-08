@@ -20,8 +20,7 @@
 
 #include <string>
 
-#include <boost/make_shared.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 
 #include <rclcpp/rclcpp.hpp>
 #include <naoqi_driver/message_actions.h>
@@ -51,7 +50,7 @@ public:
   */
   template<typename T>
   Event( T event ):
-    eventPtr_( boost::make_shared<EventModel<T> >(event) )
+    eventPtr_( std::make_shared<EventModel<T> >(event) )
   {}
 
   void resetPublisher( rclcpp::Node* node )
@@ -59,7 +58,7 @@ public:
     eventPtr_->resetPublisher(node);
   }
 
-  void resetRecorder( boost::shared_ptr<naoqi::recorder::GlobalRecorder> gr )
+  void resetRecorder( std::shared_ptr<naoqi::recorder::GlobalRecorder> gr )
   {
     eventPtr_->resetRecorder(gr);
   }
@@ -108,7 +107,7 @@ private:
   {
     virtual ~EventConcept(){}
     virtual void resetPublisher( rclcpp::Node* node ) = 0;
-    virtual void resetRecorder(boost::shared_ptr<naoqi::recorder::GlobalRecorder> gr) = 0;
+    virtual void resetRecorder(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr) = 0;
     virtual void startProcess() = 0;
     virtual void stopProcess() = 0;
     virtual void writeDump(const rclcpp::Time& time) = 0;
@@ -134,7 +133,7 @@ private:
       converter_->resetPublisher(node);
     }
 
-    void resetRecorder( boost::shared_ptr<naoqi::recorder::GlobalRecorder> gr )
+    void resetRecorder( std::shared_ptr<naoqi::recorder::GlobalRecorder> gr )
     {
       converter_->resetRecorder(gr);
     }
@@ -177,7 +176,7 @@ private:
     T converter_;
   };
 
-  boost::shared_ptr<EventConcept> eventPtr_;
+  std::shared_ptr<EventConcept> eventPtr_;
 
 }; // class converter
 

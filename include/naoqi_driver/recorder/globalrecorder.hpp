@@ -27,12 +27,8 @@
 /*
 * STANDARD includes
 */
+#include <mutex>
 #include <string>
-
-/*
-* BOOST includes
-*/
-# include <boost/thread/mutex.hpp>
 
 /*
 * ROS includes
@@ -110,7 +106,7 @@ public:
     // bag_message.topic = topic;
 
     // setup the bag
-    boost::mutex::scoped_lock writeLock( _processMutex );
+    std::lock_guard<std::mutex> writeLock( _processMutex );
     if (_isStarted) {
       // _bag.write(ros_topic, time_msg, msg);
       // this->_writer.write(bag_message);
@@ -126,7 +122,7 @@ public:
 
 private:
   std::string _prefix_topic;
-  boost::mutex _processMutex;
+  std::mutex _processMutex;
   // rosbag::Bag _bag;
   // rosbag2::Writer _writer;
   std::string _nameBag;

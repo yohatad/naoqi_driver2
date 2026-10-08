@@ -22,8 +22,8 @@
 
 #include <std_msgs/msg/string.hpp>
 
-#include <boost/algorithm/string.hpp>
-#include <boost/thread/mutex.hpp>
+#include "../helpers/string_helpers.hpp"
+#include <mutex>
 
 namespace naoqi
 {
@@ -31,7 +31,7 @@ namespace converter
 {
 
 /** mutex to change the logs list */
-boost::mutex MUTEX_LOGS;
+std::mutex MUTEX_LOGS;
 /** list of ogs in which the NAOqi callback will write its logs */
 std::queue<rcl_interfaces::msg::Log> LOGS;
 
@@ -92,8 +92,7 @@ void logCallback(const qi::LogMessage& msg)
   // Convert the NAOqi log to a ROS log
   rcl_interfaces::msg::Log log;
 
-  std::vector<std::string> results;
-  boost::split(results, msg.source, boost::is_any_of(":"));
+  std::vector<std::string> results = helpers::string::split(msg.source, ':');
   log.file = results[0];
   log.function = results[1];
   log.line = atoi(results[2].c_str());
@@ -104,7 +103,7 @@ void logCallback(const qi::LogMessage& msg)
 
   // If we are not publishing, the queue will increase, so we have to prevent an explosion
   // We only keep a log if it's within 5 second of the last publish (totally arbitrary)
-  boost::mutex::scoped_lock lock( MUTEX_LOGS );
+  std::lock_guard<std::mutex> lock( MUTEX_LOGS );
   while (LOGS.size() > 1000)
   {
     LOGS.pop();
@@ -154,7 +153,7 @@ void LogConverter::callAll( const std::vector<message_actions::MessageAction>& a
       callbacks_[action](log_msg);
     }
     {
-      boost::mutex::scoped_lock lock( MUTEX_LOGS );
+      std::lock_guard<std::mutex> lock( MUTEX_LOGS );
       LOGS.pop();
     }
   }

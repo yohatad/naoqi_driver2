@@ -18,6 +18,7 @@
 #ifndef NAO_FOOTPRINT_HPP
 #define NAO_FOOTPRINT_HPP
 
+#include <memory>
 #include <chrono>
 
 /*
@@ -40,7 +41,7 @@ namespace converter
 namespace nao
 {
 
-inline void addBaseFootprint( boost::shared_ptr<tf2_ros::Buffer> tf2_buffer, std::vector<geometry_msgs::msg::TransformStamped>& tf_transforms, const rclcpp::Time& time )
+inline void addBaseFootprint( std::shared_ptr<tf2_ros::Buffer> tf2_buffer, std::vector<geometry_msgs::msg::TransformStamped>& tf_transforms, const rclcpp::Time& time )
 {
   bool canTransform = tf2_buffer->canTransform("odom", "l_sole", tf2::timeFromSec(time.seconds()), tf2::durationFromSec(0.1) );
   if (!canTransform)

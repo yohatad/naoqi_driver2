@@ -18,6 +18,7 @@
 #ifndef CONVERTERS_LOG_HPP
 #define CONVERTERS_LOG_HPP
 
+#include <functional>
 #include <rcutils/logging.h>
 #include <rcl_interfaces/msg/log.hpp>
 
@@ -36,7 +37,7 @@ namespace converter
 class LogConverter : public BaseConverter<LogConverter>
 {
 
-  typedef boost::function<void(rcl_interfaces::msg::Log&) > Callback_t;
+  typedef std::function<void(rcl_interfaces::msg::Log&) > Callback_t;
 
 public:
   LogConverter( const std::string& name, float frequency, const qi::SessionPtr& sessions );

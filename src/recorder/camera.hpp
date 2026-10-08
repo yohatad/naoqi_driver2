@@ -21,6 +21,7 @@
 /*
 * BOOST includes
 */
+#include <memory>
 #include <boost/circular_buffer.hpp>
 
 /*
@@ -48,7 +49,7 @@ public:
 
   void write( const sensor_msgs::msg::Image::SharedPtr& img, const sensor_msgs::msg::CameraInfo& camera_info );
 
-  void reset(boost::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float conv_frequency );
+  void reset(std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float conv_frequency );
 
   void bufferize( const sensor_msgs::msg::Image::SharedPtr& img, const sensor_msgs::msg::CameraInfo& camera_info );
 
@@ -84,9 +85,9 @@ protected:
   size_t buffer_size_;
   float buffer_duration_;
 
-  boost::mutex mutex_;
+  std::mutex mutex_;
 
-  boost::shared_ptr<naoqi::recorder::GlobalRecorder> gr_;
+  std::shared_ptr<naoqi::recorder::GlobalRecorder> gr_;
   std::string topic_info_;
   std::string topic_img_;
 

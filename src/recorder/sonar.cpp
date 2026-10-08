@@ -18,6 +18,7 @@
 /*
 * LOCAL includes
 */
+#include <memory>
 #include "sonar.hpp"
 
 namespace naoqi
@@ -53,7 +54,7 @@ void SonarRecorder::write(const std::vector<sensor_msgs::msg::Range>& sonar_msgs
 
 void SonarRecorder::writeDump(const rclcpp::Time& time)
 {
-  boost::mutex::scoped_lock lock_write_buffer( mutex_ );
+  std::lock_guard<std::mutex> lock_write_buffer( mutex_ );
   boost::circular_buffer< std::vector<sensor_msgs::msg::Range> >::iterator it;
   for (it = buffer_.begin(); it != buffer_.end(); it++)
   {
@@ -61,7 +62,7 @@ void SonarRecorder::writeDump(const rclcpp::Time& time)
   }
 }
 
-void SonarRecorder::reset(boost::shared_ptr<GlobalRecorder> gr, float conv_frequency)
+void SonarRecorder::reset(std::shared_ptr<GlobalRecorder> gr, float conv_frequency)
 {
   gr_ = gr;
   conv_frequency_ = conv_frequency;
@@ -81,7 +82,7 @@ void SonarRecorder::reset(boost::shared_ptr<GlobalRecorder> gr, float conv_frequ
 
 void SonarRecorder::bufferize(const std::vector<sensor_msgs::msg::Range>& sonar_msgs )
 {
-  boost::mutex::scoped_lock lock_bufferize( mutex_ );
+  std::lock_guard<std::mutex> lock_bufferize( mutex_ );
   if (counter_ < max_counter_)
   {
     counter_++;
@@ -95,7 +96,7 @@ void SonarRecorder::bufferize(const std::vector<sensor_msgs::msg::Range>& sonar_
 
 void SonarRecorder::setBufferDuration(float duration)
 {
-  boost::mutex::scoped_lock lock_bufferize( mutex_ );
+  std::lock_guard<std::mutex> lock_bufferize( mutex_ );
   buffer_size_ = static_cast<size_t>(duration*(conv_frequency_/max_counter_));
   buffer_duration_ = duration;
   buffer_.set_capacity(buffer_size_);

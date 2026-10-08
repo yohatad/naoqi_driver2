@@ -21,6 +21,7 @@
 /*
 * LOCAL includes
 */
+#include <functional>
 #include "converter_base.hpp"
 #include <naoqi_driver/message_actions.h>
 #include <naoqi_driver/ros_helpers.hpp>
@@ -39,7 +40,7 @@ namespace converter
 class InfoConverter : public BaseConverter<InfoConverter>
 {
 
-  typedef boost::function<void(naoqi_bridge_msgs::msg::StringStamped)> Callback_t;
+  typedef std::function<void(naoqi_bridge_msgs::msg::StringStamped)> Callback_t;
 
 public:
   InfoConverter( const std::string& name, float frequency, const qi::SessionPtr& sessions );

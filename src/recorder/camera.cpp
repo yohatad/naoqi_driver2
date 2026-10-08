@@ -18,6 +18,7 @@
 /*
 * LOCAL includes
 */
+#include <memory>
 #include "camera.hpp"
 
 namespace naoqi
@@ -52,7 +53,7 @@ void CameraRecorder::write(const sensor_msgs::msg::Image::SharedPtr& img, const 
 
 void CameraRecorder::writeDump(const rclcpp::Time& time)
 {
-  boost::mutex::scoped_lock lock_write_buffer( mutex_ );
+  std::lock_guard<std::mutex> lock_write_buffer( mutex_ );
   boost::circular_buffer< std::pair<sensor_msgs::msg::Image::SharedPtr, sensor_msgs::msg::CameraInfo> >::iterator it;
   for (it = buffer_.begin(); it != buffer_.end(); it++)
   {
@@ -63,7 +64,7 @@ void CameraRecorder::writeDump(const rclcpp::Time& time)
   }
 }
 
-void CameraRecorder::reset(boost::shared_ptr<GlobalRecorder> gr, float conv_frequency)
+void CameraRecorder::reset(std::shared_ptr<GlobalRecorder> gr, float conv_frequency)
 {
   gr_ = gr;
   conv_frequency_ = conv_frequency;
@@ -75,7 +76,7 @@ void CameraRecorder::reset(boost::shared_ptr<GlobalRecorder> gr, float conv_freq
 
 void CameraRecorder::bufferize( const sensor_msgs::msg::Image::SharedPtr& img, const sensor_msgs::msg::CameraInfo& camera_info )
 {
-  boost::mutex::scoped_lock lock_bufferize( mutex_ );
+  std::lock_guard<std::mutex> lock_bufferize( mutex_ );
   if (counter_ < max_counter_)
   {
     counter_++;
@@ -89,7 +90,7 @@ void CameraRecorder::bufferize( const sensor_msgs::msg::Image::SharedPtr& img, c
 
 void CameraRecorder::setBufferDuration(float duration)
 {
-  boost::mutex::scoped_lock lock_bufferize( mutex_ );
+  std::lock_guard<std::mutex> lock_bufferize( mutex_ );
   buffer_size_ = static_cast<size_t>(duration*(conv_frequency_/max_counter_));
   buffer_duration_ = duration;
   buffer_.set_capacity(buffer_size_);

@@ -21,6 +21,7 @@
 /*
 * LOCAL includes
 */
+#include <functional>
 #include "converter_base.hpp"
 #include <naoqi_driver/message_actions.h>
 
@@ -44,7 +45,7 @@ template <class T>
 class TouchEventConverter : public BaseConverter<TouchEventConverter<T> >
 {
 
-  typedef boost::function<void(T&) > Callback_t;
+  typedef std::function<void(T&) > Callback_t;
 
 public:
   TouchEventConverter(const std::string& name, const float& frequency, const qi::SessionPtr& session);

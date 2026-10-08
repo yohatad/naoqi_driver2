@@ -21,9 +21,8 @@
 #include <string>
 #include <tuple>
 
-#include <boost/shared_ptr.hpp>
-#include <boost/thread/mutex.hpp>
-#include <boost/enable_shared_from_this.hpp>
+#include <memory>
+#include <mutex>
 
 #include <qi/session.hpp>
 
@@ -53,7 +52,7 @@ namespace naoqi
 * thus each possible publisher instance has to implement the virtual functions mentioned in the concept
 */
 template<class T>
-class TouchEventRegister: public boost::enable_shared_from_this<TouchEventRegister<T> >
+class TouchEventRegister: public std::enable_shared_from_this<TouchEventRegister<T> >
 {
 
 public:
@@ -66,7 +65,7 @@ public:
   ~TouchEventRegister();
 
   void resetPublisher( rclcpp::Node* node );
-  void resetRecorder( boost::shared_ptr<naoqi::recorder::GlobalRecorder> gr );
+  void resetRecorder( std::shared_ptr<naoqi::recorder::GlobalRecorder> gr );
 
   void startProcess();
   void stopProcess();
@@ -89,9 +88,9 @@ private:
   void onEvent();
 
 private:
-  boost::shared_ptr<converter::TouchEventConverter<T> > converter_;
-  boost::shared_ptr<publisher::BasicPublisher<T> > publisher_;
-  //boost::shared_ptr<recorder::BasicEventRecorder<T> > recorder_;
+  std::shared_ptr<converter::TouchEventConverter<T> > converter_;
+  std::shared_ptr<publisher::BasicPublisher<T> > publisher_;
+  //std::shared_ptr<recorder::BasicEventRecorder<T> > recorder_;
 
   qi::SessionPtr session_;
   qi::AnyObject p_memory_;
@@ -108,7 +107,7 @@ private:
 
   std::string name_;
 
-  boost::mutex mutex_;
+  std::mutex mutex_;
 
   bool isStarted_;
   bool isPublishing_;

@@ -15,10 +15,11 @@
  *
 */
 
+#include <functional>
 #include <iostream>
 #include <vector>
 
-#include <boost/make_shared.hpp>
+#include <memory>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -44,14 +45,14 @@ EventRegister<Converter, Publisher, Recorder>::EventRegister( const std::string&
     isRecording_(false),
     isDumping_(false)
 {
-  publisher_ = boost::make_shared<Publisher>( key_ );
-  recorder_ = boost::make_shared<Recorder>( key_ );
-  converter_ = boost::make_shared<Converter>( key_, 0, session, key_ );
+  publisher_ = std::make_shared<Publisher>( key_ );
+  recorder_ = std::make_shared<Recorder>( key_ );
+  converter_ = std::make_shared<Converter>( key_, 0, session, key_ );
 
-  namespace ph = boost::placeholders;
-  converter_->registerCallback( message_actions::PUBLISH, boost::bind(&Publisher::publish, publisher_, ph::_1) );
-  converter_->registerCallback( message_actions::RECORD, boost::bind(&Recorder::write, recorder_, ph::_1) );
-  converter_->registerCallback( message_actions::LOG, boost::bind(&Recorder::bufferize, recorder_, ph::_1) );
+  namespace ph = std::placeholders;
+  converter_->registerCallback( message_actions::PUBLISH, std::bind(&Publisher::publish, publisher_, ph::_1) );
+  converter_->registerCallback( message_actions::RECORD, std::bind(&Recorder::write, recorder_, ph::_1) );
+  converter_->registerCallback( message_actions::LOG, std::bind(&Recorder::bufferize, recorder_, ph::_1) );
 
   signal_ = p_memory_.call<qi::AnyObject>("subscriber", key_);
 }
@@ -68,7 +69,7 @@ void EventRegister<Converter, Publisher, Recorder>::resetPublisher(  rclcpp::Nod
 }
 
 template <typename Converter, typename Publisher, typename Recorder>
-void EventRegister<Converter, Publisher, Recorder>::resetRecorder( boost::shared_ptr<naoqi::recorder::GlobalRecorder> gr )
+void EventRegister<Converter, Publisher, Recorder>::resetRecorder( std::shared_ptr<naoqi::recorder::GlobalRecorder> gr )
 {
   recorder_->reset(gr, converter_->frequency());
 }
@@ -76,7 +77,7 @@ void EventRegister<Converter, Publisher, Recorder>::resetRecorder( boost::shared
 template <typename Converter, typename Publisher, typename Recorder>
 void EventRegister<Converter, Publisher, Recorder>::startProcess()
 {
-  boost::mutex::scoped_lock start_lock(mutex_);
+  std::lock_guard<std::mutex> start_lock(mutex_);
   if (!isStarted_)
   {
     registerCallback();
@@ -87,7 +88,7 @@ void EventRegister<Converter, Publisher, Recorder>::startProcess()
 template <typename Converter, typename Publisher, typename Recorder>
 void EventRegister<Converter, Publisher, Recorder>::stopProcess()
 {
-  boost::mutex::scoped_lock stop_lock(mutex_);
+  std::lock_guard<std::mutex> stop_lock(mutex_);
   if (isStarted_)
   {
     unregisterCallback();
@@ -113,21 +114,21 @@ void EventRegister<Converter, Publisher, Recorder>::setBufferDuration(float dura
 template <typename Converter, typename Publisher, typename Recorder>
 void EventRegister<Converter, Publisher, Recorder>::isRecording(bool state)
 {
-  boost::mutex::scoped_lock rec_lock(mutex_);
+  std::lock_guard<std::mutex> rec_lock(mutex_);
   isRecording_ = state;
 }
 
 template <typename Converter, typename Publisher, typename Recorder>
 void EventRegister<Converter, Publisher, Recorder>::isPublishing(bool state)
 {
-  boost::mutex::scoped_lock pub_lock(mutex_);
+  std::lock_guard<std::mutex> pub_lock(mutex_);
   isPublishing_ = state;
 }
 
 template <typename Converter, typename Publisher, typename Recorder>
 void EventRegister<Converter, Publisher, Recorder>::isDumping(bool state)
 {
-  boost::mutex::scoped_lock dump_lock(mutex_);
+  std::lock_guard<std::mutex> dump_lock(mutex_);
   isDumping_ = state;
 }
 
@@ -147,7 +148,7 @@ template <typename Converter, typename Publisher, typename Recorder>
 void EventRegister<Converter, Publisher, Recorder>::onEvent()
 {
   std::vector<message_actions::MessageAction> actions;
-  boost::mutex::scoped_lock callback_lock(mutex_);
+  std::lock_guard<std::mutex> callback_lock(mutex_);
   if (isStarted_) {
     // CHECK FOR PUBLISH
     if ( isPublishing_ && publisher_->isSubscribed() )

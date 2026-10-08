@@ -20,7 +20,7 @@
 #define HELPERS_HPP
 
 #include <rclcpp/rclcpp.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 
 namespace naoqi {
 namespace helpers {
@@ -36,7 +36,7 @@ public:
    * 
    * @param node_ptr_ 
    */
-  static void setNode(const boost::shared_ptr<rclcpp::Node>& node_ptr) {
+  static void setNode(const std::shared_ptr<rclcpp::Node>& node_ptr) {
     Node::node_ptr_ = node_ptr;
   }
 
@@ -61,14 +61,14 @@ public:
   /**
    * @brief Get the underlying driver rclcpp::Node, e.g. to declare/read parameters
    *
-   * @return boost::shared_ptr<rclcpp::Node>
+   * @return std::shared_ptr<rclcpp::Node>
    */
-  static const boost::shared_ptr<rclcpp::Node>& get_node() {
+  static const std::shared_ptr<rclcpp::Node>& get_node() {
     return Node::node_ptr_;
   }
 
 protected:
-  static boost::shared_ptr<rclcpp::Node> node_ptr_;
+  static std::shared_ptr<rclcpp::Node> node_ptr_;
 };
 
 /**

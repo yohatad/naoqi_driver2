@@ -20,9 +20,8 @@
 
 #include <string>
 
-#include <boost/make_shared.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/thread/mutex.hpp>
+#include <memory>
+#include <mutex>
 
 #include <rclcpp/rclcpp.hpp>
 // #include <rosbag/bag.h>
@@ -53,7 +52,7 @@ public:
   */
   template<typename T>
   Recorder( T rec ):
-    recPtr_( boost::make_shared<RecorderModel<T> >(rec) )
+    recPtr_( std::make_shared<RecorderModel<T> >(rec) )
   {}
 
   /**
@@ -93,7 +92,7 @@ public:
    * @param gr GlobalRecorder pointer
    * @param frequency the frequency of the recoder
    */
-  void reset( boost::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float frequency)
+  void reset( std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float frequency)
   {
     recPtr_->reset( gr, frequency );
   }
@@ -130,7 +129,7 @@ private:
     virtual std::string topic() const = 0;
     virtual void writeDump(const rclcpp::Time& time) = 0;
     virtual void setBufferDuration(float duration) = 0;
-    virtual void reset( boost::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float frequency ) = 0;
+    virtual void reset( std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float frequency ) = 0;
   };
 
 
@@ -144,7 +143,7 @@ private:
       recorder_( other )
     {}
 
-    void reset( boost::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float frequency )
+    void reset( std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float frequency )
     {
       recorder_->reset( gr, frequency );
     }
@@ -182,7 +181,7 @@ private:
     T recorder_;
   };
 
-  boost::shared_ptr<RecorderConcept> recPtr_;
+  std::shared_ptr<RecorderConcept> recPtr_;
 
 }; // class recorder
 

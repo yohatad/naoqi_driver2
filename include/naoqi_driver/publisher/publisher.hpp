@@ -20,8 +20,7 @@
 
 #include <string>
 
-#include <boost/make_shared.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -48,7 +47,7 @@ public:
   */
   template<typename T>
   Publisher( const T& pub ):
-    pubPtr_( boost::make_shared<PublisherModel<T> >(pub) )
+    pubPtr_( std::make_shared<PublisherModel<T> >(pub) )
   {}
 
   /**
@@ -98,7 +97,7 @@ public:
     return false;
   }
 
-  friend bool operator==( const boost::shared_ptr<Publisher>& lhs, const boost::shared_ptr<Publisher>& rhs )
+  friend bool operator==( const std::shared_ptr<Publisher>& lhs, const std::shared_ptr<Publisher>& rhs )
   {
     return operator==( *lhs, *rhs );
   }
@@ -151,7 +150,7 @@ private:
     T publisher_;
   };
 
-  boost::shared_ptr<PublisherConcept> pubPtr_;
+  std::shared_ptr<PublisherConcept> pubPtr_;
 
 }; // class publisher
 

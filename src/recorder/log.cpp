@@ -15,6 +15,7 @@
  *
 */
 
+#include <memory>
 #include "log.hpp"
 
 namespace naoqi
@@ -47,7 +48,7 @@ void LogRecorder::write(std::list<rcl_interfaces::msg::Log>& log_msgs)
 
 void LogRecorder::writeDump(const rclcpp::Time& time)
 {
-  boost::mutex::scoped_lock lock_write_buffer( mutex_ );
+  std::lock_guard<std::mutex> lock_write_buffer( mutex_ );
   boost::circular_buffer< std::list<rcl_interfaces::msg::Log> >::iterator it;
   for (it = buffer_.begin(); it != buffer_.end(); it++)
   {
@@ -55,7 +56,7 @@ void LogRecorder::writeDump(const rclcpp::Time& time)
   }
 }
 
-void LogRecorder::reset(boost::shared_ptr<GlobalRecorder> gr, float conv_frequency)
+void LogRecorder::reset(std::shared_ptr<GlobalRecorder> gr, float conv_frequency)
 {
   gr_ = gr;
   conv_frequency_ = conv_frequency;
@@ -75,7 +76,7 @@ void LogRecorder::reset(boost::shared_ptr<GlobalRecorder> gr, float conv_frequen
 
 void LogRecorder::bufferize( std::list<rcl_interfaces::msg::Log>& log_msgs )
 {
-  boost::mutex::scoped_lock lock_bufferize( mutex_ );
+  std::lock_guard<std::mutex> lock_bufferize( mutex_ );
   if (counter_ < max_counter_)
   {
     counter_++;
@@ -89,7 +90,7 @@ void LogRecorder::bufferize( std::list<rcl_interfaces::msg::Log>& log_msgs )
 
 void LogRecorder::setBufferDuration(float duration)
 {
-  boost::mutex::scoped_lock lock_bufferize( mutex_ );
+  std::lock_guard<std::mutex> lock_bufferize( mutex_ );
   buffer_size_ = static_cast<size_t>(duration*(conv_frequency_/max_counter_));
   buffer_duration_ = duration;
   buffer_.set_capacity(buffer_size_);

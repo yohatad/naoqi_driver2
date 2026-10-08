@@ -20,8 +20,7 @@
 
 #include <string>
 
-#include <boost/make_shared.hpp>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -48,7 +47,7 @@ public:
   */
   template<typename T>
   Service( T srv ):
-    srvPtr_( boost::make_shared<ServiceModel<T> >(srv) )
+    srvPtr_( std::make_shared<ServiceModel<T> >(srv) )
   {}
 
   /**
@@ -128,7 +127,7 @@ private:
     T service_;
   };
 
-  boost::shared_ptr<ServiceConcept> srvPtr_;
+  std::shared_ptr<ServiceConcept> srvPtr_;
 
 }; // class service
 

@@ -21,6 +21,7 @@
 /*
 * BOOST includes
 */
+#include <memory>
 #include <boost/circular_buffer.hpp>
 
 /*
@@ -48,7 +49,7 @@ public:
   void write( const sensor_msgs::msg::JointState& js_msg,
               const std::vector<geometry_msgs::msg::TransformStamped>& tf_transforms );
 
-  void reset( boost::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float conv_frequency );
+  void reset( std::shared_ptr<naoqi::recorder::GlobalRecorder> gr, float conv_frequency );
 
   void bufferize( const sensor_msgs::msg::JointState& js_msg,
                   const std::vector<geometry_msgs::msg::TransformStamped>& tf_transforms );
@@ -85,12 +86,12 @@ protected:
   size_t buffer_size_;
   float buffer_duration_;
 
-  boost::mutex mutex_;
+  std::mutex mutex_;
 
   bool is_initialized_;
   bool is_subscribed_;
 
-  boost::shared_ptr<naoqi::recorder::GlobalRecorder> gr_;
+  std::shared_ptr<naoqi::recorder::GlobalRecorder> gr_;
 
   float buffer_frequency_;
   float conv_frequency_;
