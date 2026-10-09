@@ -19,7 +19,6 @@
 #define SET_LANGUAGE_SERVICE_HPP
 
 #include <naoqi_driver/service/service.hpp>
-#include <iostream>
 
 #include <rclcpp/rclcpp.hpp>
 

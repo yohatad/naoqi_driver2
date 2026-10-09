@@ -1,5 +1,6 @@
 """naoqi_driver_node as a process against fake_naoqi_server: Ctrl+C stops the robot
-and the process exits cleanly. Unit tests cannot see main()'s start-up and exit."""
+and the process exits cleanly, and the recording services write sensor data into a
+bag. Unit tests cannot see main()'s start-up and exit, or the converter loop."""
 
 import os
 import random
@@ -64,12 +65,16 @@ def naoqi():
     server.wait(10)
 
 
-def start_driver(url, folder):
+def start_driver(url, folder, enabled=()):
+    """The driver with every converter off but those in enabled, on a domain of its own."""
     host, port = url.replace('tcp://', '').split(':')
     params = folder / 'params.yaml'
     params.write_text('/**:\n  ros__parameters:\n    converters:\n' + ''.join(
-        '      {}:\n        enabled: false\n'.format(name) for name in CONVERTERS))
-    env = dict(os.environ, ROS_DOMAIN_ID=str(random.randint(100, 200)), ROS_LOCALHOST_ONLY='1')
+        '      {}:\n        enabled: {}\n'.format(name, 'true' if name in enabled else 'false')
+        for name in CONVERTERS))
+    os.environ['ROS_DOMAIN_ID'] = str(random.randint(100, 200))  # also for rclpy below
+    os.environ['ROS_LOCALHOST_ONLY'] = '1'
+    env = dict(os.environ)
     return subprocess.Popen(
         [DRIVER, '--ros-args', '-p', 'nao_ip:=' + host, '-p', 'nao_port:=' + port,
          '--params-file', str(params)],
@@ -92,3 +97,42 @@ def test_ctrl_c_stops_the_robot_and_exits_cleanly(naoqi, tmp_path):
     assert calls.count('stopMove()') == 1, str(calls)
     for service in ('ALAnimatedSpeech', 'ALTextToSpeech', 'ALAudioPlayer'):
         assert calls.count(service + '.stopAll()') == 1, str(calls)
+
+
+def call_trigger(node, name):
+    """Calls a std_srvs/Trigger service of the driver; returns its response."""
+    import rclpy
+    from std_srvs.srv import Trigger
+    client = node.create_client(Trigger, '/naoqi_driver/' + name)
+    assert client.wait_for_service(timeout_sec=10.0), name
+    future = client.call_async(Trigger.Request())
+    rclpy.spin_until_future_complete(node, future, timeout_sec=10.0)
+    assert future.done(), name
+    return future.result()
+
+
+def test_recording_writes_the_sensor_data(naoqi, tmp_path):
+    import rclpy
+    import rosbag2_py
+    url, calls = naoqi
+    driver = start_driver(url, tmp_path, enabled=('odom',))
+    log = Output(driver.stdout)
+    rclpy.init()
+    node = rclpy.create_node('recording_test')
+    try:
+        assert log.wait_for('naoqi_driver initialized', 60), str(log)
+        started = call_trigger(node, 'start_recording')
+        assert started.success, started.message
+        time.sleep(1.0)
+        stopped = call_trigger(node, 'stop_recording')
+        assert stopped.success and stopped.message == started.message, stopped.message
+        info = rosbag2_py.Info().read_metadata(stopped.message, 'sqlite3')
+        counts = {t.topic_metadata.name: t.message_count for t in info.topics_with_message_count}
+        assert counts.get('/pepper_odom', 0) > 0, counts
+        driver.send_signal(signal.SIGINT)
+        assert driver.wait(30) == 0, str(log)
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+        if driver.poll() is None:
+            driver.kill()

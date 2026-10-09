@@ -17,7 +17,6 @@
 
 #include <naoqi_driver/ros_helpers.hpp>
 #include "odom_reset.hpp"
-#include <iostream>
 #include "helpers/driver_helpers.hpp"
 #include "converters/odom.hpp"
 

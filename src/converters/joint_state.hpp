@@ -66,13 +66,12 @@ public:
   void callAll(const std::vector<message_actions::MessageAction> & actions) override;
 
 private:
-  /** blatently copied from robot state publisher */
+  /** copied from robot state publisher */
   void addChildren(const KDL::SegmentMap::const_iterator segment);
   std::map<std::string, robot_state_publisher::SegmentPair> segments_, segments_fixed_;
   void setTransforms(
-    const std::map<std::string, double> & joint_positions,
-    const rclcpp::Time & time, const std::string & tf_prefix);
-  void setFixedTransforms(const std::string & tf_prefix, const rclcpp::Time & time);
+    const std::map<std::string, double> & joint_positions, const rclcpp::Time & time);
+  void setFixedTransforms(const rclcpp::Time & time);
 
   /** Global Shared tf2 buffer **/
   BufferPtr tf2_buffer_;

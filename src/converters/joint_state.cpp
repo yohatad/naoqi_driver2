@@ -189,9 +189,8 @@ void JointStateConverter::callAll(const std::vector<message_actions::MessageActi
 
   // reset the transforms we want to use at this time
   tf_transforms_.clear();
-  static const std::string & jt_tf_prefix = "";
-  setTransforms(joint_state_map, stamp, jt_tf_prefix);
-  setFixedTransforms(jt_tf_prefix, stamp);
+  setTransforms(joint_state_map, stamp);
+  setFixedTransforms(stamp);
 
   const rclcpp::Time & odom_stamp = stamp;
 
@@ -295,7 +294,7 @@ void JointStateConverter::callAll(const std::vector<message_actions::MessageActi
 // Copied from robot state publisher
 void JointStateConverter::setTransforms(
   const std::map<std::string, double> & joint_positions,
-  const rclcpp::Time & time, const std::string & tf_prefix)
+  const rclcpp::Time & time)
 {
   geometry_msgs::msg::TransformStamped tf_transform;
   tf_transform.header.stamp = time;
@@ -314,7 +313,7 @@ void JointStateConverter::setTransforms(
       tf_transform.transform.translation.y = seg->second.segment.pose(joint_position.second).p.y();
       tf_transform.transform.translation.z = seg->second.segment.pose(joint_position.second).p.z();
 
-      tf_transform.header.frame_id = seg->second.root;  // tf2 has no tf_prefix
+      tf_transform.header.frame_id = seg->second.root;
       tf_transform.child_frame_id = seg->second.tip;
 
       tf_transforms_.push_back(tf_transform);
@@ -327,9 +326,7 @@ void JointStateConverter::setTransforms(
 }
 
 // Copied from robot state publisher
-void JointStateConverter::setFixedTransforms(
-  const std::string & tf_prefix,
-  const rclcpp::Time & time)
+void JointStateConverter::setFixedTransforms(const rclcpp::Time & time)
 {
   geometry_msgs::msg::TransformStamped tf_transform;
   tf_transform.header.stamp = time;

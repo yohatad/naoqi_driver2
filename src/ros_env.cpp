@@ -17,7 +17,6 @@
 
 #include <naoqi_driver/ros_helpers.hpp>
 #include "ros_env.hpp"
-#include <iostream>
 #include <stdexcept>
 
 namespace naoqi

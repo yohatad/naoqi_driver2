@@ -288,7 +288,7 @@ const robot::NaoqiVersion & getNaoqiVersion(const qi::SessionPtr & session)
   if (version_numbers.size() != 4) {
     RCLCPP_ERROR_STREAM(
       naoqi::helpers::Node::get_logger(),
-      "Unconsistent version number for NAOqi, should contain 4 elements: " <<
+      "Inconsistent version number for NAOqi, should contain 4 elements: " <<
         naoqi_version.text);
 
     return naoqi_version;

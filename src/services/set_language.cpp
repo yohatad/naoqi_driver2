@@ -17,7 +17,6 @@
 
 #include <naoqi_driver/ros_helpers.hpp>
 #include "set_language.hpp"
-#include <iostream>
 #include "helpers/driver_helpers.hpp"
 
 namespace naoqi

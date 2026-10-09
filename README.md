@@ -167,6 +167,21 @@ ros2 launch naoqi_driver pepper_bringup.launch.py nao_ip:=<robot_host> use_camer
 > `qi_listen_url`, `namespace`, `publish_wheel_odom_tf`) and forwards them.
 > Remember to stop the stream afterwards with `ssh nao@<robot_host> '~/stop_camera.sh'`.
 
+### Safety limits
+
+These launch arguments limit what commands can make the robot do:
+
+| Argument | Default | Effect |
+|---|---|---|
+| `cmd_vel_timeout` | `0.5` | seconds without `/cmd_vel` before a moving base is stopped (0: never) |
+| `max_linear_speed` | `0.0` | cap on the `/cmd_vel` speed in m/s, keeping its direction (0: none) |
+| `max_angular_speed` | `0.0` | cap on the `/cmd_vel` turn rate in rad/s (0: none) |
+| `moveto_max_distance` | `3.0` | `moveto` goals farther than this (m) are refused (0: no limit) |
+| `listen_timeout` | `30.0` | seconds a `listen` goal waits for speech before it is aborted (0: forever) |
+| `respawn` | `true` | restart the driver when it exits on its own, e.g. after losing NAOqi |
+
+Ctrl+C on the driver stops the base, speech and audio before it exits.
+
 ### Choose the sensors
 
 `share/boot_config.json` sets which sensors the driver reads, and how often.
@@ -231,22 +246,23 @@ You can see the published message with `ros2 topic echo /joint_angles`
 
 ### Move around
 
-Check that you can move the robot by publishing on `cmd_vel` to make the robot move:
+Check that you can move the robot by publishing on `cmd_vel`. Publish
+continuously (`-r 10`): the driver stops the base 0.5 s after the last command.
 
 ```sh
-ros2 topic pub --once /cmd_vel geometry_msgs/Twist "linear:
-  x: 0.5
+ros2 topic pub -r 10 /cmd_vel geometry_msgs/Twist "linear:
+  x: 0.2
   y: 0.0
   z: 0.0
 angular:
   x: 0.0
   y: 0.0
-  z: 0.785"
+  z: 0.5"
 ```
 
 > Make some room around the robot!
 
-To stop the robot, you must send a new message with linear and angular velocities set to 0:
+To stop the robot at once, stop the publisher and send a zero velocity:
 
 ```sh
 ros2 topic pub --once /cmd_vel geometry_msgs/Twist "linear:
@@ -297,12 +313,19 @@ nohup python robot_watchdog.py > robot_watchdog.log 2>&1 &
 exit
 ```
 
+Once the driver runs, `robot_watchdog.log` on the robot shows
+`naoqi_driver heartbeat found, watching it`. To stop the watchdog:
+`ssh nao@<robot_host> pkill -f robot_watchdog.py`.
+
 The driver writes a counter to ALMemory (`NaoqiDriver/Heartbeat`) every 0.2 s.
 The watchdog calls `ALMotion.stopMove()` when the counter has not changed for
 1 s (`--timeout`). It does nothing until a driver runs, and nothing after the
-driver exits cleanly. Start it again after the robot reboots, or have NAOqi
-start it by adding its full path under `[python]` in
-`/home/nao/naoqi/preferences/autoload.ini`.
+driver exits cleanly.
+
+It does not survive a reboot of the robot: start it again afterwards. Adding its
+full path under `[python]` in `/home/nao/naoqi/preferences/autoload.ini` should
+make NAOqi start it at boot, but this is untested; after a reboot, check with
+`ssh nao@<robot_host> pgrep -f robot_watchdog.py`.
 
 ### Audio Playback
 

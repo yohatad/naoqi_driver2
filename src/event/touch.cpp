@@ -17,7 +17,6 @@
 
 #include <naoqi_driver/ros_helpers.hpp>
 #include <functional>
-#include <iostream>
 #include <vector>
 
 #include <memory>

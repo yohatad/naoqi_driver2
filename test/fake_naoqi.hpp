@@ -278,6 +278,7 @@ public:
     log_.add("angleInterpolationBezier()");
   }
   std::vector<float> getRobotPosition(bool) {return {0.f, 0.f, 0.f};}
+  std::vector<float> getRobotVelocity() {return {0.f, 0.f, 0.f};}
 
 private:
   CallLog & log_;
@@ -307,7 +308,8 @@ QI_REGISTER_OBJECT(naoqi_test::FakeSpeechRecognition, _enableFreeSpeechToText);
 QI_REGISTER_OBJECT(naoqi_test::FakeSystem, systemVersion);
 QI_REGISTER_OBJECT(
   naoqi_test::FakeMotion, getRobotConfig, getSensorNames, move, stopMove, moveTo, setAngles,
-  changeAngles, angleInterpolation, angleInterpolationBezier, getRobotPosition);
+  changeAngles, angleInterpolation, angleInterpolationBezier, getRobotPosition,
+  getRobotVelocity);
 QI_REGISTER_OBJECT(naoqi_test::FakeStoppable, stopAll);
 
 namespace naoqi_test

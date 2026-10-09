@@ -7,6 +7,7 @@ Read-only by default. Anything that moves, lights up or speaks needs a flag:
   --speech       run the speech action (the robot talks)
   --motion       move the head and drive the base a few centimetres (asks first)
   --interactive  ask you to touch bumpers / hands / head
+  --record       record 3 s into a bag and check it (in the driver's directory)
 
 Every exit path, including Ctrl+C, sends a zero velocity and re-centres the head.
 Exit code: 0 if nothing FAILed, 1 otherwise.
@@ -17,6 +18,7 @@ Example:
 
 import argparse
 import math
+import os
 import sys
 import threading
 import time
@@ -37,6 +39,7 @@ from rcl_interfaces.msg import ParameterType
 from rcl_interfaces.srv import GetParameters
 from sensor_msgs.msg import CameraInfo, Image, Imu, JointState, LaserScan, Range
 from std_msgs.msg import ColorRGBA
+from std_srvs.srv import Trigger
 import tf2_ros
 
 from naoqi_bridge_msgs.action import RunLed, SpeechWithFeedback
@@ -222,6 +225,62 @@ class RobotChecks(Node):
         timeout = value.double_value if value.type == ParameterType.PARAMETER_DOUBLE else float(value.integer_value)
         self.report(PASS, "parameter cmd_vel_timeout", f"{timeout} s")
         return timeout
+
+    def check_new_parameters(self):
+        """Parameters this branch added; one request each, as an undeclared name
+        empties the whole answer."""
+        client = self.create_client(GetParameters, self.driver_name("get_parameters"))
+        if not client.wait_for_service(timeout_sec=5.0):
+            self.report(FAIL, "parameters", "parameter service not available")
+            return
+        for name in ("moveto_max_distance", "max_linear_speed", "max_angular_speed",
+                     "listen_timeout", "minidump_duration", "converters.front_camera.enabled"):
+            req = GetParameters.Request()
+            req.names = [name]
+            res = self.wait(client.call_async(req), 5.0)
+            if res is None or not res.values or res.values[0].type == ParameterType.PARAMETER_NOT_SET:
+                self.report(WARN, f"parameter {name}", "not declared: this build predates it")
+                continue
+            value = res.values[0]
+            shown = {ParameterType.PARAMETER_DOUBLE: value.double_value,
+                     ParameterType.PARAMETER_INTEGER: value.integer_value,
+                     ParameterType.PARAMETER_BOOL: value.bool_value}.get(value.type, "?")
+            self.report(PASS, f"parameter {name}", str(shown))
+
+    def check_recording_services(self):
+        for name in ("start_recording", "stop_recording", "minidump"):
+            ok = self.create_client(Trigger, "/naoqi_driver/" + name).wait_for_service(timeout_sec=2.0)
+            self.report(PASS if ok else WARN, f"service {name}",
+                        "" if ok else "not available: this build predates recording")
+
+    def check_recording(self):
+        start = self.create_client(Trigger, "/naoqi_driver/start_recording")
+        stop = self.create_client(Trigger, "/naoqi_driver/stop_recording")
+        if not (start.wait_for_service(timeout_sec=2.0) and stop.wait_for_service(timeout_sec=2.0)):
+            self.report(SKIP, "recording", "services not available")
+            return
+        res = self.wait(start.call_async(Trigger.Request()), 10.0)
+        if res is None or not res.success:
+            self.report(FAIL, "start_recording", res.message if res else "no answer")
+            return
+        time.sleep(3.0)
+        res = self.wait(stop.call_async(Trigger.Request()), 10.0)
+        if res is None or not res.success:
+            self.report(FAIL, "stop_recording", res.message if res else "no answer")
+            return
+        bag = res.message
+        if not os.path.isdir(bag):
+            self.report(WARN, "recording", f"{bag} is not on this machine; check it with ros2 bag info")
+            return
+        try:
+            import rosbag2_py
+            info = rosbag2_py.Info().read_metadata(bag, "sqlite3")
+        except Exception as e:
+            self.report(FAIL, "recording", f"cannot read {bag}: {e}")
+            return
+        topics = len(info.topics_with_message_count)
+        self.report(PASS if info.message_count > 0 else FAIL, "recording",
+                    f"{info.message_count} messages on {topics} topics in {bag} (delete it when done)")
 
     def check_services(self):
         client = self.create_client(GetString, "/naoqi_driver/get_language")  # absolute in the driver
@@ -476,6 +535,7 @@ def main():
     parser.add_argument("--speech", action="store_true")
     parser.add_argument("--motion", action="store_true")
     parser.add_argument("--interactive", action="store_true")
+    parser.add_argument("--record", action="store_true")
     parser.add_argument("--yes", action="store_true", help="do not ask before moving the robot")
     args = parser.parse_args()
 
@@ -501,7 +561,11 @@ def main():
         node.check_camera_info()
         node.check_tf()
         node.check_services()
+        node.check_recording_services()
         timeout = node.check_parameter()
+        node.check_new_parameters()
+        if args.record:
+            node.check_recording()
         if args.leds:
             node.check_led_action()
         if args.speech:

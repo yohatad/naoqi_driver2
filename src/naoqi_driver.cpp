@@ -1033,7 +1033,7 @@ void Driver::addMemoryConverters(std::string filepath)
   } catch (const boost::property_tree::ptree_error & e) {
     RCLCPP_ERROR_STREAM(
       get_logger(),
-      "A problem occured during the reading of the mem keys list: " << e.what() <<
+      "A problem occurred while reading the mem keys list: " << e.what() <<
         "\nCannot add new converters");
     return;
   }
