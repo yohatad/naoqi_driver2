@@ -1,0 +1,8 @@
+# ThreadSanitizer suppressions for the tsan CI job (TSAN_OPTIONS=suppressions=...).
+# Only reports inside these libraries, which are built without ThreadSanitizer:
+# Fast DDS's event thread and spdlog use timed mutexes that it misreads as lock
+# order inversions and double locks. A data race is never suppressed.
+deadlock:libfastrtps.so
+mutex:libfastrtps.so
+deadlock:libspdlog.so
+mutex:libspdlog.so

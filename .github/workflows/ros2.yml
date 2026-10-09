@@ -18,6 +18,12 @@ on:
       ALLOW_FAIL:
         required: true
         type: boolean
+      # This fork's dependencies, without the meshes: the driver does not need them,
+      # and building them accepts their license (CC BY-NC-ND 4.0) non-interactively.
+      UPSTREAM_WORKSPACE:
+        required: false
+        type: string
+        default: dependencies.repos -nao_meshes -pepper_meshes
 
 jobs:
   ros2_ci:
@@ -28,9 +34,9 @@ jobs:
       CCACHE_DIR: "${{ github.workspace }}/.ccache"
     steps:
       - name: Check out the naoqi_driver2 repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Fetch/store directory used by ccache
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-${{ inputs.ROS_DISTRO }}-${{ inputs.ROS_REPO }}-${{github.run_id}}
@@ -39,3 +45,51 @@ jobs:
       - name: Run industrial CI
         uses: 'ros-industrial/industrial_ci@master'
         env: ${{ inputs }}
+  # Builds naoqi_driver with -fsanitize=thread and runs its tests: a data race fails
+  # them. Outside industrial_ci, because ThreadSanitizer needs a kernel setting on
+  # the runner itself.
+  tsan:
+    name: ThreadSanitizer
+    runs-on: ubuntu-22.04
+    continue-on-error: ${{ inputs.ALLOW_FAIL }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Let ThreadSanitizer map its shadow memory
+        # GCC 11's ThreadSanitizer fails with the 32-bit address randomization of
+        # recent runner kernels ("unexpected memory mapping").
+        run: sudo sysctl vm.mmap_rnd_bits=28
+      - name: Install ROS
+        uses: ros-tooling/setup-ros@v0.7
+        with:
+          required-ros-distributions: ${{ inputs.ROS_DISTRO }}
+      - name: Check out the naoqi_driver2 repo
+        uses: actions/checkout@v4
+        with:
+          path: src/naoqi_driver2
+      - name: Fetch the dependencies
+        run: |
+          vcs import src < src/naoqi_driver2/dependencies.repos
+          rm -rf src/nao_meshes src/pepper_meshes
+          rosdep update
+          rosdep install --from-paths src --ignore-src --rosdistro ${{ inputs.ROS_DISTRO }} -y
+      - name: Build the dependencies, then naoqi_driver with ThreadSanitizer
+        run: |
+          source /opt/ros/${{ inputs.ROS_DISTRO }}/setup.bash
+          colcon build --packages-up-to naoqi_driver --packages-skip naoqi_driver
+          source install/setup.bash
+          colcon build --packages-select naoqi_driver --cmake-args -DBUILD_TESTING=ON \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_CXX_FLAGS=-fsanitize=thread \
+            -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=thread -DCMAKE_SHARED_LINKER_FLAGS=-fsanitize=thread
+      - name: Run the tests under ThreadSanitizer
+        env:
+          # Only the libraries built without it; see the file.
+          TSAN_OPTIONS: suppressions=${{ github.workspace }}/src/naoqi_driver2/test/tsan.supp second_deadlock_stack=1
+        # Not test_driver_process: at exit, libqi's own session teardown races inside the
+        # library (built without ThreadSanitizer). The other tests cover the driver's threads.
+        run: |
+          source install/setup.bash
+          colcon test --packages-select naoqi_driver --event-handlers console_direct+ \
+            --ctest-args -E test_driver_process
+          colcon test-result --verbose

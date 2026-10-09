@@ -8,9 +8,10 @@ repositories:
     type: git
     url: https://github.com/ros-naoqi/libqicore.git
     version: ros2
+  # This fork's interfaces (RunLed, PlayAudio, the audio services, ...).
   naoqi_bridge_msgs:
     type: git
-    url: https://github.com/ros-naoqi/naoqi_bridge_msgs2.git
+    url: https://github.com/yohatad/naoqi_bridge_msgs2.git
     version: main
   nao_meshes:
     type: git

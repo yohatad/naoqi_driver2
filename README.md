@@ -37,7 +37,7 @@ In your ROS2 workspace, clone the repo and its dependencies:
 
 ```sh
 cd <ws>/src
-git clone https://github.com/ros-naoqi/naoqi_driver2.git
+git clone https://github.com/yohatad/naoqi_driver2.git
 vcs import < naoqi_driver2/dependencies.repos
 cd <ws>
 rosdep install --from-paths src --ignore-src --rosdistro <distro> -y
@@ -258,6 +258,31 @@ angular:
   y: 0.0
   z: 0.0"
 ```
+
+### Drive with a joystick, safely
+
+`safe_teleop.launch.py` puts a dead-man switch and a collision monitor between a
+joystick and `/cmd_vel`. It needs packages the driver itself does not:
+
+```sh
+sudo apt install ros-humble-joy ros-humble-teleop-twist-joy \
+  ros-humble-nav2-collision-monitor ros-humble-nav2-lifecycle-manager
+ros2 launch naoqi_driver safe_teleop.launch.py
+```
+
+- Hold LB to move and release it to stop. Speeds are capped at 0.2 m/s and
+  0.5 rad/s. The buttons and axes in `config/safe_teleop/teleop_twist_joy.yaml`
+  are for an Xbox-style pad; check yours with `ros2 topic echo /joy` and pass
+  your own file with `joy_config:=<file>`.
+- The robot moves at half speed within 0.6 m of an obstacle, and slows down
+  further towards one so that it stops about 0.1 m short of it. Moving away
+  stays possible.
+- Obstacles come from the laser and the sonars, so enable
+  `converters.laser.enabled` and `converters.sonar.enabled`. Without their
+  data the collision monitor lets every command through.
+
+The driver's own limits still apply: `max_linear_speed` and `max_angular_speed`,
+and `cmd_vel_timeout`.
 
 ### Stop the base if the driver dies
 

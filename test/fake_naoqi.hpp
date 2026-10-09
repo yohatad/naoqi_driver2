@@ -1,5 +1,6 @@
-// An in-process NAOqi stand-in for unit tests: a standalone qi::Session with fake
-// ALMemory, ALSystem and ALMotion services that record every call they receive.
+// A NAOqi stand-in for tests: a standalone qi::Session with fake ALMemory, ALSystem,
+// ALMotion, dialog and playback services that record every call they receive. Used
+// in-process by the unit tests, and on its own by fake_naoqi_server.
 
 #ifndef NAOQI_DRIVER_TEST_FAKE_NAOQI_HPP
 #define NAOQI_DRIVER_TEST_FAKE_NAOQI_HPP
@@ -60,7 +61,11 @@ public:
     std::chrono::milliseconds timeout = std::chrono::seconds(2))
   {
     std::unique_lock<std::mutex> lock(mutex_);
-    return cv_.wait_for(lock, timeout, [&] {return countLocked(prefix) > 0;});
+    // A system_clock deadline: GCC 11's ThreadSanitizer misses the mutex release
+    // in the steady_clock wait (pthread_cond_clockwait) and reports false races.
+    return cv_.wait_until(
+      lock, std::chrono::system_clock::now() + timeout,
+      [&] {return countLocked(prefix) > 0;});
   }
 
   size_t count(const std::string & prefix) const
@@ -327,7 +332,21 @@ public:
     }
   }
 
-  ~FakeNaoqi() {session->close().wait();}
+  ~FakeNaoqi()
+  {
+    session->close().wait();
+    // libqi's event loop can still be finishing work for the session and its
+    // objects after close(); freeing them now would race with it (ThreadSanitizer
+    // sees it). Closed sessions own no threads, so keep them until the process ends.
+    static std::mutex kept_mutex;
+    static auto * kept = new std::vector<boost::shared_ptr<void>>();
+    std::lock_guard<std::mutex> lock(kept_mutex);
+    kept->push_back(session);
+    kept->push_back(memory);
+  }
+
+  FakeNaoqi(const FakeNaoqi &) = delete;
+  FakeNaoqi & operator=(const FakeNaoqi &) = delete;
 
   CallLog log;
   boost::shared_ptr<FakeMemory> memory = boost::make_shared<FakeMemory>(log);
