@@ -269,8 +269,12 @@ void CameraConverter::callAll(const std::vector<message_actions::MessageAction> 
   msg_ = cv_bridge::CvImage(std_msgs::msg::Header(), msg_colorspace_, cv_img).toImageMsg();
   msg_->header.frame_id = msg_frameid_;
 
-  // Stamped on arrival with the ROS clock: the NAOqi capture time is on the robot's clock.
-  msg_->header.stamp = helpers::Time::now();
+  // Stamped with the capture time, mapped from the robot's clock to the ROS clock.
+  const rclcpp::Time arrival = helpers::Time::now();
+  const int64_t capture_ns = static_cast<int64_t>(image.timestamp_s) * 1'000'000'000 +
+    static_cast<int64_t>(image.timestamp_us) * 1'000;
+  msg_->header.stamp = rclcpp::Time(
+    capture_clock_.toLocal(capture_ns, arrival.nanoseconds()), arrival.get_clock_type());
   camera_info_.header.stamp = msg_->header.stamp;
 
   for (const message_actions::MessageAction & action: actions) {

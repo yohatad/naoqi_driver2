@@ -234,11 +234,22 @@ if(BUILD_TESTING)
   naoqi_driver_add_test(test_motion_safety)
   naoqi_driver_add_test(test_driver_shutdown)
   naoqi_driver_add_test(test_heartbeat)
+  naoqi_driver_add_test(test_clock_offset)
   naoqi_driver_add_test(test_recording)
   ament_target_dependencies(test_recording rosbag2_cpp std_srvs)
 
   find_package(ament_cmake_pytest REQUIRED)
   ament_add_pytest_test(test_robot_watchdog test/test_robot_watchdog.py TIMEOUT 60)
+
+  # naoqi_driver_node as a process, against a fake NAOqi in another process.
+  add_executable(fake_naoqi_server test/fake_naoqi_server.cpp)
+  target_include_directories(fake_naoqi_server PRIVATE test)
+  target_link_libraries(fake_naoqi_server ${naoqi_libqi_LIBRARIES})
+  ament_target_dependencies(fake_naoqi_server naoqi_libqi Boost)
+  ament_add_pytest_test(test_driver_process test/test_driver_process.py TIMEOUT 180
+    ENV
+    FAKE_NAOQI_SERVER=$<TARGET_FILE:fake_naoqi_server>
+    DRIVER_NODE=$<TARGET_FILE:naoqi_driver_node>)
 endif()
 
 ament_export_libraries(naoqi_driver)

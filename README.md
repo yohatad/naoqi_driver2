@@ -167,6 +167,33 @@ ros2 launch naoqi_driver pepper_bringup.launch.py nao_ip:=<robot_host> use_camer
 > `qi_listen_url`, `namespace`, `publish_wheel_odom_tf`) and forwards them.
 > Remember to stop the stream afterwards with `ssh nao@<robot_host> '~/stop_camera.sh'`.
 
+### Choose the sensors
+
+`share/boot_config.json` sets which sensors the driver reads, and how often.
+Each of its settings is also a parameter named after its path, such as
+`converters.front_camera.enabled`, and a parameter overrides the file. Put the
+overrides in a YAML file:
+
+```yaml
+/**:
+  ros__parameters:
+    converters:
+      front_camera:
+        enabled: true
+        resolution: 1  # QQVGA = 0, QVGA = 1, VGA = 2
+      laser:
+        enabled: false
+```
+
+and pass it at launch (`pepper_bringup.launch.py` accepts it too):
+
+```sh
+ros2 launch naoqi_driver naoqi_driver.launch.py nao_ip:=<robot_host> params_file:=<file.yaml>
+```
+
+The driver reads these settings once, at start-up, so `ros2 param set` refuses
+to change them.
+
 ## Check that the node is running correctly
 
 Check that the driver is connected:

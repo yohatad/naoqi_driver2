@@ -15,7 +15,10 @@
 
 #include <naoqi_driver/boot_config.hpp>
 
+#include <cmath>
+#include <cstdint>
 #include <string>
+#include <type_traits>
 
 namespace naoqi
 {
@@ -23,50 +26,88 @@ namespace naoqi
 namespace
 {
 
-// Integer settings are read as int, as the driver always did, then stored unsigned.
-size_t getCount(const boost::property_tree::ptree & tree, const std::string & key, size_t fallback)
+/** Calls visit(key, field) for every setting; keys are paths in boot_config.json. */
+template<typename Visitor>
+void visitFields(BootConfig & c, Visitor && visit)
 {
-  return tree.get(key, static_cast<int>(fallback));
+  const auto toggle = [&visit](const std::string & key, BootConfig::Toggle & t) {
+      visit(key + ".enabled", t.enabled);
+    };
+  const auto periodic = [&visit](const std::string & key, BootConfig::Periodic & p) {
+      visit(key + ".enabled", p.enabled);
+      visit(key + ".frequency", p.frequency);
+    };
+  const auto camera = [&visit](const std::string & key, BootConfig::Camera & cam) {
+      visit(key + ".enabled", cam.enabled);
+      visit(key + ".resolution", cam.resolution);
+      visit(key + ".fps", cam.fps);
+      visit(key + ".recorder_fps", cam.recorder_fps);
+    };
+
+  toggle("converters.info", c.info);
+  toggle("converters.audio", c.audio);
+  periodic("converters.logs", c.logs);
+  periodic("converters.diag", c.diag);
+  periodic("converters.imu_torso", c.imu_torso);
+  periodic("converters.imu_base", c.imu_base);
+  camera("converters.front_camera", c.front_camera);
+  camera("converters.bottom_camera", c.bottom_camera);
+  visit("converters.depth_camera.enabled", c.depth_camera.enabled);
+  visit("converters.depth_camera.xtion_resolution", c.depth_camera.xtion_resolution);
+  visit("converters.depth_camera.stereo_resolution", c.depth_camera.stereo_resolution);
+  visit("converters.depth_camera.fps", c.depth_camera.fps);
+  visit("converters.depth_camera.recorder_fps", c.depth_camera.recorder_fps);
+  camera("converters.stereo_camera", c.stereo_camera);
+  camera("converters.ir_camera", c.ir_camera);
+  periodic("converters.joint_states", c.joint_states);
+  visit("converters.laser.enabled", c.laser.enabled);
+  visit("converters.laser.frequency", c.laser.frequency);
+  visit("converters.laser.range_min", c.laser.range_min);
+  visit("converters.laser.range_max", c.laser.range_max);
+  periodic("converters.sonar", c.sonar);
+  periodic("converters.odom", c.odom);
+  toggle("converters.bumper", c.bumper);
+  toggle("converters.touch_hand", c.touch_hand);
+  toggle("converters.touch_head", c.touch_head);
 }
 
-void read(const boost::property_tree::ptree & tree, const std::string & key, BootConfig::Toggle & t)
+/** Stores value in out if its type fits the field; false (out unchanged) otherwise. */
+bool convert(const rclcpp::ParameterValue & value, bool & out)
 {
-  t.enabled = tree.get(key + ".enabled", t.enabled);
+  if (value.get_type() != rclcpp::ParameterType::PARAMETER_BOOL) {
+    return false;
+  }
+  out = value.get<bool>();
+  return true;
 }
 
-void read(
-  const boost::property_tree::ptree & tree, const std::string & key,
-  BootConfig::Periodic & p)
+bool convert(const rclcpp::ParameterValue & value, size_t & out)
 {
-  p.enabled = tree.get(key + ".enabled", p.enabled);
-  p.frequency = getCount(tree, key + ".frequency", p.frequency);
+  double number;
+  if (value.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER) {
+    number = static_cast<double>(value.get<int64_t>());
+  } else if (value.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE) {
+    number = std::round(value.get<double>());
+  } else {
+    return false;
+  }
+  if (number < 0) {
+    return false;
+  }
+  out = static_cast<size_t>(number);
+  return true;
 }
 
-void read(const boost::property_tree::ptree & tree, const std::string & key, BootConfig::Camera & c)
+bool convert(const rclcpp::ParameterValue & value, float & out)
 {
-  c.enabled = tree.get(key + ".enabled", c.enabled);
-  c.resolution = getCount(tree, key + ".resolution", c.resolution);
-  c.fps = getCount(tree, key + ".fps", c.fps);
-  c.recorder_fps = getCount(tree, key + ".recorder_fps", c.recorder_fps);
-}
-
-void read(
-  const boost::property_tree::ptree & tree, const std::string & key,
-  BootConfig::DepthCamera & c)
-{
-  c.enabled = tree.get(key + ".enabled", c.enabled);
-  c.xtion_resolution = getCount(tree, key + ".xtion_resolution", c.xtion_resolution);
-  c.stereo_resolution = getCount(tree, key + ".stereo_resolution", c.stereo_resolution);
-  c.fps = getCount(tree, key + ".fps", c.fps);
-  c.recorder_fps = getCount(tree, key + ".recorder_fps", c.recorder_fps);
-}
-
-void read(const boost::property_tree::ptree & tree, const std::string & key, BootConfig::Laser & l)
-{
-  l.enabled = tree.get(key + ".enabled", l.enabled);
-  l.frequency = getCount(tree, key + ".frequency", l.frequency);
-  l.range_min = tree.get<float>(key + ".range_min", l.range_min);
-  l.range_max = tree.get<float>(key + ".range_max", l.range_max);
+  if (value.get_type() == rclcpp::ParameterType::PARAMETER_DOUBLE) {
+    out = static_cast<float>(value.get<double>());
+  } else if (value.get_type() == rclcpp::ParameterType::PARAMETER_INTEGER) {
+    out = static_cast<float>(value.get<int64_t>());
+  } else {
+    return false;
+  }
+  return true;
 }
 
 }  // namespace
@@ -74,24 +115,45 @@ void read(const boost::property_tree::ptree & tree, const std::string & key, Boo
 BootConfig parseBootConfig(const boost::property_tree::ptree & tree)
 {
   BootConfig config;
-  read(tree, "converters.info", config.info);
-  read(tree, "converters.audio", config.audio);
-  read(tree, "converters.logs", config.logs);
-  read(tree, "converters.diag", config.diag);
-  read(tree, "converters.imu_torso", config.imu_torso);
-  read(tree, "converters.imu_base", config.imu_base);
-  read(tree, "converters.front_camera", config.front_camera);
-  read(tree, "converters.bottom_camera", config.bottom_camera);
-  read(tree, "converters.depth_camera", config.depth_camera);
-  read(tree, "converters.stereo_camera", config.stereo_camera);
-  read(tree, "converters.ir_camera", config.ir_camera);
-  read(tree, "converters.joint_states", config.joint_states);
-  read(tree, "converters.laser", config.laser);
-  read(tree, "converters.sonar", config.sonar);
-  read(tree, "converters.odom", config.odom);
-  read(tree, "converters.bumper", config.bumper);
-  read(tree, "converters.touch_hand", config.touch_hand);
-  read(tree, "converters.touch_head", config.touch_head);
+  visitFields(
+    config, [&tree](const std::string & key, auto & field) {
+      using Field = std::decay_t<decltype(field)>;
+      if constexpr (std::is_same_v<Field, size_t>) {
+        // Read as int, as the driver always did, then stored unsigned.
+        field = tree.get(key, static_cast<int>(field));
+      } else {
+        field = tree.get(key, field);
+      }
+    });
+  return config;
+}
+
+BootConfig declareBootConfigParameters(rclcpp::Node & node, BootConfig config)
+{
+  visitFields(
+    config, [&node](const std::string & key, auto & field) {
+      using Field = std::decay_t<decltype(field)>;
+      rcl_interfaces::msg::ParameterDescriptor descriptor;
+      descriptor.description = "Setting " + key + " of boot_config.json, which gives the default";
+      descriptor.read_only = true;  // the converters are created once, at start-up
+      descriptor.dynamic_typing = true;  // so that 10 and 10.0 both work
+      rclcpp::ParameterValue default_value;
+      if constexpr (std::is_same_v<Field, size_t>) {
+        default_value = rclcpp::ParameterValue(static_cast<int64_t>(field));
+      } else if constexpr (std::is_same_v<Field, float>) {
+        default_value = rclcpp::ParameterValue(static_cast<double>(field));
+      } else {
+        default_value = rclcpp::ParameterValue(field);
+      }
+      const rclcpp::ParameterValue value =
+      node.has_parameter(key) ? node.get_parameter(key).get_parameter_value() :
+      node.declare_parameter(key, default_value, descriptor);
+      if (!convert(value, field)) {
+        RCLCPP_WARN(
+          node.get_logger(), "Parameter %s has an invalid value, using %s", key.c_str(),
+          rclcpp::to_string(default_value).c_str());
+      }
+    });
   return config;
 }
 

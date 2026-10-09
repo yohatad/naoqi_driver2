@@ -5,6 +5,45 @@ import launch.substitutions
 import launch_ros.actions
 import launch_ros.parameter_descriptions
 
+
+def launch_driver(context):
+    """The driver node, with the parameters file when one is given."""
+    parameters = [{
+        'nao_ip': launch.substitutions.LaunchConfiguration('nao_ip'),
+        'nao_port': launch.substitutions.LaunchConfiguration('nao_port'),
+        'user': launch.substitutions.LaunchConfiguration('user'),
+        'password': launch.substitutions.LaunchConfiguration('password'),
+        'network_interface': launch.substitutions.LaunchConfiguration('network_interface'),
+        'qi_listen_url': launch.substitutions.LaunchConfiguration('qi_listen_url'),
+        'publish_wheel_odom_tf': launch.substitutions.LaunchConfiguration('publish_wheel_odom_tf'),
+        'cmd_vel_timeout': launch_ros.parameter_descriptions.ParameterValue(
+            launch.substitutions.LaunchConfiguration('cmd_vel_timeout'), value_type=float),
+        'moveto_max_distance': launch_ros.parameter_descriptions.ParameterValue(
+            launch.substitutions.LaunchConfiguration('moveto_max_distance'), value_type=float),
+        'max_linear_speed': launch_ros.parameter_descriptions.ParameterValue(
+            launch.substitutions.LaunchConfiguration('max_linear_speed'), value_type=float),
+        'max_angular_speed': launch_ros.parameter_descriptions.ParameterValue(
+            launch.substitutions.LaunchConfiguration('max_angular_speed'), value_type=float),
+        'listen_timeout': launch_ros.parameter_descriptions.ParameterValue(
+            launch.substitutions.LaunchConfiguration('listen_timeout'), value_type=float),
+        'minidump_duration': launch_ros.parameter_descriptions.ParameterValue(
+            launch.substitutions.LaunchConfiguration('minidump_duration'), value_type=float),
+    }]
+    params_file = launch.substitutions.LaunchConfiguration('params_file').perform(context)
+    if params_file:
+        parameters.append(params_file)
+    return [
+        launch_ros.actions.Node(
+            package='naoqi_driver',
+            executable='naoqi_driver_node',
+            namespace=launch.substitutions.LaunchConfiguration('namespace'),
+            parameters=parameters,
+            output="screen",
+            respawn=launch.substitutions.LaunchConfiguration('respawn'),
+            respawn_delay=2.0),
+    ]
+
+
 def generate_launch_description():
     return launch.LaunchDescription([
         launch.actions.DeclareLaunchArgument(
@@ -78,32 +117,10 @@ def generate_launch_description():
             default_value="true",
             description='Restart the driver when it exits on its own, e.g. after losing '
                         'the NAOqi connection (it then reconnects with backoff).'),
-        launch_ros.actions.Node(
-            package='naoqi_driver',
-            executable='naoqi_driver_node',
-            namespace=launch.substitutions.LaunchConfiguration('namespace'),
-            parameters=[{
-                'nao_ip': launch.substitutions.LaunchConfiguration('nao_ip'),
-                'nao_port': launch.substitutions.LaunchConfiguration('nao_port'),
-                'user': launch.substitutions.LaunchConfiguration('user'),
-                'password': launch.substitutions.LaunchConfiguration('password'),
-                'network_interface': launch.substitutions.LaunchConfiguration('network_interface'),
-                'qi_listen_url': launch.substitutions.LaunchConfiguration('qi_listen_url'),
-                'publish_wheel_odom_tf': launch.substitutions.LaunchConfiguration('publish_wheel_odom_tf'),
-                'cmd_vel_timeout': launch_ros.parameter_descriptions.ParameterValue(
-                    launch.substitutions.LaunchConfiguration('cmd_vel_timeout'), value_type=float),
-                'moveto_max_distance': launch_ros.parameter_descriptions.ParameterValue(
-                    launch.substitutions.LaunchConfiguration('moveto_max_distance'), value_type=float),
-                'max_linear_speed': launch_ros.parameter_descriptions.ParameterValue(
-                    launch.substitutions.LaunchConfiguration('max_linear_speed'), value_type=float),
-                'max_angular_speed': launch_ros.parameter_descriptions.ParameterValue(
-                    launch.substitutions.LaunchConfiguration('max_angular_speed'), value_type=float),
-                'listen_timeout': launch_ros.parameter_descriptions.ParameterValue(
-                    launch.substitutions.LaunchConfiguration('listen_timeout'), value_type=float),
-                'minidump_duration': launch_ros.parameter_descriptions.ParameterValue(
-                    launch.substitutions.LaunchConfiguration('minidump_duration'), value_type=float),
-            }],
-            output="screen",
-            respawn=launch.substitutions.LaunchConfiguration('respawn'),
-            respawn_delay=2.0),
+        launch.actions.DeclareLaunchArgument(
+            'params_file',
+            default_value="",
+            description='Optional YAML file of extra parameters, e.g. boot config overrides '
+                        '(converters.front_camera.enabled: true).'),
+        launch.actions.OpaqueFunction(function=launch_driver),
     ])

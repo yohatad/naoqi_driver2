@@ -19,12 +19,14 @@
 #include <cstddef>
 
 #include <boost/property_tree/ptree.hpp>
+#include <rclcpp/rclcpp.hpp>
 
 namespace naoqi
 {
 
 /**
- * @brief Typed view of share/boot_config.json ("converters" section).
+ * @brief Typed view of share/boot_config.json ("converters" section), where every
+ * setting can be overridden by a parameter (see declareBootConfigParameters()).
  * Every field keeps the default below when its key is missing. Camera resolutions
  * use the NAOqi codes from the file's legend: QQVGA = 0, QVGA = 1, VGA = 2.
  */
@@ -88,6 +90,13 @@ struct BootConfig
 
 /** Reads the "converters" section of a parsed boot_config.json. */
 BootConfig parseBootConfig(const boost::property_tree::ptree & tree);
+
+/**
+ * Declares every setting as a read-only parameter named like its JSON path
+ * (converters.front_camera.enabled, ...), with the value in config as default.
+ * @return config with the values the node was given; an invalid one keeps the default
+ */
+BootConfig declareBootConfigParameters(rclcpp::Node & node, BootConfig config);
 
 }  // namespace naoqi
 

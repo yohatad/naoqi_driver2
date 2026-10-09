@@ -23,6 +23,7 @@
 */
 #include <functional>
 #include "converter_base.hpp"
+#include "helpers/clock_offset.hpp"
 #include <naoqi_driver/message_actions.h>
 #include <naoqi_driver/ros_helpers.hpp>
 
@@ -77,6 +78,8 @@ private:
   std::string msg_frameid_;
   sensor_msgs::msg::CameraInfo camera_info_;
   sensor_msgs::msg::Image::SharedPtr msg_;
+  // Maps the capture time NAOqi reports (robot clock) to the ROS clock.
+  helpers::ClockOffset capture_clock_;
 };
 
 }  // namespace converter

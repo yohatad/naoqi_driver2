@@ -1,11 +1,14 @@
 // BootConfig replaces the string-keyed property_tree lookups that used to be spread
 // through Driver::registerDefaultConverter. The defaults must match the old ones.
 
+#include <memory>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include <boost/property_tree/json_parser.hpp>
 #include <gtest/gtest.h>
+#include <rclcpp/rclcpp.hpp>
 
 #include <naoqi_driver/boot_config.hpp>
 
@@ -106,4 +109,78 @@ TEST(BootConfig, ShippedConfigFilesParse)
   EXPECT_TRUE(full.front_camera.enabled);
   EXPECT_TRUE(full.audio.enabled);
   EXPECT_FALSE(full.stereo_camera.enabled);
+}
+
+namespace
+{
+
+/** A node given these parameters, as from the command line or a launch file. */
+std::shared_ptr<rclcpp::Node> nodeWith(const std::vector<rclcpp::Parameter> & overrides)
+{
+  if (!rclcpp::ok()) {
+    rclcpp::init(0, nullptr);
+  }
+  static int count = 0;
+  return std::make_shared<rclcpp::Node>(
+    "boot_config_test_" + std::to_string(count++),
+    rclcpp::NodeOptions().parameter_overrides(overrides));
+}
+
+}  // namespace
+
+TEST(BootConfigParameters, FileValuesBecomeTheDefaults)
+{
+  auto node = nodeWith({});
+  naoqi::BootConfig file;
+  file.laser.frequency = 7;
+  file.front_camera.enabled = false;
+  const auto config = naoqi::declareBootConfigParameters(*node, file);
+
+  EXPECT_EQ(config.laser.frequency, 7u);
+  EXPECT_FALSE(config.front_camera.enabled);
+  EXPECT_EQ(node->get_parameter("converters.laser.frequency").as_int(), 7);
+  EXPECT_FALSE(node->get_parameter("converters.front_camera.enabled").as_bool());
+  EXPECT_DOUBLE_EQ(node->get_parameter("converters.laser.range_max").as_double(), 3.0);
+}
+
+TEST(BootConfigParameters, GivenParametersOverrideTheFile)
+{
+  auto node = nodeWith(
+  {
+    rclcpp::Parameter("converters.front_camera.enabled", true),
+    rclcpp::Parameter("converters.front_camera.resolution", 2),
+    rclcpp::Parameter("converters.imu_base.frequency", 12.0),  // a double for a count
+    rclcpp::Parameter("converters.laser.range_max", 5),  // an int for a float
+  });
+  naoqi::BootConfig file;
+  file.front_camera.enabled = false;
+  const auto config = naoqi::declareBootConfigParameters(*node, file);
+
+  EXPECT_TRUE(config.front_camera.enabled);
+  EXPECT_EQ(config.front_camera.resolution, 2u);
+  EXPECT_EQ(config.imu_base.frequency, 12u);
+  EXPECT_FLOAT_EQ(config.laser.range_max, 5.f);
+  EXPECT_EQ(config.bottom_camera.fps, file.bottom_camera.fps);  // untouched
+}
+
+TEST(BootConfigParameters, InvalidValuesKeepTheFileValue)
+{
+  auto node = nodeWith(
+  {
+    rclcpp::Parameter("converters.odom.frequency", -5),
+    rclcpp::Parameter("converters.sonar.enabled", "yes"),
+  });
+  naoqi::BootConfig file;
+  const auto config = naoqi::declareBootConfigParameters(*node, file);
+  EXPECT_EQ(config.odom.frequency, file.odom.frequency);
+  EXPECT_EQ(config.sonar.enabled, file.sonar.enabled);
+}
+
+TEST(BootConfigParameters, AreReadOnlyOnceDeclared)
+{
+  // Converters are built once: a later change would silently do nothing.
+  auto node = nodeWith({});
+  naoqi::declareBootConfigParameters(*node, naoqi::BootConfig());
+  const auto result = node->set_parameter(rclcpp::Parameter("converters.odom.enabled", false));
+  EXPECT_FALSE(result.successful);
 }

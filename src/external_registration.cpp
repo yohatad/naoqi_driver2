@@ -61,6 +61,16 @@ void sigintHandler(int sig)
   }
 }
 
+/**
+ * helpers::Node keeps the driver in a static. Released on every way out of main(), so
+ * that the driver is destroyed while ROS is up; at static destruction DDS is already
+ * gone and the process crashed on exit.
+ */
+struct ReleaseHelperNode
+{
+  ~ReleaseHelperNode() {naoqi::helpers::Node::setNode(nullptr);}
+};
+
 /** Sleeps for delay, waking early on Ctrl+C. */
 void sleepUnlessInterrupted(std::chrono::seconds delay)
 {
@@ -88,6 +98,7 @@ int main(int argc, char ** argv)
 
   // Setup the time helper
   naoqi::helpers::Node::setNode(bs);
+  ReleaseHelperNode release_helper_node;
 
   // Retrieve the parameters
   bs->declare_parameter<std::string>("nao_ip", "127.0.0.1");
@@ -145,7 +156,7 @@ int main(int argc, char ** argv)
       address.c_str(), connection.error().c_str(), static_cast<long>(delay.count()));
     sleepUnlessInterrupted(delay);
     if (g_interrupted) {
-      return EXIT_FAILURE;
+      return EXIT_SUCCESS;  // stopped on request, like a Ctrl+C once connected
     }
   }
   // The session needs to listen on the network to process audio callbacks.
@@ -159,7 +170,7 @@ int main(int argc, char ** argv)
   // If NAOqi goes away, stop and exit with an error; the launch file respawns the
   // driver, which then reconnects with the backoff above.
   rclcpp::Logger logger = bs->get_logger();
-  session->disconnected.connect(
+  const qi::SignalLink disconnected_link = session->disconnected.connect(
     [logger](const std::string & reason) {
       g_disconnected = true;
       RCLCPP_ERROR(logger, "Lost the connection to NAOqi (%s), stopping", reason.c_str());
@@ -178,7 +189,11 @@ int main(int argc, char ** argv)
   bs->stop();
   const int exit_code = g_disconnected ? EXIT_FAILURE : EXIT_SUCCESS;
 
-  // Close the qi::Session and shutdown ROS.
+  // Destroy the driver while NAOqi and ROS are still up, then close both. Closing
+  // the session fires disconnected, which is no lost connection here.
+  naoqi::helpers::Node::setNode(nullptr);
+  bs.reset();
+  session->disconnected.disconnect(disconnected_link);
   app.session()->close();
   rclcpp::shutdown();
   return exit_code;

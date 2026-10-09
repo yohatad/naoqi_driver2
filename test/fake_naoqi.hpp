@@ -7,11 +7,13 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <functional>
 #include <map>
 #include <mutex>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <boost/make_shared.hpp>
@@ -27,11 +29,23 @@ class CallLog
 public:
   void add(const std::string & call)
   {
+    std::function<void(const std::string &)> observer;
     {
       std::lock_guard<std::mutex> lock(mutex_);
       calls_.push_back(call);
+      observer = observer_;
     }
     cv_.notify_all();
+    if (observer) {
+      observer(call);
+    }
+  }
+
+  /** Also passes every call to observer (fake_naoqi_server prints them). */
+  void setObserver(std::function<void(const std::string &)> observer)
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    observer_ = std::move(observer);
   }
 
   std::vector<std::string> calls() const
@@ -76,6 +90,7 @@ private:
   mutable std::mutex mutex_;
   std::condition_variable cv_;
   std::vector<std::string> calls_;
+  std::function<void(const std::string &)> observer_;
 };
 
 template<typename T>

@@ -297,7 +297,8 @@ void Driver::loadBootConfig()
   if (!file_path.empty()) {
     boost::property_tree::read_json(file_path, tree);
   }
-  boot_config_ = parseBootConfig(tree);
+  // Parameters given to the node override the file.
+  boot_config_ = declareBootConfigParameters(*this, parseBootConfig(tree));
 }
 
 void Driver::rosIteration()
