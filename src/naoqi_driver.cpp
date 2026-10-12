@@ -215,7 +215,14 @@ void Driver::run()
   // Action servers. They outlive the callback thread below; destroying them stops
   // their running goals in NAOqi and joins the goal threads.
   std::vector<std::unique_ptr<action::ActionHandle>> actions;
-  actions.push_back(action::createListenServer(this, session_));
+  // listen is off unless asked for: on NAOqi 2.5 its dialog topic is refused (wrong language
+  // code) and its ALMemory subscriber cannot be decoded by this libqi.
+  if (!has_parameter("listen_enabled")) {
+    declare_parameter<bool>("listen_enabled", false);
+  }
+  if (get_parameter("listen_enabled").as_bool()) {
+    actions.push_back(action::createListenServer(this, session_));
+  }
   actions.push_back(action::createSpeechWithFeedbackServer(this, session_));
   actions.push_back(action::createAudioPlayerServers(this, session_));
   actions.push_back(action::createRunLedServer(this, session_));
@@ -590,46 +597,63 @@ void Driver::registerStatusConverters(const BootConfig & config)
   // The info converter runs once (0 Hz): its publisher is latched and always counts as
   // subscribed, so later subscribers still get the robot information.
   if (config.info.enabled) {
-    wireConverter(
-      std::make_shared<converter::InfoConverter>("info", 0, session_),
-      std::make_shared<publisher::InfoPublisher>("info"),
-      std::make_shared<InfoRecorder>("info"));
+    registerSensor(
+      "info", [&] {
+        wireConverter(
+          std::make_shared<converter::InfoConverter>("info", 0, session_),
+          std::make_shared<publisher::InfoPublisher>("info"),
+          std::make_shared<InfoRecorder>("info"));
+      });
   }
 
   // NAOqi logs go to /rosout only; they are not recorded.
   if (config.logs.enabled) {
-    auto log_converter =
-      std::make_shared<converter::LogConverter>("log", config.logs.frequency, session_);
-    auto log_publisher = std::make_shared<publisher::LogPublisher>("/rosout");
-    log_converter->registerCallback(
-      message_actions::PUBLISH, [log_publisher](auto & msg) {log_publisher->publish(msg);});
-    registerPublisher(log_converter, log_publisher);
+    registerSensor(
+      "logs", [&] {
+        auto log_converter =
+        std::make_shared<converter::LogConverter>("log", config.logs.frequency, session_);
+        auto log_publisher = std::make_shared<publisher::LogPublisher>("/rosout");
+        log_converter->registerCallback(
+          message_actions::PUBLISH, [log_publisher](auto & msg) {log_publisher->publish(msg);});
+        registerPublisher(log_converter, log_publisher);
+      });
   }
 
   if (config.diag.enabled) {
-    wireConverter(
-      std::make_shared<converter::DiagnosticsConverter>("diag", config.diag.frequency, session_),
-      std::make_shared<DiagnosticsPublisher>("/diagnostics"),
-      std::make_shared<recorder::DiagnosticsRecorder>("/diagnostics"));
+    registerSensor(
+      "diag", [&] {
+        wireConverter(
+          std::make_shared<converter::DiagnosticsConverter>(
+            "diag", config.diag.frequency,
+            session_),
+          std::make_shared<DiagnosticsPublisher>("/diagnostics"),
+          std::make_shared<recorder::DiagnosticsRecorder>("/diagnostics"));
+      });
   }
 }
 
 void Driver::registerImuConverters(const BootConfig & config)
 {
   if (config.imu_torso.enabled) {
-    wireConverter(
-      std::make_shared<converter::ImuConverter>(
-        "imu_torso", converter::IMU::TORSO, config.imu_torso.frequency, session_),
-      std::make_shared<ImuPublisher>("imu/torso"),
-      std::make_shared<ImuRecorder>("imu/torso"));
+    registerSensor(
+      "imu_torso", [&] {
+        wireConverter(
+          std::make_shared<converter::ImuConverter>(
+            "imu_torso", converter::IMU::TORSO, config.imu_torso.frequency, session_),
+          std::make_shared<ImuPublisher>("imu/torso"),
+          std::make_shared<ImuRecorder>("imu/torso"));
+      });
   }
 
   if (robot_ == robot::PEPPER && config.imu_base.enabled) {
-    wireConverter(
-      std::make_shared<converter::ImuConverter>(
-        "imu_base", converter::IMU::BASE, config.imu_base.frequency, session_),
-      std::make_shared<ImuPublisher>("imu/base"),
-      std::make_shared<ImuRecorder>("imu/base"));
+    registerSensor(
+      "imu_base", [&] {
+        wireConverter(
+          std::make_shared<converter::ImuConverter>(
+            "imu_base", converter::IMU::BASE, config.imu_base.frequency, session_),
+          std::make_shared<ImuPublisher>("imu/base"),
+          std::make_shared<ImuRecorder>("imu/base"));
+      });
   }
 }
 
@@ -640,55 +664,74 @@ void Driver::registerCameraConverters(const BootConfig & config)
     config.depth_camera.stereo_resolution : config.depth_camera.xtion_resolution;
 
   if (config.front_camera.enabled) {
-    wireConverter(
-      std::make_shared<converter::CameraConverter>(
-        "front_camera", config.front_camera.fps, session_, AL::kTopCamera,
-        config.front_camera.resolution),
-      std::make_shared<publisher::CameraPublisher>("camera/front/image_raw", AL::kTopCamera),
-      std::make_shared<recorder::CameraRecorder>(
-        "camera/front", config.front_camera.recorder_fps));
+    registerSensor(
+      "front_camera", [&] {
+        wireConverter(
+          std::make_shared<converter::CameraConverter>(
+            "front_camera", config.front_camera.fps, session_, AL::kTopCamera,
+            config.front_camera.resolution),
+          std::make_shared<publisher::CameraPublisher>("camera/front/image_raw", AL::kTopCamera),
+          std::make_shared<recorder::CameraRecorder>(
+            "camera/front", config.front_camera.recorder_fps));
+      });
   }
 
   if (config.bottom_camera.enabled) {
-    wireConverter(
-      std::make_shared<converter::CameraConverter>(
-        "bottom_camera", config.bottom_camera.fps, session_, AL::kBottomCamera,
-        config.bottom_camera.resolution),
-      std::make_shared<publisher::CameraPublisher>("camera/bottom/image_raw", AL::kBottomCamera),
-      std::make_shared<recorder::CameraRecorder>(
-        "camera/bottom", config.bottom_camera.recorder_fps));
+    registerSensor(
+      "bottom_camera", [&] {
+        wireConverter(
+          std::make_shared<converter::CameraConverter>(
+            "bottom_camera", config.bottom_camera.fps, session_, AL::kBottomCamera,
+            config.bottom_camera.resolution),
+          std::make_shared<publisher::CameraPublisher>(
+            "camera/bottom/image_raw",
+            AL::kBottomCamera),
+          std::make_shared<recorder::CameraRecorder>(
+            "camera/bottom", config.bottom_camera.recorder_fps));
+      });
   }
 
   if (robot_ == robot::PEPPER) {
     if (config.depth_camera.enabled) {
-      wireConverter(
-        std::make_shared<converter::CameraConverter>(
-          "depth_camera", config.depth_camera.fps, session_, AL::kDepthCamera,
-          depth_resolution, has_stereo_),
-        std::make_shared<publisher::CameraPublisher>("camera/depth/image_raw", AL::kDepthCamera),
-        std::make_shared<recorder::CameraRecorder>(
-          "camera/depth", config.depth_camera.recorder_fps));
+      registerSensor(
+        "depth_camera", [&] {
+          wireConverter(
+            std::make_shared<converter::CameraConverter>(
+              "depth_camera", config.depth_camera.fps, session_, AL::kDepthCamera,
+              depth_resolution, has_stereo_),
+            std::make_shared<publisher::CameraPublisher>(
+              "camera/depth/image_raw",
+              AL::kDepthCamera),
+            std::make_shared<recorder::CameraRecorder>(
+              "camera/depth", config.depth_camera.recorder_fps));
+        });
     }
 
     if (has_stereo_ && config.stereo_camera.enabled) {
-      wireConverter(
-        std::make_shared<converter::CameraConverter>(
-          "stereo_camera", config.stereo_camera.fps, session_, AL::kInfraredOrStereoCamera,
-          config.stereo_camera.resolution, has_stereo_),
-        std::make_shared<publisher::CameraPublisher>(
-          "camera/stereo/image_raw", AL::kInfraredOrStereoCamera),
-        std::make_shared<recorder::CameraRecorder>(
-          "camera/stereo", config.stereo_camera.recorder_fps));
+      registerSensor(
+        "stereo_camera", [&] {
+          wireConverter(
+            std::make_shared<converter::CameraConverter>(
+              "stereo_camera", config.stereo_camera.fps, session_, AL::kInfraredOrStereoCamera,
+              config.stereo_camera.resolution, has_stereo_),
+            std::make_shared<publisher::CameraPublisher>(
+              "camera/stereo/image_raw", AL::kInfraredOrStereoCamera),
+            std::make_shared<recorder::CameraRecorder>(
+              "camera/stereo", config.stereo_camera.recorder_fps));
+        });
     }
 
     if (config.ir_camera.enabled) {
-      wireConverter(
-        std::make_shared<converter::CameraConverter>(
-          "infrared_camera", config.ir_camera.fps, session_, AL::kInfraredOrStereoCamera,
-          config.ir_camera.resolution),
-        std::make_shared<publisher::CameraPublisher>(
-          "camera/ir/image_raw", AL::kInfraredOrStereoCamera),
-        std::make_shared<recorder::CameraRecorder>("camera/ir", config.ir_camera.recorder_fps));
+      registerSensor(
+        "ir_camera", [&] {
+          wireConverter(
+            std::make_shared<converter::CameraConverter>(
+              "infrared_camera", config.ir_camera.fps, session_, AL::kInfraredOrStereoCamera,
+              config.ir_camera.resolution),
+            std::make_shared<publisher::CameraPublisher>(
+              "camera/ir/image_raw", AL::kInfraredOrStereoCamera),
+            std::make_shared<recorder::CameraRecorder>("camera/ir", config.ir_camera.recorder_fps));
+        });
     }
   }
 }
@@ -696,82 +739,109 @@ void Driver::registerCameraConverters(const BootConfig & config)
 void Driver::registerMotionConverters(const BootConfig & config)
 {
   if (config.joint_states.enabled) {
-    wireConverter(
-      std::make_shared<converter::JointStateConverter>(
-        "joint_states", config.joint_states.frequency, tf2_buffer_, session_),
-      std::make_shared<publisher::JointStatePublisher>("/joint_states"),
-      std::make_shared<recorder::JointStateRecorder>("/joint_states"));
+    registerSensor(
+      "joint_states", [&] {
+        wireConverter(
+          std::make_shared<converter::JointStateConverter>(
+            "joint_states", config.joint_states.frequency, tf2_buffer_, session_),
+          std::make_shared<publisher::JointStatePublisher>("/joint_states"),
+          std::make_shared<recorder::JointStateRecorder>("/joint_states"));
+      });
   }
 
   if (robot_ == robot::PEPPER && config.laser.enabled) {
-    auto laser = std::make_shared<converter::LaserConverter>(
-      "laser", config.laser.frequency, session_);
-    laser->setLaserRanges(config.laser.range_min, config.laser.range_max);
-    wireConverter(
-      laser, std::make_shared<LaserPublisher>("laser"), std::make_shared<LaserRecorder>("laser"));
+    registerSensor(
+      "laser", [&] {
+        auto laser = std::make_shared<converter::LaserConverter>(
+          "laser", config.laser.frequency, session_);
+        laser->setLaserRanges(config.laser.range_min, config.laser.range_max);
+        wireConverter(
+          laser, std::make_shared<LaserPublisher>("laser"), std::make_shared<LaserRecorder>(
+            "laser"));
+      });
   }
 
   if (config.sonar.enabled) {
-    const std::vector<std::string> sonar_topics = robot_ == robot::PEPPER ?
-      std::vector<std::string>{"sonar/front", "sonar/back"} :
-    std::vector<std::string>{"sonar/left", "sonar/right"};
-    wireConverter(
-      std::make_shared<converter::SonarConverter>("sonar", config.sonar.frequency, session_),
-      std::make_shared<publisher::SonarPublisher>(sonar_topics),
-      std::make_shared<recorder::SonarRecorder>(sonar_topics));
+    registerSensor(
+      "sonar", [&] {
+        const std::vector<std::string> sonar_topics = robot_ == robot::PEPPER ?
+        std::vector<std::string>{"sonar/front", "sonar/back"} :
+        std::vector<std::string>{"sonar/left", "sonar/right"};
+        wireConverter(
+          std::make_shared<converter::SonarConverter>("sonar", config.sonar.frequency, session_),
+          std::make_shared<publisher::SonarPublisher>(sonar_topics),
+          std::make_shared<recorder::SonarRecorder>(sonar_topics));
+      });
   }
 
   if (config.odom.enabled) {
-    wireConverter(
-      std::make_shared<converter::OdomConverter>("pepper_odom", config.odom.frequency, session_),
-      std::make_shared<OdomPublisher>("pepper_odom"),
-      std::make_shared<OdomRecorder>("pepper_odom"));
+    registerSensor(
+      "odom", [&] {
+        wireConverter(
+          std::make_shared<converter::OdomConverter>(
+            "pepper_odom", config.odom.frequency,
+            session_),
+          std::make_shared<OdomPublisher>("pepper_odom"),
+          std::make_shared<OdomRecorder>("pepper_odom"));
+      });
   }
 }
 
 void Driver::registerEventRegisters(const BootConfig & config)
 {
   if (config.audio.enabled) {
-    insertEventConverter("audio", makeAudioEventRegister("audio", 0, session_));
-    if (keep_looping_) {
-      try {
-        event_map_.at("audio")->startProcess();
-      } catch (const std::exception & e) {
-        RCLCPP_ERROR_STREAM(get_logger(), "Failed to start audio extraction: " << e.what());
-        RCLCPP_WARN_STREAM(
-          get_logger(),
-          "Audio is being disabled automatically.\nTry specifying the --qi_listen_url option to an endpoint reachable by the robot to fix that.");
-      }
-    }
-    if (publish_enabled_) {
-      event_map_.at("audio")->isPublishing(true);
-    }
+    registerSensor(
+      "audio", [&] {
+        insertEventConverter("audio", makeAudioEventRegister("audio", 0, session_));
+        if (keep_looping_) {
+          try {
+            event_map_.at("audio")->startProcess();
+          } catch (const std::exception & e) {
+            RCLCPP_ERROR_STREAM(get_logger(), "Failed to start audio extraction: " << e.what());
+            RCLCPP_WARN_STREAM(
+              get_logger(),
+              "Audio is being disabled automatically.\nTry specifying the --qi_listen_url option to an endpoint reachable by the robot to fix that.");
+          }
+        }
+        if (publish_enabled_) {
+          event_map_.at("audio")->isPublishing(true);
+        }
+      });
   }
 
   if (config.bumper.enabled) {
-    std::vector<std::string> bumper_events{"RightBumperPressed", "LeftBumperPressed"};
-    if (robot_ == robot::PEPPER) {
-      bumper_events.push_back("BackBumperPressed");
-    }
-    startEventRegister(
-      "bumper", std::make_shared<BumperEventRegister>("bumper", bumper_events, 0, session_));
+    registerSensor(
+      "bumper", [&] {
+        std::vector<std::string> bumper_events{"RightBumperPressed", "LeftBumperPressed"};
+        if (robot_ == robot::PEPPER) {
+          bumper_events.push_back("BackBumperPressed");
+        }
+        startEventRegister(
+          "bumper", std::make_shared<BumperEventRegister>("bumper", bumper_events, 0, session_));
+      });
   }
 
   if (config.touch_hand.enabled) {
-    const std::vector<std::string> hand_touch_events{
-      "HandRightBackTouched", "HandRightLeftTouched", "HandRightRightTouched",
-      "HandLeftBackTouched", "HandLeftLeftTouched", "HandLeftRightTouched"};
-    startEventRegister(
-      "hand_touch",
-      std::make_shared<HandTouchEventRegister>("hand_touch", hand_touch_events, 0, session_));
+    registerSensor(
+      "touch_hand", [&] {
+        const std::vector<std::string> hand_touch_events{
+          "HandRightBackTouched", "HandRightLeftTouched", "HandRightRightTouched",
+          "HandLeftBackTouched", "HandLeftLeftTouched", "HandLeftRightTouched"};
+        startEventRegister(
+          "hand_touch",
+          std::make_shared<HandTouchEventRegister>("hand_touch", hand_touch_events, 0, session_));
+      });
   }
 
   if (config.touch_head.enabled) {
-    const std::vector<std::string> head_touch_events{
-      "FrontTactilTouched", "MiddleTactilTouched", "RearTactilTouched"};
-    startEventRegister(
-      "head_touch",
-      std::make_shared<HeadTouchEventRegister>("head_touch", head_touch_events, 0, session_));
+    registerSensor(
+      "touch_head", [&] {
+        const std::vector<std::string> head_touch_events{
+          "FrontTactilTouched", "MiddleTactilTouched", "RearTactilTouched"};
+        startEventRegister(
+          "head_touch",
+          std::make_shared<HeadTouchEventRegister>("head_touch", head_touch_events, 0, session_));
+      });
   }
 }
 
@@ -783,6 +853,16 @@ void Driver::startEventRegister(const std::string & name, std::shared_ptr<event:
   }
   if (publish_enabled_) {
     event_map_.at(name)->isPublishing(true);
+  }
+}
+
+void Driver::registerSensor(const std::string & name, const std::function<void()> & registration)
+{
+  try {
+    registration();
+  } catch (const std::exception & e) {
+    RCLCPP_ERROR_STREAM(
+      get_logger(), "Could not start the " << name << " sensor, disabling it: " << e.what());
   }
 }
 

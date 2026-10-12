@@ -24,7 +24,10 @@
 
 #include <memory>
 #include <atomic>
+#include <condition_variable>
 #include <mutex>
+#include <thread>
+#include <vector>
 
 #include <qi/session.hpp>
 
@@ -82,7 +85,7 @@ public:
   void isDumping(bool state) override;
 
 private:
-  void touchCallback(const std::string & key, const qi::AnyValue & value);
+  void touchCallback(const std::string & key, bool state);
   void touchCallbackMessage(
     const std::string & key, bool & state,
     naoqi_bridge_msgs::msg::Bumper & msg);
@@ -93,9 +96,14 @@ private:
     const std::string & key, bool & state,
     naoqi_bridge_msgs::msg::HeadTouch & msg);
 
-  void registerCallback();
-  void unregisterCallback();
-  void onEvent();
+  /**
+   * Reads the touch sensors' values from ALMemory and reports each change of state.
+   * ALMemory.subscriber() would push events instead, but the object it returns cannot be
+   * decoded by this libqi when talking to NAOqi 2.5 ("Invalid signature").
+   */
+  void pollLoop();
+  /** One getListData round trip: whether each of keys_ is pressed. Throws on NAOqi errors. */
+  std::vector<bool> readStates();
 
 private:
   std::shared_ptr<converter::TouchEventConverter<T>> converter_;
@@ -104,16 +112,15 @@ private:
   qi::SessionPtr session_;
   qi::AnyObject p_memory_;
 
-  struct SubscriberAndLink
-  {
-    SubscriberAndLink(qi::AnyObject subscriber, qi::SignalLink link)
-    : subscriber(subscriber)
-      , link(link)
-    {}
-    qi::AnyObject subscriber;
-    qi::SignalLink link;
-  };
-  std::list<SubscriberAndLink> subscriptions_;
+  // sensor_keys_[i] are the ALMemory sensor values behind the event keys_[i]; it is pressed
+  // when any of them is. sensor_key_list_ is all of them, in that order, for getListData.
+  std::vector<std::vector<std::string>> sensor_keys_;
+  std::vector<std::string> sensor_key_list_;
+
+  std::thread poll_thread_;
+  std::mutex poll_mutex_;
+  std::condition_variable poll_cv_;
+  bool stop_polling_ = false;
 
   std::string name_;
 

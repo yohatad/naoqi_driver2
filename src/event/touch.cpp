@@ -16,7 +16,10 @@
 */
 
 #include <naoqi_driver/ros_helpers.hpp>
+#include <algorithm>
+#include <chrono>
 #include <functional>
+#include <map>
 #include <vector>
 
 #include <memory>
@@ -29,9 +32,49 @@
 #include <naoqi_driver/message_actions.h>
 
 #include "touch.hpp"
+#include "tools/from_any_value.hpp"
 
 namespace naoqi
 {
+
+namespace
+{
+
+constexpr auto kPollPeriod = std::chrono::milliseconds(50);
+
+/**
+ * The ALMemory sensor values that can stand behind a touch event, on Pepper and on NAO;
+ * the ones the robot does not have are dropped at start-up.
+ */
+std::vector<std::string> sensorKeyCandidates(const std::string & event)
+{
+  static const std::string prefix = "Device/SubDeviceList/";
+  static const std::string suffix = "/Sensor/Value";
+  static const std::map<std::string, std::vector<std::string>> devices = {
+    {"RightBumperPressed",
+      {"Platform/FrontRight/Bumper", "RFoot/Bumper/Left", "RFoot/Bumper/Right"}},
+    {"LeftBumperPressed", {"Platform/FrontLeft/Bumper", "LFoot/Bumper/Left", "LFoot/Bumper/Right"}},
+    {"BackBumperPressed", {"Platform/Back/Bumper"}},
+    {"HandRightBackTouched", {"RHand/Touch/Back"}},
+    {"HandRightLeftTouched", {"RHand/Touch/Left"}},
+    {"HandRightRightTouched", {"RHand/Touch/Right"}},
+    {"HandLeftBackTouched", {"LHand/Touch/Back"}},
+    {"HandLeftLeftTouched", {"LHand/Touch/Left"}},
+    {"HandLeftRightTouched", {"LHand/Touch/Right"}},
+    {"FrontTactilTouched", {"Head/Touch/Front"}},
+    {"MiddleTactilTouched", {"Head/Touch/Middle"}},
+    {"RearTactilTouched", {"Head/Touch/Rear"}}};
+  std::vector<std::string> keys;
+  const auto it = devices.find(event);
+  if (it != devices.end()) {
+    for (const auto & device : it->second) {
+      keys.push_back(prefix + device + suffix);
+    }
+  }
+  return keys;
+}
+
+}  // namespace
 
 template<class T>
 TouchEventRegister<T>::TouchEventRegister()
@@ -56,13 +99,25 @@ TouchEventRegister<T>::TouchEventRegister(
     std::bind(&publisher::BasicPublisher<T>::publish, publisher_, std::placeholders::_1) );
   // Touch events are only published; they are never recorded or buffered.
 
-  keys_.resize(keys.size());
-  size_t i = 0;
-  for (std::vector<std::string>::const_iterator it = keys.begin(); it != keys.end(); ++it, ++i) {
-    keys_[i] = *it;
-  }
-
+  keys_ = keys;
   name_ = name;
+
+  // Keep the sensor values this robot has; an event with none of them is never reported.
+  const auto available = p_memory_.call<std::vector<std::string>>("getDataListName");
+  for (const auto & key : keys_) {
+    std::vector<std::string> sensors;
+    for (const auto & candidate : sensorKeyCandidates(key)) {
+      if (std::find(available.begin(), available.end(), candidate) != available.end()) {
+        sensors.push_back(candidate);
+        sensor_key_list_.push_back(candidate);
+      }
+    }
+    if (sensors.empty()) {
+      RCLCPP_WARN_STREAM(
+        naoqi::helpers::Node::get_logger(), name_ << ": no sensor for " << key << ", ignoring it");
+    }
+    sensor_keys_.push_back(sensors);
+  }
 }
 
 template<class T>
@@ -88,16 +143,11 @@ void TouchEventRegister<T>::startProcess()
 {
   std::lock_guard<std::mutex> start_lock(mutex_);
   if (!is_started_) {
-    if (subscriptions_.empty()) {
-      for (const auto & key : keys_) {
-        auto subscriber = p_memory_.call<qi::AnyObject>("subscriber", key);
-        qi::SignalLink subscription = subscriber.connect(
-          "signal", [ = ](const qi::AnyValue & v) {
-            touchCallback(key, v);
-          }).value();
-        subscriptions_.emplace_back(std::move(subscriber), std::move(subscription));
-      }
+    {
+      std::lock_guard<std::mutex> poll_lock(poll_mutex_);
+      stop_polling_ = false;
     }
+    poll_thread_ = std::thread(&TouchEventRegister<T>::pollLoop, this);
     is_started_ = true;
   }
 }
@@ -105,21 +155,71 @@ void TouchEventRegister<T>::startProcess()
 template<class T>
 void TouchEventRegister<T>::stopProcess()
 {
-  std::lock_guard<std::mutex> stop_lock(mutex_);
-  if (is_started_) {
-    if (!subscriptions_.empty()) {
-      for (const auto & subscription : subscriptions_) {
-        try {
-          subscription.subscriber.disconnect(subscription.link).value();
-        } catch (const std::exception & e) {
-          RCLCPP_ERROR_STREAM(
-            naoqi::helpers::Node::get_logger(),
-            "Error attempting to clean-up ALMemory subscription: " << e.what());
-        }
-      }
-      subscriptions_.clear();
+  {
+    std::lock_guard<std::mutex> stop_lock(mutex_);
+    if (!is_started_) {
+      return;
     }
     is_started_ = false;
+    std::lock_guard<std::mutex> poll_lock(poll_mutex_);
+    stop_polling_ = true;
+  }
+  poll_cv_.notify_all();
+  // Joined without mutex_ held: the poll thread takes it to report a change.
+  if (poll_thread_.joinable()) {
+    poll_thread_.join();
+  }
+}
+
+template<class T>
+std::vector<bool> TouchEventRegister<T>::readStates()
+{
+  std::vector<float> values;
+  if (!sensor_key_list_.empty()) {
+    qi::AnyValue anyvalues = p_memory_.call<qi::AnyValue>("getListData", sensor_key_list_);
+    tools::fromAnyValueToFloatVector(anyvalues, values);
+  }
+  std::vector<bool> states(keys_.size(), false);
+  size_t value = 0;
+  for (size_t i = 0; i < keys_.size(); ++i) {
+    for (size_t j = 0; j < sensor_keys_[i].size(); ++j, ++value) {
+      if (value < values.size() && values[value] > 0.5f) {
+        states[i] = true;
+      }
+    }
+  }
+  return states;
+}
+
+template<class T>
+void TouchEventRegister<T>::pollLoop()
+{
+  // The first read sets the reference: only later presses and releases are reported.
+  std::vector<bool> last_states;
+  bool failing = false;
+  std::unique_lock<std::mutex> poll_lock(poll_mutex_);
+  while (!stop_polling_) {
+    poll_lock.unlock();
+    try {
+      const std::vector<bool> states = readStates();
+      if (!last_states.empty()) {
+        for (size_t i = 0; i < states.size(); ++i) {
+          if (states[i] != last_states[i]) {
+            touchCallback(keys_[i], states[i]);
+          }
+        }
+      }
+      last_states = states;
+      failing = false;
+    } catch (const std::exception & e) {
+      if (!failing) {  // once per run of failures, not every 50 ms
+        RCLCPP_ERROR_STREAM(
+          naoqi::helpers::Node::get_logger(), "Could not read " << name_ << ": " << e.what());
+      }
+      failing = true;
+    }
+    poll_lock.lock();
+    poll_cv_.wait_for(poll_lock, kPollPeriod, [this] {return stop_polling_;});
   }
 }
 
@@ -157,20 +257,9 @@ void TouchEventRegister<T>::isDumping(bool state)
 }
 
 template<class T>
-void TouchEventRegister<T>::registerCallback()
-{
-}
-
-template<class T>
-void TouchEventRegister<T>::unregisterCallback()
-{
-}
-
-template<class T>
-void TouchEventRegister<T>::touchCallback(const std::string & key, const qi::AnyValue & value)
+void TouchEventRegister<T>::touchCallback(const std::string & key, bool state)
 {
   T msg = T();
-  bool state = value.toFloat() > 0.5f;
 
   touchCallbackMessage(key, state, msg);
 

@@ -24,6 +24,8 @@ def launch_driver(context):
             launch.substitutions.LaunchConfiguration('max_linear_speed'), value_type=float),
         'max_angular_speed': launch_ros.parameter_descriptions.ParameterValue(
             launch.substitutions.LaunchConfiguration('max_angular_speed'), value_type=float),
+        'listen_enabled': launch_ros.parameter_descriptions.ParameterValue(
+            launch.substitutions.LaunchConfiguration('listen_enabled'), value_type=bool),
         'listen_timeout': launch_ros.parameter_descriptions.ParameterValue(
             launch.substitutions.LaunchConfiguration('listen_timeout'), value_type=float),
         'minidump_duration': launch_ros.parameter_descriptions.ParameterValue(
@@ -103,6 +105,11 @@ def generate_launch_description():
             'max_angular_speed',
             default_value="0.0",
             description='Cap on the /cmd_vel angular speed (rad/s); 0 means no cap.'),
+        launch.actions.DeclareLaunchArgument(
+            'listen_enabled',
+            default_value="false",
+            description='Start the listen action server. Off by default: on NAOqi 2.5 it '
+                        'cannot work (see the README).'),
         launch.actions.DeclareLaunchArgument(
             'listen_timeout',
             default_value="30.0",

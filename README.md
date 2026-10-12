@@ -177,6 +177,7 @@ These launch arguments limit what commands can make the robot do:
 | `max_linear_speed` | `0.0` | cap on the `/cmd_vel` speed in m/s, keeping its direction (0: none) |
 | `max_angular_speed` | `0.0` | cap on the `/cmd_vel` turn rate in rad/s (0: none) |
 | `moveto_max_distance` | `3.0` | `moveto` goals farther than this (m) are refused (0: no limit) |
+| `listen_enabled` | `false` | start the `listen` action server (see [Listen to words](#listen-to-words)) |
 | `listen_timeout` | `30.0` | seconds a `listen` goal waits for speech before it is aborted (0: forever) |
 | `respawn` | `true` | restart the driver when it exits on its own, e.g. after losing NAOqi |
 
@@ -209,6 +210,15 @@ ros2 launch naoqi_driver naoqi_driver.launch.py nao_ip:=<robot_host> params_file
 The driver reads these settings once, at start-up, so `ros2 param set` refuses
 to change them.
 
+If a sensor cannot be set up, the driver logs `Could not start the <sensor>
+sensor, disabling it: ...` and runs without it. On NAOqi 2.5 this happens to
+`logs` (NAOqi log messages on `/rosout`): NAOqi's log listener cannot be decoded
+by the libqi this driver is built with, so leave it disabled there.
+
+The bumpers and the hand and head touch sensors are read from ALMemory every
+50 ms, and `/bumper`, `/hand_touch` and `/head_touch` report each press and
+release.
+
 ## Check that the node is running correctly
 
 Check that the driver is connected:
@@ -227,10 +237,15 @@ ros2 topic pub --once /speech std_msgs/String "data: hello"
 
 ### Listen to words
 
-You can setup speech recognition and get one result.
+The `listen` action is off unless the driver is started with
+`listen_enabled:=true`. On NAOqi 2.5 it does not work: ALDialog refuses the
+topic it generates (`Topic ... is in English whereas the system language is in
+enu`), and the ALMemory subscriber it uses cannot be decoded by this libqi.
+
+Where it works, it sets up speech recognition and returns one result:
 
 ```sh
-ros2 action send_goal listen naoqi_bridge_msgs/action/Listen "expected: [\"hello\"]
+ros2 action send_goal /naoqi_driver/listen naoqi_bridge_msgs/action/Listen "expected: [\"hello\"]
 language: \"en\""
 ```
 

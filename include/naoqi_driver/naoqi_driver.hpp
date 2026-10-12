@@ -264,6 +264,8 @@ private:
   void registerEventRegisters(const BootConfig & config);  // audio, bumpers, hand and head touch
   /** Adds an event register, starting it and enabling publishing if the driver already is. */
   void startEventRegister(const std::string & name, std::shared_ptr<event::Event> event);
+  /** Runs one sensor's registration; a NAOqi error disables that sensor, not the driver. */
+  void registerSensor(const std::string & name, const std::function<void()> & registration);
   void registerDefaultSubscriber();
   void registerDefaultServices();
   void insertEventConverter(const std::string & key, std::shared_ptr<event::Event> event);

@@ -234,7 +234,7 @@ class RobotChecks(Node):
             self.report(FAIL, "parameters", "parameter service not available")
             return
         for name in ("moveto_max_distance", "max_linear_speed", "max_angular_speed",
-                     "listen_timeout", "minidump_duration", "converters.front_camera.enabled"):
+                     "listen_enabled", "minidump_duration", "converters.front_camera.enabled"):
             req = GetParameters.Request()
             req.names = [name]
             res = self.wait(client.call_async(req), 5.0)
