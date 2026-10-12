@@ -19,6 +19,7 @@
 #define RECORDER_HELPERS_HPP
 
 #include <builtin_interfaces/msg/time.hpp>
+#include <rclcpp/time.hpp>
 
 namespace naoqi
 {
@@ -41,6 +42,21 @@ static const float bufferDefaultDuration = 10.f;
 static bool isZero(const builtin_interfaces::msg::Time & msg)
 {
   return msg.sec == 0 && msg.nanosec == 0;
+}
+
+/**
+ * Whether a buffered message falls outside the dump window, that is was stamped more than
+ * duration seconds before time. The buffers hold a fixed number of messages, sized for
+ * the configured rates; when the sensors run slower they reach further back than the
+ * window, so the dump filters by stamp. Unstamped messages are kept.
+ */
+static bool isOutsideWindow(
+  const builtin_interfaces::msg::Time & stamp, const rclcpp::Time & time, float duration)
+{
+  if (isZero(stamp)) {
+    return false;
+  }
+  return (time - rclcpp::Time(stamp, time.get_clock_type())).seconds() > duration;
 }
 
 }  // namespace recorder

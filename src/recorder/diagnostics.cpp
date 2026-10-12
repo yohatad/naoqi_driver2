@@ -49,6 +49,9 @@ void DiagnosticsRecorder::writeDump(const rclcpp::Time & time)
   std::lock_guard<std::mutex> lock_write_buffer(mutex_);
   boost::circular_buffer<diagnostic_msgs::msg::DiagnosticArray>::iterator it;
   for (it = buffer_.begin(); it != buffer_.end(); it++) {
+    if (helpers::recorder::isOutsideWindow(it->header.stamp, time, buffer_duration_)) {
+      continue;
+    }
     if (!helpers::recorder::isZero(it->header.stamp)) {
       gr_->write(topic_, *it, it->header.stamp);
     } else {

@@ -90,6 +90,14 @@ Imu imu(double x)
   return msg;
 }
 
+/** An IMU message carrying x, stamped age seconds ago (the minidump keeps recent ones). */
+Imu recentImu(double x, double age)
+{
+  Imu msg = imu(x);
+  msg.header.stamp = rclcpp::Clock(RCL_ROS_TIME).now() - rclcpp::Duration::from_seconds(age);
+  return msg;
+}
+
 }  // namespace
 
 class RecordingTest : public naoqi_test::RosTest {};
@@ -198,7 +206,7 @@ TEST_F(RecordingTest, MinidumpWritesTheNewestBufferedMessages)
   driver->setBufferDuration(1.f);  // 10 messages at 10 Hz
   driver->startLogging();
   for (int i = 1; i <= 15; ++i) {
-    recorder->bufferize(imu(i));
+    recorder->bufferize(recentImu(i, 0.01 * (15 - i)));
   }
 
   const std::string bag = driver->minidump("unit");
@@ -208,9 +216,30 @@ TEST_F(RecordingTest, MinidumpWritesTheNewestBufferedMessages)
   EXPECT_DOUBLE_EQ(deserialize<Imu>(messages.back()).linear_acceleration.x, 15.0);
 
   // Buffering resumed after the dump.
-  recorder->bufferize(imu(16));
+  recorder->bufferize(recentImu(16, 0.0));
   const auto again = readBag(driver->minidump("unit"));
   EXPECT_DOUBLE_EQ(deserialize<Imu>(again.back()).linear_acceleration.x, 16.0);
+}
+
+TEST_F(RecordingTest, MinidumpLeavesOutMessagesOlderThanTheBufferDuration)
+{
+  // The buffer holds 10 messages, sized for 10 Hz; a slower sensor fills it with older
+  // data than the buffer duration, which the dump must not include.
+  naoqi_test::TempDir dir(/*chdir_into=*/ true);
+  auto driver = std::make_shared<naoqi::Driver>();
+  auto recorder = std::make_shared<naoqi::recorder::BasicRecorder<Imu>>("imu");
+  driver->registerRecorder("imu", recorder, 10.f);
+  driver->setBufferDuration(1.f);
+  driver->startLogging();
+  recorder->bufferize(recentImu(1, 5.0));
+  recorder->bufferize(recentImu(2, 2.0));
+  recorder->bufferize(recentImu(3, 0.5));
+  recorder->bufferize(recentImu(4, 0.0));
+
+  const auto messages = readBag(driver->minidump("unit"));
+  ASSERT_EQ(messages.size(), 2u);
+  EXPECT_DOUBLE_EQ(deserialize<Imu>(messages.front()).linear_acceleration.x, 3.0);
+  EXPECT_DOUBLE_EQ(deserialize<Imu>(messages.back()).linear_acceleration.x, 4.0);
 }
 
 TEST_F(RecordingTest, MinidumpRefusesWhenTheBagsTakeTooMuchSpace)

@@ -48,6 +48,11 @@ void LogRecorder::writeDump(const rclcpp::Time & time)
 {
   std::lock_guard<std::mutex> lock_write_buffer(mutex_);
   for (auto & logs : buffer_) {
+    if (!logs.empty() &&
+      helpers::recorder::isOutsideWindow(logs.front().stamp, time, buffer_duration_))
+    {
+      continue;
+    }
     write(logs);
   }
 }

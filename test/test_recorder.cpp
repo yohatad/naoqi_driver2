@@ -207,3 +207,25 @@ TEST_F(RecorderTest, BasicRecorderWorksThroughTheRecorderInterface)
   EXPECT_EQ(std::static_pointer_cast<ProbeRecorder>(rec)->capacity(), 20u);
   EXPECT_NO_THROW(rec->writeDump(node_->now()));
 }
+
+TEST(RecorderWindowTest, MessagesOlderThanTheBufferDurationAreOutside)
+{
+  // A minidump of the last 10 s, taken at t = 100 s.
+  const rclcpp::Time dump_time(100, 0, RCL_ROS_TIME);
+  builtin_interfaces::msg::Time stamp;
+  stamp.sec = 95;
+  EXPECT_FALSE(naoqi::helpers::recorder::isOutsideWindow(stamp, dump_time, 10.f));
+  stamp.sec = 90;
+  stamp.nanosec = 500000000;
+  EXPECT_FALSE(naoqi::helpers::recorder::isOutsideWindow(stamp, dump_time, 10.f));
+  stamp.sec = 80;
+  stamp.nanosec = 0;
+  EXPECT_TRUE(naoqi::helpers::recorder::isOutsideWindow(stamp, dump_time, 10.f));
+}
+
+TEST(RecorderWindowTest, UnstampedMessagesAreKept)
+{
+  const rclcpp::Time dump_time(100, 0, RCL_ROS_TIME);
+  EXPECT_FALSE(
+    naoqi::helpers::recorder::isOutsideWindow(builtin_interfaces::msg::Time(), dump_time, 10.f));
+}

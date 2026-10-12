@@ -51,9 +51,17 @@ void JointStateRecorder::writeDump(const rclcpp::Time & time)
 {
   std::lock_guard<std::mutex> lock_write_buffer(mutex_);
   for (auto & transforms : buffer_tf_) {
+    if (!transforms.empty() &&
+      helpers::recorder::isOutsideWindow(transforms.front().header.stamp, time, buffer_duration_))
+    {
+      continue;
+    }
     gr_->write("/tf", transforms);
   }
   for (auto & joint_state : buffer_joint_state_) {
+    if (helpers::recorder::isOutsideWindow(joint_state.header.stamp, time, buffer_duration_)) {
+      continue;
+    }
     if (!helpers::recorder::isZero(joint_state.header.stamp)) {
       gr_->write(topic_, joint_state, joint_state.header.stamp);
     } else {

@@ -55,7 +55,9 @@ void CameraRecorder::writeDump(const rclcpp::Time & time)
 {
   std::lock_guard<std::mutex> lock_write_buffer(mutex_);
   for (auto & [image, info] : buffer_) {
-    if (image != nullptr) {
+    if (image != nullptr &&
+      !helpers::recorder::isOutsideWindow(image->header.stamp, time, buffer_duration_))
+    {
       write(image, info);
     }
   }

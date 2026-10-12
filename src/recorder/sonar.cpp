@@ -57,6 +57,11 @@ void SonarRecorder::writeDump(const rclcpp::Time & time)
 {
   std::lock_guard<std::mutex> lock_write_buffer(mutex_);
   for (auto & ranges : buffer_) {
+    if (!ranges.empty() &&
+      helpers::recorder::isOutsideWindow(ranges.front().header.stamp, time, buffer_duration_))
+    {
+      continue;
+    }
     write(ranges);
   }
 }
