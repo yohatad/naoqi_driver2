@@ -61,6 +61,9 @@ ros2 launch naoqi_driver naoqi_driver.launch.py nao_ip:=<ip> \
   params_file:=$HOME/ros2_ws/src/naoqi_driver2/test/robot/full_sensors.yaml
 ```
 
+Progress: ~~struck through~~ ✅ passed on Pepper (NAOqi 2.5.10.7), ⏳ partly done,
+⛔ cannot pass on this robot. Unmarked checks are still to do.
+
 ## 4. Automated checks
 
 In a second terminal, from `~/ros2_ws` with the workspace sourced. Run the
@@ -68,11 +71,11 @@ stages in this order; each prints PASS / FAIL / WARN / SKIP and a summary.
 
 | Stage | Command | Robot does |
 |---|---|---|
-| a. Read-only | `python3 src/naoqi_driver2/test/robot/robot_checks.py` | nothing |
-| b. LEDs + speech | `... robot_checks.py --leds --speech` | eyes turn blue, says two sentences (the second is cut off) |
+| ~~a. Read-only~~ | ~~`python3 src/naoqi_driver2/test/robot/robot_checks.py`~~ ✅ 2026-10-12 (depth camera 2.7 Hz over Wi-Fi with all cameras on) | nothing |
+| ~~b. LEDs + speech~~ | ~~`... robot_checks.py --leds --speech`~~ ✅ 2026-10-12 | eyes turn blue, says two sentences (the second is cut off) |
 | c. Motion | `... robot_checks.py --motion` (flap closed, area clear) | head turns, base drives about 30 cm forward |
-| d. Touch | `... robot_checks.py --interactive` | asks you to press a bumper, a hand and the head |
-| e. Recording | `... robot_checks.py --record` | nothing; writes a 3 s bag where the driver was started |
+| ~~d. Touch~~ | ~~`... robot_checks.py --interactive`~~ ✅ 2026-10-12 (right bumper and right hand not pressed) | asks you to press a bumper, a hand and the head |
+| ~~e. Recording~~ | ~~`... robot_checks.py --record`~~ ✅ 2026-10-12 | nothing; writes a 3 s bag where the driver was started |
 
 What stage (a) covers: every sensor stream and its rate, camera calibration
 values, TF, the `get_language` / `get_robot_config` services, the recording
@@ -90,21 +93,21 @@ A WARN on laser or sonar is expected while the robot is at rest.
 | # | Check | How | Pass when |
 |---|---|---|---|
 | M1 | **Ctrl+C stops the base** | `ros2 topic pub -r 10 /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.1}}"`, then Ctrl+C the **driver** (not the publisher) | the base stops; the driver exits cleanly |
-| M2 | Ctrl+C and cancel stop speech | `ros2 action send_goal /naoqi_driver/speech_with_feedback naoqi_bridge_msgs/action/SpeechWithFeedback "{say: 'one two three four five six seven eight nine ten'}"`, Ctrl+C the driver mid-sentence; then again, but Ctrl+C the `send_goal` command instead (that cancels the goal) | speech stops |
+| ~~M2~~ | ~~Ctrl+C and cancel stop speech~~ ✅ 2026-10-12 | `ros2 action send_goal /naoqi_driver/speech_with_feedback naoqi_bridge_msgs/action/SpeechWithFeedback "{say: 'one two three four five six seven eight nine ten'}"`, Ctrl+C the driver mid-sentence; then again, but Ctrl+C the `send_goal` command instead (that cancels the goal) | speech stops |
 | M3 | Watchdog can be disabled | relaunch with `cmd_vel_timeout:=0.0`, publish as in M1, Ctrl+C the **publisher** | base keeps moving (old behaviour); stop it with a zero Twist |
 | M4 | Shutdown with NAOqi gone | unplug the robot's network, then Ctrl+C the driver | exits without `terminate called` |
-| M5 | NAOqi logs | the full config enables logs; `ros2 topic echo /rosout` | NAOqi log lines appear, no crash |
+| M5 | NAOqi logs ⛔ 2026-10-12: not supported on NAOqi 2.5, the `logs` sensor disables itself (see README) | the full config enables logs; `ros2 topic echo /rosout` | NAOqi log lines appear, no crash |
 | M6 | Password login (only if you use one) | launch with `password:=<pw>` | connects |
 | M7 | Your normal bringup | restore Autonomous Life (`setState solitary`), `ros2 launch naoqi_driver pepper_bringup.launch.py nao_ip:=<ip>` (no `params_file`) | works as before |
-| M8 | Driver logging | watch the driver's console and `ros2 topic echo /rosout` during startup | messages carry levels (INFO/WARN/ERROR), no raw colour codes, the robot banner is one line |
+| ~~M8~~ | ~~Driver logging~~ ✅ 2026-10-12 | watch the driver's console and `ros2 topic echo /rosout` during startup | messages carry levels (INFO/WARN/ERROR), no raw colour codes, the robot banner is one line |
 | M9 | `moveto` distance cap | flap closed, area clear: `ros2 topic pub --once /move_base_simple/goal geometry_msgs/msg/PoseStamped "{header: {frame_id: base_footprint}, pose: {position: {x: 5.0}, orientation: {w: 1.0}}}"`, then the same with `x: 0.3` | the 5 m goal is refused with a warning and nothing moves; the 0.3 m goal moves the robot about 30 cm |
 | M10 | Speed caps | relaunch with `max_linear_speed:=0.1`, publish `{linear: {x: 0.3}}` at 10 Hz for 2 s, watch `ros2 topic echo /pepper_odom --field twist.twist.linear.x` | about 0.1, not 0.3 |
-| M11 | `listen` | `ros2 action send_goal /listen naoqi_bridge_msgs/action/Listen "{expected: ['hello'], language: 'en'}"`: once saying "hello", once staying silent; then with `expected: ['say \"hi\"']` | "hello" succeeds; silence aborts after 30 s (`listen_timeout`); the quoted phrase is rejected at once |
-| M12 | NAOqi errors are logged | `ros2 topic pub --once /joint_angles naoqi_bridge_msgs/msg/JointAnglesWithSpeed "{joint_names: ['BadJoint'], joint_angles: [0.1], speed: 0.1}"` | the driver logs `ALMotion.setAngles failed: ...` |
-| M13 | Minidump | relaunch with `minidump_duration:=10`, wait 15 s, `ros2 service call /naoqi_driver/minidump std_srvs/srv/Trigger`, then `ros2 bag info <folder it answers>` | the bag holds about the last 10 s; delete it afterwards |
-| M14 | Camera timestamps | `ros2 topic delay /camera/front/image_raw` for 10 s | the delay is positive and steady, under 0.2 s (before commit 14 it is about 0: stamped on arrival) |
-| M15 | Sensor parameters | write `/tmp/no_front.yaml` with `/**: {ros__parameters: {converters: {front_camera: {enabled: false}}}}`, relaunch with `params_file:=/tmp/no_front.yaml`; then `ros2 param set /naoqi_driver converters.front_camera.enabled true` | no `camera/front` topics; the `param set` is refused |
-| M16 | Clean exit | Ctrl+C the driver: connected with the robot resting, connected with the robot awake (`qicli call ALMotion.wakeUp`), and with a wrong `nao_ip` (while it retries) | the launch prints `process has finished cleanly`, never `exit code -6` or `-11`, and no `failed on shutdown` warning |
+| M11 | `listen` ⛔ 2026-10-12: `listen` is disabled (`listen_enabled:=false`), it cannot work on NAOqi 2.5 | `ros2 action send_goal /naoqi_driver/listen naoqi_bridge_msgs/action/Listen "{expected: ['hello'], language: 'en'}"`: once saying "hello", once staying silent; then with `expected: ['say \"hi\"']` | "hello" succeeds; silence aborts after 30 s (`listen_timeout`); the quoted phrase is rejected at once |
+| ~~M12~~ | ~~NAOqi errors are logged~~ ✅ 2026-10-12 | `ros2 topic pub --once /joint_angles naoqi_bridge_msgs/msg/JointAnglesWithSpeed "{joint_names: ['BadJoint'], joint_angles: [0.1], speed: 0.1}"` | the driver logs `ALMotion.setAngles failed: ...` |
+| ~~M13~~ | ~~Minidump~~ ✅ 2026-10-12 | relaunch with `minidump_duration:=10`, wait 15 s, `ros2 service call /naoqi_driver/minidump std_srvs/srv/Trigger`, then `ros2 bag info <folder it answers>` | the bag holds about the last 10 s; delete it afterwards |
+| ~~M14~~ | ~~Camera timestamps~~ ✅ 2026-10-12 | `ros2 topic delay /camera/front/image_raw` for 10 s | the delay is positive and steady, under 0.2 s (before commit 14 it is about 0: stamped on arrival) |
+| ~~M15~~ | ~~Sensor parameters~~ ✅ 2026-10-12 | write `/tmp/no_front.yaml` with `/**: {ros__parameters: {converters: {front_camera: {enabled: false}}}}`, relaunch with `params_file:=/tmp/no_front.yaml`; then `ros2 param set /naoqi_driver converters.front_camera.enabled true` | no `camera/front` topics; the `param set` is refused |
+| M16 | Clean exit ⏳ 2026-10-12: resting and wrong `nao_ip` pass; awake still to do | Ctrl+C the driver: connected with the robot resting, connected with the robot awake (`qicli call ALMotion.wakeUp`), and with a wrong `nao_ip` (while it retries) | the launch prints `process has finished cleanly`, never `exit code -6` or `-11`, and no `failed on shutdown` warning |
 | M17 | Reconnect | with the robot resting, `ssh nao@<ip> nao restart` (the robot goes limp until NAOqi is back) | the driver logs the lost connection, exits, is respawned, retries (1, 2, 4 ... s) and reconnects |
 | M18 | Joystick safety (needs a pad, laser and sonar enabled) | `ros2 launch naoqi_driver safe_teleop.launch.py`; hold LB and push the stick; release; drive slowly towards a box; back away | moves only while LB is held, at most 0.2 m/s; stops at once on release; slows and stops about 10 cm before the box; backing away works |
 
@@ -116,10 +119,10 @@ Watch the watchdog's log with `ssh nao@<ip> tail -f robot_watchdog.log`.
 
 | # | Check | How | Pass when |
 |---|---|---|---|
-| W1 | It finds the driver | start the driver | the log says `naoqi_driver heartbeat found, watching it` |
+| ~~W1~~ | ~~It finds the driver~~ ✅ 2026-10-12 | start the driver | the log says `naoqi_driver heartbeat found, watching it` |
 | W2 | A crashed driver | flap closed, area clear: publish `{linear: {x: 0.05}}` at 10 Hz, then `pkill -9 -f naoqi_driver_node` and stop the publisher | the base stops about 1 s after the kill; the log says `No naoqi_driver heartbeat ... stopped the base` |
 | W3 | A lost network | as W2, but unplug the network of the computer running the driver instead of killing it | the base stops about 1 s after unplugging |
-| W4 | A clean exit | Ctrl+C the driver | the log says `naoqi_driver exited cleanly` and nothing else happens |
+| ~~W4~~ | ~~A clean exit~~ ✅ 2026-10-12 | Ctrl+C the driver | the log says `naoqi_driver exited cleanly` and nothing else happens |
 
 ## 6. If something fails: find the commit
 
