@@ -95,9 +95,10 @@ void JointStateConverter::reset()
 
   // set mimic joint list
   mimic_.clear();
-  for (auto & joint : model.joints_) {
-    if (joint.second->mimic) {
-      mimic_.insert(make_pair(joint.first, joint.second->mimic));
+  for (const auto & [name, joint] : model.joints_) {
+    if (joint->mimic) {
+      mimic_[name] = Mimic{joint->mimic->joint_name, joint->mimic->multiplier,
+        joint->mimic->offset};
     }
   }
   // pre-fill joint states message
@@ -179,11 +180,10 @@ void JointStateConverter::callAll(const std::vector<message_actions::MessageActi
   msg_joint_states_.effort = al_joint_torques;
 
   // for mimic map
-  for (auto & [joint, mimic] : mimic_) {
-    if (joint_state_map.find(mimic->joint_name) != joint_state_map.end()) {
-      double pos = joint_state_map[mimic->joint_name] * mimic->multiplier +
-        mimic->offset;
-      joint_state_map[joint] = pos;
+  for (const auto & [joint, mimic] : mimic_) {
+    const auto followed = joint_state_map.find(mimic.joint_name);
+    if (followed != joint_state_map.end()) {
+      joint_state_map[joint] = followed->second * mimic.multiplier + mimic.offset;
     }
   }
 

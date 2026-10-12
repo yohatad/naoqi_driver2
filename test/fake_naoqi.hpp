@@ -10,6 +10,7 @@
 #include <condition_variable>
 #include <functional>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <sstream>
 #include <stdexcept>
@@ -284,6 +285,72 @@ private:
   CallLog & log_;
 };
 
+/** The robot's voice, shared by the speech fakes. */
+class FakeVoice
+{
+public:
+  /** Speaks for duration_ms, or until stop(). */
+  void speak()
+  {
+    std::unique_lock<std::mutex> lock(mutex_);
+    stopped_ = false;
+    cv_.wait_until(
+      lock, std::chrono::system_clock::now() + std::chrono::milliseconds(duration_ms.load()),
+      [this] {return stopped_;});
+  }
+
+  void stop()
+  {
+    {
+      std::lock_guard<std::mutex> lock(mutex_);
+      stopped_ = true;
+    }
+    cv_.notify_all();
+  }
+
+  std::atomic<int> duration_ms{200};
+
+private:
+  std::mutex mutex_;
+  std::condition_variable cv_;
+  bool stopped_ = false;
+};
+
+/** ALTextToSpeech: its stopAll() also ends animated speech. */
+class FakeTextToSpeech
+{
+public:
+  FakeTextToSpeech(CallLog & log, std::shared_ptr<FakeVoice> voice)
+  : log_(log), voice_(std::move(voice)) {}
+  void say(const std::string & text) {log_.add("ALTextToSpeech.say(" + text + ")");}
+  void stopAll()
+  {
+    log_.add("ALTextToSpeech.stopAll()");
+    voice_->stop();
+  }
+
+private:
+  CallLog & log_;
+  std::shared_ptr<FakeVoice> voice_;
+};
+
+/** ALAnimatedSpeech as on NAOqi 2.5: say() returns once speech ends, and no stopAll(). */
+class FakeAnimatedSpeech
+{
+public:
+  FakeAnimatedSpeech(CallLog & log, std::shared_ptr<FakeVoice> voice)
+  : log_(log), voice_(std::move(voice)) {}
+  void say(const std::string & text, const std::map<std::string, std::string> &)
+  {
+    log_.add("ALAnimatedSpeech.say(" + text + ")");
+    voice_->speak();
+  }
+
+private:
+  CallLog & log_;
+  std::shared_ptr<FakeVoice> voice_;
+};
+
 /** A service whose only method records "<name>.stopAll()". */
 class FakeStoppable
 {
@@ -310,6 +377,8 @@ QI_REGISTER_OBJECT(
   naoqi_test::FakeMotion, getRobotConfig, getSensorNames, move, stopMove, moveTo, setAngles,
   changeAngles, angleInterpolation, angleInterpolationBezier, getRobotPosition,
   getRobotVelocity);
+QI_REGISTER_OBJECT(naoqi_test::FakeTextToSpeech, say, stopAll);
+QI_REGISTER_OBJECT(naoqi_test::FakeAnimatedSpeech, say);
 QI_REGISTER_OBJECT(naoqi_test::FakeStoppable, stopAll);
 
 namespace naoqi_test
@@ -329,9 +398,12 @@ public:
       "ALSpeechRecognition", boost::make_shared<FakeSpeechRecognition>()).value();
     session->registerService("ALSystem", boost::make_shared<FakeSystem>()).value();
     session->registerService("ALMotion", boost::make_shared<FakeMotion>(log)).value();
-    for (const char * name : {"ALTextToSpeech", "ALAnimatedSpeech", "ALAudioPlayer"}) {
-      session->registerService(name, boost::make_shared<FakeStoppable>(log, name)).value();
-    }
+    session->registerService(
+      "ALTextToSpeech", boost::make_shared<FakeTextToSpeech>(log, voice)).value();
+    session->registerService(
+      "ALAnimatedSpeech", boost::make_shared<FakeAnimatedSpeech>(log, voice)).value();
+    session->registerService(
+      "ALAudioPlayer", boost::make_shared<FakeStoppable>(log, "ALAudioPlayer")).value();
   }
 
   ~FakeNaoqi()
@@ -351,6 +423,7 @@ public:
   FakeNaoqi & operator=(const FakeNaoqi &) = delete;
 
   CallLog log;
+  std::shared_ptr<FakeVoice> voice = std::make_shared<FakeVoice>();
   boost::shared_ptr<FakeMemory> memory = boost::make_shared<FakeMemory>(log);
   qi::SessionPtr session;
 };

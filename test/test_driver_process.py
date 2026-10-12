@@ -95,8 +95,9 @@ def test_ctrl_c_stops_the_robot_and_exits_cleanly(naoqi, tmp_path):
             driver.kill()
     assert 'Lost the connection' not in str(log), str(log)
     assert calls.count('stopMove()') == 1, str(calls)
-    for service in ('ALAnimatedSpeech', 'ALTextToSpeech', 'ALAudioPlayer'):
+    for service in ('ALTextToSpeech', 'ALAudioPlayer'):
         assert calls.count(service + '.stopAll()') == 1, str(calls)
+    assert 'failed on shutdown' not in str(log), str(log)
 
 
 def call_trigger(node, name):

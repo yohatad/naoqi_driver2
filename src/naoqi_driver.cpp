@@ -941,9 +941,10 @@ void Driver::stop()
   // ALMotion.move() keeps the last velocity, so leaving without stopping would
   // let the base drive on. Each call is independent: one failing must not skip the others.
   if (session_) {
+    // ALTextToSpeech.stopAll also ends animated speech (ALAnimatedSpeech has no
+    // stopAll on NAOqi 2.5).
     const std::vector<std::pair<std::string, std::string>> halts = {
       {"ALMotion", "stopMove"},
-      {"ALAnimatedSpeech", "stopAll"},
       {"ALTextToSpeech", "stopAll"},
       {"ALAudioPlayer", "stopAll"},
     };

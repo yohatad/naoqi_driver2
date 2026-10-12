@@ -1,0 +1,68 @@
+# Every sensor on, as test/robot/boot_config_full.json, as parameters that override
+# your boot_config.json without changing it (launch argument params_file).
+/**:
+  ros__parameters:
+    converters:
+      front_camera:
+        enabled: true
+        resolution: 1
+        fps: 15
+        recorder_fps: 5
+      bottom_camera:
+        enabled: true
+        resolution: 1
+        fps: 15
+        recorder_fps: 5
+      depth_camera:
+        enabled: true
+        xtion_resolution: 1
+        stereo_resolution: 9
+        fps: 10
+        recorder_fps: 5
+      stereo_camera:
+        enabled: false
+        resolution: 15
+        fps: 10
+        recorder_fps: 5
+      ir_camera:
+        enabled: false
+        resolution: 1
+        fps: 10
+        recorder_fps: 5
+      info:
+        enabled: true
+        frequency: 1
+      logs:
+        enabled: true
+        frequency: 1
+      diag:
+        enabled: true
+        frequency: 1
+      imu_torso:
+        enabled: true
+        frequency: 100
+      imu_base:
+        enabled: true
+        frequency: 100
+      joint_states:
+        enabled: true
+        frequency: 50
+      laser:
+        enabled: true
+        frequency: 10
+        range_min: 0.1
+        range_max: 3.0
+      sonar:
+        enabled: true
+        frequency: 10
+      audio:
+        enabled: true
+      bumper:
+        enabled: true
+      touch_hand:
+        enabled: true
+      touch_head:
+        enabled: true
+      odom:
+        enabled: true
+        frequency: 50

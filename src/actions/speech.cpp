@@ -32,6 +32,15 @@ struct SpeechState
   GoalWorker worker;  // joined at shutdown; see goal_worker.hpp
 };
 
+/**
+ * Stops what the robot is saying. ALAnimatedSpeech has no stopAll on NAOqi 2.5;
+ * stopping ALTextToSpeech also ends the animated speech, and say() returns.
+ */
+void stopSpeaking(const SpeechState & state)
+{
+  state.session->service("ALTextToSpeech").value().call<void>("stopAll");
+}
+
 rclcpp_action::GoalResponse handleGoal(
   std::shared_ptr<SpeechState> state,
   const rclcpp_action::GoalUUID & uuid,
@@ -62,18 +71,8 @@ rclcpp_action::CancelResponse handleCancel(
   RCLCPP_INFO(state->logger, "Received cancel request for %s", goal_id.c_str());
 
   state->cancel_requested = true;
-
-  // Copy the service handle under the lock, but call NAOqi without it.
-  qi::AnyObject animated_speech_service;
-  {
-    std::lock_guard<std::mutex> lock(state->mutex);
-    animated_speech_service = state->animated_speech_service;
-  }
-
   try {
-    if (animated_speech_service) {
-      animated_speech_service.call<void>("stopAll");
-    }
+    stopSpeaking(*state);
   } catch (const std::exception & e) {
     RCLCPP_WARN(state->logger, "Failed to stop speech: %s", e.what());
   }
@@ -128,9 +127,14 @@ void handleAccepted(
           goal_handle->publish_feedback(feedback);
         }
 
-        // Build configuration map and call ALAnimatedSpeech
-        std::map<std::string, std::string> config{{"bodyLanguageMode", mode}};
-        animated_speech_service.call<void>("say", text_to_say, config);
+        // Build configuration map and call ALAnimatedSpeech, unless cancelled
+        // meanwhile (stopping speech before say() starts has no effect).
+        if (!state->cancel_requested && !goal_handle->is_canceling() &&
+        !state->worker.stopping())
+        {
+          std::map<std::string, std::string> config{{"bodyLanguageMode", mode}};
+          animated_speech_service.call<void>("say", text_to_say, config);
+        }
 
         // Check result
         auto result = std::make_shared<SpeechWithFeedback::Result>();
@@ -183,16 +187,14 @@ createSpeechWithFeedbackServer(rclcpp::Node * node, qi::SessionPtr session)
     server, [state]() {
       state->worker.requestStop();
       // A goal blocked in ALAnimatedSpeech.say() only returns once speech stops.
-      qi::AnyObject speech;
       bool speaking = false;
       {
         std::lock_guard<std::mutex> lock(state->mutex);
-        speech = state->animated_speech_service;
         speaking = static_cast<bool>(state->current_goal);
       }
-      if (speaking && speech) {
+      if (speaking) {
         try {
-          speech.call<void>("stopAll");
+          stopSpeaking(*state);
         } catch (const std::exception & e) {
           RCLCPP_WARN(state->logger, "Failed to stop speech on shutdown: %s", e.what());
         }

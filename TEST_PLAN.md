@@ -6,6 +6,10 @@ Every commit on this branch builds and passes `colcon test`. This plan covers
 what only a real robot can show. Run it on the branch tip first. If something
 fails, use the bisect steps at the end to find the commit that broke it.
 
+Run it on native Ubuntu, not WSL. With WSL's default (NAT) networking the robot
+cannot connect back to the computer, so audio fails, and other machines on the
+network do not see the topics.
+
 ## 1. Safety setup (every session)
 
 - Someone stands within reach of the emergency stop button (back of the neck).
@@ -30,27 +34,31 @@ do so before M7, which checks your usual setup.
 
 ## 3. Build the branch and enable every sensor
 
+Get the branch (it needs the `main` branch of your `naoqi_bridge_msgs2` fork too):
+
+```bash
+cd ~/ros2_ws/src
+git clone https://github.com/yohatad/naoqi_driver2.git   # or, in an existing checkout:
+cd naoqi_driver2 && git fetch origin && git switch feature/modern-cpp
+```
+
+Build it, and optionally run the unit tests:
+
 ```bash
 cd ~/ros2_ws
 colcon build --packages-select naoqi_driver
 # optional, off-robot; --test-result-base keeps other packages' old results out
 colcon test --packages-select naoqi_driver
 colcon test-result --test-result-base build/naoqi_driver --verbose
-
-# Use the full-sensor config for the test, keeping a copy of yours.
-CFG=install/naoqi_driver/share/naoqi_driver/share/boot_config.json
-cp $CFG /tmp/boot_config.backup.json
-cp src/naoqi_driver2/test/robot/boot_config_full.json $CFG
 ```
 
-Restore your config when done: `cp /tmp/boot_config.backup.json $CFG`. A rebuild
-also reinstalls your own config, so copy the full one again after any rebuild.
-
 Launch the driver on its own (not `pepper_bringup`, so gscam2 does not compete
-for the front camera):
+for the front camera), with every sensor on. `full_sensors.yaml` overrides your
+`boot_config.json` for this launch only, without changing it:
 
 ```bash
-ros2 launch naoqi_driver naoqi_driver.launch.py nao_ip:=<ip>
+ros2 launch naoqi_driver naoqi_driver.launch.py nao_ip:=<ip> \
+  params_file:=$HOME/ros2_ws/src/naoqi_driver2/test/robot/full_sensors.yaml
 ```
 
 ## 4. Automated checks
@@ -82,12 +90,12 @@ A WARN on laser or sonar is expected while the robot is at rest.
 | # | Check | How | Pass when |
 |---|---|---|---|
 | M1 | **Ctrl+C stops the base** | `ros2 topic pub -r 10 /cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.1}}"`, then Ctrl+C the **driver** (not the publisher) | the base stops; the driver exits cleanly |
-| M2 | Ctrl+C stops speech | `ros2 action send_goal /naoqi_driver/speech_with_feedback naoqi_bridge_msgs/action/SpeechWithFeedback "{say: 'one two three four five six seven eight nine ten'}"`, Ctrl+C the driver mid-sentence | speech stops |
+| M2 | Ctrl+C and cancel stop speech | `ros2 action send_goal /naoqi_driver/speech_with_feedback naoqi_bridge_msgs/action/SpeechWithFeedback "{say: 'one two three four five six seven eight nine ten'}"`, Ctrl+C the driver mid-sentence; then again, but Ctrl+C the `send_goal` command instead (that cancels the goal) | speech stops |
 | M3 | Watchdog can be disabled | relaunch with `cmd_vel_timeout:=0.0`, publish as in M1, Ctrl+C the **publisher** | base keeps moving (old behaviour); stop it with a zero Twist |
 | M4 | Shutdown with NAOqi gone | unplug the robot's network, then Ctrl+C the driver | exits without `terminate called` |
 | M5 | NAOqi logs | the full config enables logs; `ros2 topic echo /rosout` | NAOqi log lines appear, no crash |
 | M6 | Password login (only if you use one) | launch with `password:=<pw>` | connects |
-| M7 | Your normal bringup | restore your config and Autonomous Life (`setState solitary`), `ros2 launch naoqi_driver pepper_bringup.launch.py nao_ip:=<ip>` | works as before |
+| M7 | Your normal bringup | restore Autonomous Life (`setState solitary`), `ros2 launch naoqi_driver pepper_bringup.launch.py nao_ip:=<ip>` (no `params_file`) | works as before |
 | M8 | Driver logging | watch the driver's console and `ros2 topic echo /rosout` during startup | messages carry levels (INFO/WARN/ERROR), no raw colour codes, the robot banner is one line |
 | M9 | `moveto` distance cap | flap closed, area clear: `ros2 topic pub --once /move_base_simple/goal geometry_msgs/msg/PoseStamped "{header: {frame_id: base_footprint}, pose: {position: {x: 5.0}, orientation: {w: 1.0}}}"`, then the same with `x: 0.3` | the 5 m goal is refused with a warning and nothing moves; the 0.3 m goal moves the robot about 30 cm |
 | M10 | Speed caps | relaunch with `max_linear_speed:=0.1`, publish `{linear: {x: 0.3}}` at 10 Hz for 2 s, watch `ros2 topic echo /pepper_odom --field twist.twist.linear.x` | about 0.1, not 0.3 |
@@ -96,7 +104,7 @@ A WARN on laser or sonar is expected while the robot is at rest.
 | M13 | Minidump | relaunch with `minidump_duration:=10`, wait 15 s, `ros2 service call /naoqi_driver/minidump std_srvs/srv/Trigger`, then `ros2 bag info <folder it answers>` | the bag holds about the last 10 s; delete it afterwards |
 | M14 | Camera timestamps | `ros2 topic delay /camera/front/image_raw` for 10 s | the delay is positive and steady, under 0.2 s (before commit 14 it is about 0: stamped on arrival) |
 | M15 | Sensor parameters | write `/tmp/no_front.yaml` with `/**: {ros__parameters: {converters: {front_camera: {enabled: false}}}}`, relaunch with `params_file:=/tmp/no_front.yaml`; then `ros2 param set /naoqi_driver converters.front_camera.enabled true` | no `camera/front` topics; the `param set` is refused |
-| M16 | Clean exit | Ctrl+C the driver, once connected and once with a wrong `nao_ip` (while it retries) | the launch prints `process has finished cleanly`, never `exit code -6` or `-11` |
+| M16 | Clean exit | Ctrl+C the driver: connected with the robot resting, connected with the robot awake (`qicli call ALMotion.wakeUp`), and with a wrong `nao_ip` (while it retries) | the launch prints `process has finished cleanly`, never `exit code -6` or `-11`, and no `failed on shutdown` warning |
 | M17 | Reconnect | with the robot resting, `ssh nao@<ip> nao restart` (the robot goes limp until NAOqi is back) | the driver logs the lost connection, exits, is respawned, retries (1, 2, 4 ... s) and reconnects |
 | M18 | Joystick safety (needs a pad, laser and sonar enabled) | `ros2 launch naoqi_driver safe_teleop.launch.py`; hold LB and push the stick; release; drive slowly towards a box; back away | moves only while LB is held, at most 0.2 m/s; stops at once on release; slows and stops about 10 cm before the box; backing away works |
 
@@ -135,25 +143,31 @@ The checks map to these commits (oldest first, `git log --oneline master..`):
 | 14 | Stamp camera images at capture, make the boot config parameters, fix the crash on exit | a, M14, M15, M16 |
 | 15 | Add a joystick launch with a dead-man switch and a collision monitor, fix CI | M18 |
 | 16 | Remove stale docs and leftovers, extend the robot checks | a, e |
+| 17 | Fix the crash on exit with joint states and stopping speech on NAOqi 2.5 | M2, M16 |
 
 Commits 6 to 8 and 16 are meant to change no behaviour. If a check passes on
 commit 5 but fails on commit 8, the cause is in 6 to 8.
 
-Commits 1 to 3 do not contain the check script or the test config, so copy
-them out first. Every build reinstalls your own `boot_config.json`, so copy the
-full config again after each build:
+Commits 1 to 3 do not contain the check script or the test configs, so copy
+them out first. Commits before 14 do not take `params_file`: there, put the
+full config in place of the installed `boot_config.json` after each build.
+`--remove-destination` replaces the installed file; with `--symlink-install` a
+plain `cp` would write through the link into your own `share/boot_config.json`.
 
 ```bash
 cd ~/ros2_ws
-cp src/naoqi_driver2/test/robot/robot_checks.py src/naoqi_driver2/test/robot/boot_config_full.json /tmp/
+cp src/naoqi_driver2/test/robot/robot_checks.py src/naoqi_driver2/test/robot/boot_config_full.json \
+  src/naoqi_driver2/test/robot/full_sensors.yaml /tmp/
 CFG=install/naoqi_driver/share/naoqi_driver/share/boot_config.json
 
 git -C src/naoqi_driver2 checkout <commit>
 colcon build --packages-select naoqi_driver
-cp /tmp/boot_config_full.json $CFG
-# relaunch the driver, then:
+cp --remove-destination /tmp/boot_config_full.json $CFG   # commits before 14
+# relaunch the driver (commits 14 and later: params_file:=/tmp/full_sensors.yaml), then:
 python3 /tmp/robot_checks.py <flags of the stage that failed>
 ```
+
+The next build puts your own config back.
 
 On commits before the watchdog, the timeout check reports SKIP, not FAIL.
 Return with `git -C src/naoqi_driver2 checkout feature/modern-cpp`.

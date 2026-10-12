@@ -33,10 +33,12 @@ TEST_F(DriverShutdownTest, StopHaltsMotionSpeechAndAudioThroughNaoqi)
   naoqi_test::FakeNaoqi fake;
   auto driver = std::make_shared<naoqi::Driver>();
   driver->setQiSession(fake.session);
+  naoqi_test::LogCapture logs;
   driver->stop();
 
   EXPECT_EQ(fake.log.count("stopMove()"), 1u);
-  EXPECT_EQ(fake.log.count("ALAnimatedSpeech.stopAll()"), 1u);
-  EXPECT_EQ(fake.log.count("ALTextToSpeech.stopAll()"), 1u);
+  EXPECT_EQ(fake.log.count("ALTextToSpeech.stopAll()"), 1u);  // also ends animated speech
   EXPECT_EQ(fake.log.count("ALAudioPlayer.stopAll()"), 1u);
+  // Every call must exist on NAOqi 2.5, which has no ALAnimatedSpeech.stopAll.
+  EXPECT_FALSE(logs.contains("failed on shutdown"));
 }

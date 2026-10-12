@@ -50,7 +50,16 @@ class JointStateConverter : public BaseConverter<JointStateConverter>
 
   using BufferPtr = std::shared_ptr<tf2_ros::Buffer>;
 
-  using MimicMap = std::map<std::string, urdf::JointMimicSharedPtr>;
+  /** A joint that follows another: position = position of joint_name * multiplier + offset. */
+  struct Mimic
+  {
+    std::string joint_name;
+    double multiplier;
+    double offset;
+  };
+  // Copies, not urdf::JointMimicSharedPtr: those are freed by code of the URDF parser
+  // plugin, which is unloaded with the model, so destroying them crashed the driver.
+  using MimicMap = std::map<std::string, Mimic>;
 
 public:
   JointStateConverter(
