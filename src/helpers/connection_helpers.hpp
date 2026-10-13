@@ -18,6 +18,8 @@
 #define CONNECTION_HELPERS_HPP
 
 #include <algorithm>
+#include <string>
+#include <vector>
 #include <chrono>
 
 namespace naoqi
@@ -30,6 +32,41 @@ inline std::chrono::seconds reconnectDelay(int attempt)
 {
   const int exponent = std::clamp(attempt - 1, 0, 5);
   return std::chrono::seconds(std::min(30, 1 << exponent));
+}
+
+/**
+ * The NAOqi services the driver needs at start-up. NAOqi accepts connections before
+ * it has registered them all, so the driver waits for these after connecting.
+ */
+inline const std::vector<std::string> & requiredServices()
+{
+  static const std::vector<std::string> services = {
+    "ALMemory", "ALMotion", "ALRobotModel", "ALSystem", "ALVideoDevice", "ALAudioDevice",
+    "ALTextToSpeech", "ALAnimatedSpeech", "ALAudioPlayer", "ALLeds"};
+  return services;
+}
+
+/** names joined with ", ", for log messages. */
+inline std::string joinNames(const std::vector<std::string> & names)
+{
+  std::string joined;
+  for (const auto & name : names) {
+    joined += (joined.empty() ? "" : ", ") + name;
+  }
+  return joined;
+}
+
+/** The entries of required that are not in available, in the order of required. */
+inline std::vector<std::string> missingServices(
+  const std::vector<std::string> & required, const std::vector<std::string> & available)
+{
+  std::vector<std::string> missing;
+  for (const auto & name : required) {
+    if (std::find(available.begin(), available.end(), name) == available.end()) {
+      missing.push_back(name);
+    }
+  }
+  return missing;
 }
 
 }  // namespace helpers

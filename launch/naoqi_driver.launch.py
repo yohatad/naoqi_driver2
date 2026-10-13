@@ -28,6 +28,8 @@ def launch_driver(context):
             launch.substitutions.LaunchConfiguration('listen_enabled'), value_type=bool),
         'listen_timeout': launch_ros.parameter_descriptions.ParameterValue(
             launch.substitutions.LaunchConfiguration('listen_timeout'), value_type=float),
+        'naoqi_startup_timeout': launch_ros.parameter_descriptions.ParameterValue(
+            launch.substitutions.LaunchConfiguration('naoqi_startup_timeout'), value_type=float),
         'minidump_duration': launch_ros.parameter_descriptions.ParameterValue(
             launch.substitutions.LaunchConfiguration('minidump_duration'), value_type=float),
     }]
@@ -114,6 +116,12 @@ def generate_launch_description():
             'listen_timeout',
             default_value="30.0",
             description='Seconds a listen goal waits for speech before it is aborted; 0 waits forever.'),
+        launch.actions.DeclareLaunchArgument(
+            'naoqi_startup_timeout',
+            default_value="120.0",
+            description='Seconds to wait after connecting for NAOqi to register its services '
+                        '(it accepts connections while still starting); then start without the '
+                        'missing ones.'),
         launch.actions.DeclareLaunchArgument(
             'minidump_duration',
             default_value="0.0",

@@ -20,7 +20,9 @@
 
 #include <atomic>
 #include <chrono>
+#include <string>
 #include <thread>
+#include <vector>
 
 #include <rclcpp/rclcpp.hpp>
 #include <qi/applicationsession.hpp>
@@ -160,6 +162,52 @@ int main(int argc, char ** argv)
     }
   }
   // The session needs to listen on the network to process audio callbacks.
+  // NAOqi takes connections while it is still starting (after a reboot or `nao restart`):
+  // wait until its services are registered, or the driver would start without them.
+  bs->declare_parameter<double>("naoqi_startup_timeout", 120.0);
+  const double startup_timeout = bs->get_parameter("naoqi_startup_timeout").as_double();
+  {
+    const auto deadline = std::chrono::steady_clock::now() +
+      std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+      std::chrono::duration<double>(startup_timeout));
+    std::vector<std::string> missing;
+    bool waiting = false;
+    while (!g_interrupted) {
+      std::vector<std::string> available;
+      try {
+        // A copy: value() refers into the future, which would not outlive the loop.
+        const std::vector<qi::ServiceInfo> services = session->services().value();
+        for (const auto & info : services) {
+          available.push_back(info.name());
+        }
+      } catch (const std::exception & e) {
+        RCLCPP_ERROR(bs->get_logger(), "Lost NAOqi while waiting for it to start: %s", e.what());
+        return EXIT_FAILURE;  // respawned, it connects again
+      }
+      missing = naoqi::helpers::missingServices(naoqi::helpers::requiredServices(), available);
+      if (missing.empty() || std::chrono::steady_clock::now() >= deadline) {
+        break;
+      }
+      if (!waiting) {
+        RCLCPP_WARN(
+          bs->get_logger(), "NAOqi is still starting, waiting for %s ...",
+          naoqi::helpers::joinNames(missing).c_str());
+        waiting = true;
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+    if (g_interrupted) {
+      return EXIT_SUCCESS;
+    }
+    if (!missing.empty()) {
+      RCLCPP_WARN(
+        bs->get_logger(), "Starting without %s: not available after %.0f s",
+        naoqi::helpers::joinNames(missing).c_str(), startup_timeout);
+    } else if (waiting) {
+      RCLCPP_INFO(bs->get_logger(), "NAOqi is ready");
+    }
+  }
+
   if (!listen_url.empty()) {
     session->listen(listen_url);
   }
@@ -184,10 +232,23 @@ int main(int argc, char ** argv)
   if (g_interrupted) {
     bs->requestStop();
   }
-  bs->run();
+  // An error escaping here (NAOqi lost or still starting) must end the process with a
+  // failure, so that it is respawned, not abort it.
+  bool failed = false;
+  try {
+    bs->run();
+  } catch (const std::exception & e) {
+    RCLCPP_ERROR(bs->get_logger(), "naoqi_driver stopped on an error: %s", e.what());
+    failed = true;
+  }
   g_driver = nullptr;
-  bs->stop();
-  const int exit_code = g_disconnected ? EXIT_FAILURE : EXIT_SUCCESS;
+  try {
+    bs->stop();
+  } catch (const std::exception & e) {
+    RCLCPP_ERROR(bs->get_logger(), "Error while shutting down: %s", e.what());
+    failed = true;
+  }
+  const int exit_code = (g_disconnected || failed) ? EXIT_FAILURE : EXIT_SUCCESS;
 
   // Destroy the driver while NAOqi and ROS are still up, then close both. Closing
   // the session fires disconnected, which is no lost connection here.

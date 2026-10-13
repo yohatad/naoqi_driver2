@@ -69,7 +69,9 @@ def start_driver(url, folder, enabled=()):
     """The driver with every converter off but those in enabled, on a domain of its own."""
     host, port = url.replace('tcp://', '').split(':')
     params = folder / 'params.yaml'
-    params.write_text('/**:\n  ros__parameters:\n    converters:\n' + ''.join(
+    # The fake has only some of NAOqi's services: do not wait for the others.
+    params.write_text('/**:\n  ros__parameters:\n    naoqi_startup_timeout: 0.0\n'
+                      '    converters:\n' + ''.join(
         '      {}:\n        enabled: {}\n'.format(name, 'true' if name in enabled else 'false')
         for name in CONVERTERS))
     os.environ['ROS_DOMAIN_ID'] = str(random.randint(100, 200))  # also for rclpy below

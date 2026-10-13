@@ -1039,8 +1039,14 @@ void Driver::stop()
     }
   }
 
+  // NAOqi may be gone already (lost connection): one event failing to stop must not
+  // skip the others or abort the shutdown.
   for (auto & [name, event] : event_map_) {
-    event->stopProcess();
+    try {
+      event->stopProcess();
+    } catch (const std::exception & e) {
+      RCLCPP_WARN(get_logger(), "Could not stop %s on shutdown: %s", name.c_str(), e.what());
+    }
   }
 
   // Close a bag still being recorded, so that it is complete (metadata.yaml).

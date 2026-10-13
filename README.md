@@ -180,8 +180,13 @@ These launch arguments limit what commands can make the robot do:
 | `listen_enabled` | `false` | start the `listen` action server (see [Listen to words](#listen-to-words)) |
 | `listen_timeout` | `30.0` | seconds a `listen` goal waits for speech before it is aborted (0: forever) |
 | `respawn` | `true` | restart the driver when it exits on its own, e.g. after losing NAOqi |
+| `naoqi_startup_timeout` | `120.0` | seconds to wait after connecting for NAOqi's services, which it registers after it starts taking connections |
 
 Ctrl+C on the driver stops the base, speech and audio before it exits.
+
+When the connection to NAOqi is lost (network, `nao restart`, reboot), the driver
+exits with an error and is respawned. It retries the connection after 1, 2, 4 ...
+up to 30 s, then waits for NAOqi to finish starting before it starts its sensors.
 
 ### Choose the sensors
 

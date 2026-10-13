@@ -86,3 +86,14 @@ TEST(ReconnectDelay, GrowsExponentiallyUpTo30Seconds)
   EXPECT_EQ(reconnectDelay(100), 30s);
   EXPECT_EQ(reconnectDelay(0), 1s);
 }
+
+TEST(MissingServices, ListsTheRequiredOnesNotYetRegistered)
+{
+  using naoqi::helpers::missingServices;
+  const std::vector<std::string> required{"ALMemory", "ALMotion", "ALVideoDevice"};
+  EXPECT_EQ(
+    missingServices(required, {"ALMemory", "LogManager"}),
+    (std::vector<std::string>{"ALMotion", "ALVideoDevice"}));
+  EXPECT_TRUE(missingServices(required, {"ALVideoDevice", "ALMotion", "ALMemory"}).empty());
+  EXPECT_EQ(naoqi::helpers::joinNames({"ALMotion", "ALVideoDevice"}), "ALMotion, ALVideoDevice");
+}

@@ -123,9 +123,12 @@ void AudioEventRegister::stopProcess()
   std::lock_guard<std::mutex> stop_lock(subscription_mutex_);
   if (is_started_) {
     if (service_id_) {
-      p_audio_.call<void>("unsubscribe", AUDIO_EXTRACTOR_NAME);
-      session_->unregisterService(service_id_);
+      // Mark it stopped even when NAOqi is unreachable, so that it is not retried.
+      const unsigned int service_id = service_id_;
       service_id_ = 0;
+      is_started_ = false;
+      p_audio_.call<void>("unsubscribe", AUDIO_EXTRACTOR_NAME);
+      session_->unregisterService(service_id);
     }
     RCLCPP_INFO_STREAM(naoqi::helpers::Node::get_logger(), "Audio Extractor: Stop");
     is_started_ = false;
