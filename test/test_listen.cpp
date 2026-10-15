@@ -37,12 +37,14 @@ protected:
 
   void TearDown() override
   {
-    server_.reset();  // aborts a goal still waiting, joins its thread
     executor_.cancel();
     if (spinner_.joinable()) {
       spinner_.join();
     }
     executor_.remove_node(node_);
+    // After the executor: as in the driver, the server must not be destroyed while
+    // the executor (rclcpp, uninstrumented) may hold the last reference to it.
+    server_.reset();  // aborts a goal still waiting, joins its thread
   }
 
   GoalHandle::SharedPtr send(

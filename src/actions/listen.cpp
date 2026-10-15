@@ -33,9 +33,6 @@ struct ListenState
   qi::AnyObject memory_subscriber;
   double timeout_s = 0.0;  // listen_timeout; 0 waits forever
   GoalWorker worker;  // joined at shutdown; see goal_worker.hpp
-  // Held by the NAOqi callback while it finishes a goal, and by the shutdown hook:
-  // the server must not be destroyed in the middle of succeed().
-  std::mutex finishing;
 };
 
 std::string topicNameForGoalId(const rclcpp_action::GoalUUID & goal_id)
@@ -182,7 +179,6 @@ void runListen(
           auto utterance = value.toString();
           RCLCPP_INFO(state->logger, "Received input: %s", utterance.c_str());
 
-          std::lock_guard<std::mutex> finishing(state->finishing);
           auto claimed = claimGoal(*state, goal_handle);
           if (!claimed.goal) {
             // Already cancelled (or not yet registered); drop the utterance.
@@ -347,8 +343,6 @@ createListenServer(rclcpp::Node * node, qi::SessionPtr session)
   return std::make_unique<ActionHandle>(
     server, [task]() {
       task->worker.requestStop();
-      // Waits for a NAOqi callback that is finishing a goal; later ones find no goal.
-      std::lock_guard<std::mutex> finishing(task->finishing);
       // Abort a goal still waiting for speech and remove its dialog topic.
       auto claimed = claimCurrentGoal(*task);
       if (claimed.goal) {

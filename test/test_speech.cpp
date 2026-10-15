@@ -33,11 +33,18 @@ protected:
 
   void TearDown() override
   {
+    stopSpinning();
     server_.reset();
-    executor_.cancel();
-    if (spinner_.joinable()) {
-      spinner_.join();
+  }
+
+  /** Stops the executor first, as the driver does before destroying its servers. */
+  void stopSpinning()
+  {
+    if (!spinner_.joinable()) {
+      return;
     }
+    executor_.cancel();
+    spinner_.join();
     executor_.remove_node(node_);
   }
 
@@ -90,8 +97,9 @@ TEST_F(SpeechTest, ShutdownStopsTheSpeech)
   auto goal = say("a long sentence");
   ASSERT_TRUE(goal);
   ASSERT_TRUE(fake_.log.waitFor("ALAnimatedSpeech.say("));
+  stopSpinning();
   const auto start = std::chrono::steady_clock::now();
-  server_.reset();  // what Ctrl+C on the driver does
+  server_.reset();  // what Ctrl+C on the driver does, after stopping the executor
   EXPECT_LT(std::chrono::steady_clock::now() - start, 3s) << "the speech did not stop";
   EXPECT_EQ(fake_.log.count("ALTextToSpeech.stopAll()"), 1u);
 }
