@@ -203,8 +203,15 @@ if(BUILD_TESTING)
 
   find_package(ament_cmake_gtest REQUIRED)
 
+  # ThreadSanitizer makes the threaded tests several times slower.
+  if(CMAKE_CXX_FLAGS MATCHES "-fsanitize=thread")
+    set(NAOQI_DRIVER_TEST_TIMEOUT 600)
+  else()
+    set(NAOQI_DRIVER_TEST_TIMEOUT 120)
+  endif()
+
   function(naoqi_driver_add_test name)
-    ament_add_gtest(${name} test/${name}.cpp TIMEOUT 120)
+    ament_add_gtest(${name} test/${name}.cpp TIMEOUT ${NAOQI_DRIVER_TEST_TIMEOUT})
     target_include_directories(${name} PRIVATE test)
     target_compile_definitions(${name} PRIVATE NAOQI_DRIVER_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
     target_link_libraries(${name} naoqi_driver ${naoqi_libqi_LIBRARIES})

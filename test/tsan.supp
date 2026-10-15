@@ -1,8 +1,15 @@
 # ThreadSanitizer suppressions for the tsan CI job (TSAN_OPTIONS=suppressions=...).
-# Only reports inside these libraries, which are built without ThreadSanitizer:
+# Only reports caused by libraries built without ThreadSanitizer.
+
 # Fast DDS's event thread and spdlog use timed mutexes that it misreads as lock
-# order inversions and double locks. A data race is never suppressed.
+# order inversions and double locks.
 deadlock:libfastrtps.so
 mutex:libfastrtps.so
 deadlock:libspdlog.so
 mutex:libspdlog.so
+
+# libqi passes its futures (boost::shared_ptr) between its threads through atomics
+# inside the library, which ThreadSanitizer does not see. Apart from the two objects
+# it hands to libqi, the driver uses std::shared_ptr, so a race whose top frame
+# copies a boost::shared_ptr is libqi's.
+race_top:boost::detail::shared_count::shared_count
