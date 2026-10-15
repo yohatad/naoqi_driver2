@@ -213,6 +213,9 @@ if(BUILD_TESTING)
   function(naoqi_driver_add_test name)
     ament_add_gtest(${name} test/${name}.cpp TIMEOUT ${NAOQI_DRIVER_TEST_TIMEOUT})
     target_include_directories(${name} PRIVATE test)
+    # The gtest headers matching the linked gtest_vendor library come first: some packages
+    # (rtabmap 0.23.13) install other gtest headers into /opt/ros/<distro>/include.
+    target_include_directories(${name} BEFORE PRIVATE ${GTEST_INCLUDE_DIRS})
     target_compile_definitions(${name} PRIVATE NAOQI_DRIVER_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
     target_link_libraries(${name} naoqi_driver ${naoqi_libqi_LIBRARIES})
     ament_target_dependencies(${name}
