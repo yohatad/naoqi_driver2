@@ -15,6 +15,11 @@
  *
 */
 
+#include <algorithm>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
 /*
 * LOCAL includes
 */
@@ -62,6 +67,22 @@ ImuConverter::ImuConverter(
     data_names_list_.push_back("Device/SubDeviceList/InertialSensorBase/AccelerometerX/Sensor/Value");
     data_names_list_.push_back("Device/SubDeviceList/InertialSensorBase/AccelerometerY/Sensor/Value");
     data_names_list_.push_back("Device/SubDeviceList/InertialSensorBase/AccelerometerZ/Sensor/Value");
+  }
+
+  // Pepper 1.8 has no torso IMU, though ALMemory keeps some of its keys: reading the
+  // others would publish -1 and log a warning for each, on every sample. Throwing here
+  // makes the driver disable this IMU.
+  const auto available = p_memory_.call<std::vector<std::string>>("getDataListName");
+  std::vector<std::string> missing;
+  for (const auto & key : data_names_list_) {
+    if (std::find(available.begin(), available.end(), key) == available.end()) {
+      missing.push_back(key);
+    }
+  }
+  if (!missing.empty()) {
+    throw std::runtime_error(
+            "this robot has no such IMU: " + std::to_string(missing.size()) +
+            " of its ALMemory keys are missing, such as " + missing.front());
   }
 }
 

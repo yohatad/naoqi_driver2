@@ -218,7 +218,9 @@ to change them.
 If a sensor cannot be set up, the driver logs `Could not start the <sensor>
 sensor, disabling it: ...` and runs without it. On NAOqi 2.5 this happens to
 `logs` (NAOqi log messages on `/rosout`): NAOqi's log listener cannot be decoded
-by the libqi this driver is built with, so leave it disabled there.
+by the libqi this driver is built with, so leave it disabled there. It also
+happens to `imu_torso` on Pepper 1.8, which has no torso IMU: `/imu/base` is
+its only IMU.
 
 The bumpers and the hand and head touch sensors are read from ALMemory every
 50 ms, and `/bumper`, `/hand_touch` and `/head_touch` report each press and

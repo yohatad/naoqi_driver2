@@ -133,6 +133,19 @@ public:
     return "";
   }
 
+  std::vector<std::string> getDataListName()
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return data_names_;
+  }
+
+  /** Sets what getDataListName() returns. Not a NAOqi method. */
+  void setDataNames(const std::vector<std::string> & names)
+  {
+    std::lock_guard<std::mutex> lock(mutex_);
+    data_names_ = names;
+  }
+
   qi::AnyObject subscriber(const std::string & key)
   {
     log_.add("subscriber(" + key + ")");
@@ -187,6 +200,7 @@ private:
   std::mutex mutex_;
   std::vector<std::pair<std::string, boost::shared_ptr<FakeMemorySubscriber>>> subscribers_;
   std::map<std::string, qi::AnyValue> inserted_;
+  std::vector<std::string> data_names_;
 };
 
 class FakeDialog
@@ -367,7 +381,7 @@ private:
 }  // namespace naoqi_test
 
 QI_REGISTER_OBJECT(naoqi_test::FakeMemorySubscriber, signal);
-QI_REGISTER_OBJECT(naoqi_test::FakeMemory, getData, subscriber, insertData);
+QI_REGISTER_OBJECT(naoqi_test::FakeMemory, getData, getDataListName, subscriber, insertData);
 QI_REGISTER_OBJECT(
   naoqi_test::FakeDialog, getLanguage, loadTopicContent, activateTopic, deactivateTopic,
   unloadTopic, subscribe, setFocus);

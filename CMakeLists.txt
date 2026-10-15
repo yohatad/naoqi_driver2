@@ -250,6 +250,7 @@ if(BUILD_TESTING)
   naoqi_driver_add_test(test_speech)
   naoqi_driver_add_test(test_clock_offset)
   naoqi_driver_add_test(test_recording)
+  naoqi_driver_add_test(test_imu)
   ament_target_dependencies(test_recording rosbag2_cpp std_srvs)
 
   find_package(ament_cmake_pytest REQUIRED)
