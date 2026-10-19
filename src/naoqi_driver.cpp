@@ -265,6 +265,20 @@ void Driver::run()
     }
     // Start publishing again
     startPublishing();
+
+    // List what boot_config enabled, so a missing sensor shows without a topic hunt.
+    for (const auto & conv : converters_) {
+      auto pub_it = pub_map_.find(conv->name());
+      if (pub_it == pub_map_.end()) {
+        continue;
+      }
+      RCLCPP_INFO(
+        get_logger(), "publishing sensor:\t%s -> %s @ %g Hz", conv->name().c_str(),
+        pub_it->second->topic().c_str(), conv->frequency());
+    }
+    for (const auto & [name, event] : event_map_) {
+      RCLCPP_INFO(get_logger(), "publishing event:\t%s", name.c_str());
+    }
   }
 
   RCLCPP_INFO_STREAM(get_logger(), "naoqi_driver initialized");

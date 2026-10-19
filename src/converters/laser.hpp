@@ -117,6 +117,9 @@ private:
   float range_max_;
 
   BankLiveness liveness_[kBankCount];
+  /** When callAll() first ran, < 0 before. No bank can be proven live on the first
+   *  poll, so a stall is only reported once a full kFrameStaleSeconds has passed. */
+  double first_poll_s_;
   double last_warn_s_;
 
   std::map<message_actions::MessageAction, Callback_t> callbacks_;

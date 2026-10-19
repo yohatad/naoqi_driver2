@@ -184,6 +184,7 @@ LaserConverter::LaserConverter(
   p_memory_(session->service("ALMemory").value()),
   range_min_(0.1f),
   range_max_(3.0f),
+  first_poll_s_(-1.0),
   last_warn_s_(0.0)
 {
 }
@@ -219,6 +220,9 @@ void LaserConverter::callAll(const std::vector<message_actions::MessageAction> &
   }
 
   const double now_s = helpers::Time::now().seconds();
+  if (first_poll_s_ < 0.0) {
+    first_poll_s_ = now_s;
+  }
 
   bool live[kBankCount];
   bool any_live = false;
@@ -233,7 +237,7 @@ void LaserConverter::callAll(const std::vector<message_actions::MessageAction> &
   // in the stack passes. A gap in the topic is the one failure mode consumers
   // can actually see, so produce that instead.
   if (!any_live) {
-    if (now_s - last_warn_s_ > 5.0) {
+    if (now_s - first_poll_s_ >= kFrameStaleSeconds && now_s - last_warn_s_ > 5.0) {
       last_warn_s_ = now_s;
       RCLCPP_ERROR_STREAM(
         naoqi::helpers::Node::get_logger(),
