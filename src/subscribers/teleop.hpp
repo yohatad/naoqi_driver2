@@ -22,12 +22,21 @@
  */
 #include "subscriber_base.hpp"
 #include "cmd_vel_watchdog.hpp"
+#include "proximity_guard.hpp"
 
 /*
  * ROS includes
  */
 #include "rclcpp/rclcpp.hpp"
+#include <memory>
+#include <mutex>
+#include <string>
+
+#include <diagnostic_msgs/msg/diagnostic_array.hpp>
 #include <geometry_msgs/msg/twist.hpp>
+#include <naoqi_bridge_msgs/msg/bumper.hpp>
+#include <sensor_msgs/msg/laser_scan.hpp>
+#include <sensor_msgs/msg/range.hpp>
 #include <naoqi_bridge_msgs/msg/joint_angles_with_speed.hpp>
 #include <naoqi_bridge_msgs/msg/joint_angles_trajectory.hpp>
 
@@ -53,7 +62,20 @@ public:
   void jointAngleTrajCallback(
     const naoqi_bridge_msgs::msg::JointAnglesTrajectory::SharedPtr traj_msg);
 
+  // Coarse laser/sonar/bumper backstop; see proximity_guard.hpp for why it
+  // lives here rather than in Nav2's collision monitor.
+  void laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
+  void sonarCallback(const sensor_msgs::msg::Range::SharedPtr msg);
+  void bumperCallback(const naoqi_bridge_msgs::msg::Bumper::SharedPtr msg);
+
 private:
+  /// Worst level across the fresh sources, plus the bumper clamp.
+  safety::Clamp currentClamp();
+  /// Called on a timer: ALMotion.move() latches its last velocity, so a new
+  /// detection has to push a zero even when /cmd_vel has gone quiet.
+  void proximityTick();
+  void publishProximityDiagnostics(safety::Level level, const safety::Clamp & clamp);
+
   // Helper methods for trajectory execution
   void executeAngleInterpolation(
     const std::vector<std::string> & names,
@@ -79,6 +101,25 @@ private:
   rclcpp::Logger logger_ = rclcpp::get_logger("TeleopSubscriber");
   double max_linear_speed_ = 0.0;  // m/s, 0 = no cap
   double max_angular_speed_ = 0.0;  // rad/s, 0 = no cap
+
+  // --- proximity backstop ---
+  bool proximity_enabled_ = false;
+  safety::Zones zones_;
+  double source_timeout_ = 1.0;         // s before a reading stops counting
+  std::shared_ptr<safety::BumperLatch> bumper_latch_;
+  safety::SonarFilter sonar_filter_{2};
+  safety::Level laser_level_ = safety::Level::kClear;
+  safety::Level sonar_level_ = safety::Level::kClear;
+  double laser_stamp_ = -1.0;
+  double sonar_stamp_ = -1.0;
+  bool moving_ = false;                 // last command was non-zero
+  bool stop_sent_ = false;              // zero already pushed for this detection
+  std::mutex proximity_mutex_;
+  rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr sub_laser_;
+  rclcpp::Subscription<sensor_msgs::msg::Range>::SharedPtr sub_sonar_;
+  rclcpp::Subscription<naoqi_bridge_msgs::msg::Bumper>::SharedPtr sub_bumper_;
+  rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diag_pub_;
+  rclcpp::TimerBase::SharedPtr proximity_timer_;
   rclcpp::Subscription<naoqi_bridge_msgs::msg::JointAnglesWithSpeed>::SharedPtr sub_joint_angles_;
   rclcpp::Subscription<naoqi_bridge_msgs::msg::JointAnglesTrajectory>::SharedPtr
     sub_joint_angle_traj_;

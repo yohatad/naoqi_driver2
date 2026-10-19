@@ -19,6 +19,8 @@
  * LOCAL includes
  */
 #include "teleop.hpp"
+
+#include <naoqi_driver/ros_helpers.hpp>
 #include "motion_validation.hpp"
 #include "helpers/async_helpers.hpp"
 #include "helpers/parameter_helpers.hpp"
@@ -71,6 +73,59 @@ void TeleopSubscriber::reset(rclcpp::Node * node)
         }
       }, callback_group_);
   }
+  // Coarse laser/sonar/bumper backstop. Off by default: it changes what
+  // reaches the wheels, so it is opt-in until measured on the robot.
+  proximity_enabled_ = node->declare_parameter<bool>("proximity_guard", false);
+  zones_.stop_range = helpers::declareNumberParameter(
+    node, "proximity_stop_range", zones_.stop_range,
+    "Metres from base_footprint; a forward obstacle inside this blocks forward motion");
+  zones_.slow_range = helpers::declareNumberParameter(
+    node, "proximity_slow_range", zones_.slow_range,
+    "Metres from base_footprint; a forward obstacle inside this scales forward motion");
+  zones_.half_angle = helpers::declareNumberParameter(
+    node, "proximity_half_angle", zones_.half_angle,
+    "Half-angle in radians of the forward arc that is checked");
+  zones_.min_hits = static_cast<int>(helpers::declareNumberParameter(
+      node, "proximity_min_hits", zones_.min_hits,
+      "Readings needed before believing an obstacle; 1 lets one glitch stop the robot"));
+  source_timeout_ = helpers::declareNumberParameter(
+    node, "proximity_source_timeout", source_timeout_,
+    "Seconds before a laser or sonar reading stops counting");
+  const double clear_delay = helpers::declareNumberParameter(
+    node, "proximity_bumper_clear_delay", 1.0,
+    "Seconds a bumper latch outlives the switch release");
+  bumper_latch_ = std::make_shared<safety::BumperLatch>(clear_delay);
+  sonar_filter_ = safety::SonarFilter(std::max(2, zones_.min_hits));
+
+  sub_laser_.reset();
+  sub_sonar_.reset();
+  sub_bumper_.reset();
+  proximity_timer_.reset();
+  if (proximity_enabled_) {
+    diag_pub_ = node->create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
+      "/diagnostics", 10);
+    // SensorDataQoS is BEST_EFFORT, which matches both reliable and
+    // best-effort publishers; a reliable subscription here would silently
+    // receive nothing from a best-effort sensor.
+    sub_laser_ = node->create_subscription<sensor_msgs::msg::LaserScan>(
+      "/laser", rclcpp::SensorDataQoS(),
+      [this](const sensor_msgs::msg::LaserScan::SharedPtr m) {laserCallback(m);}, options);
+    sub_sonar_ = node->create_subscription<sensor_msgs::msg::Range>(
+      "/sonar/front", rclcpp::SensorDataQoS(),
+      [this](const sensor_msgs::msg::Range::SharedPtr m) {sonarCallback(m);}, options);
+    // Events are rare but must not be dropped, so this queue is deep.
+    sub_bumper_ = node->create_subscription<naoqi_bridge_msgs::msg::Bumper>(
+      "/bumper", 50,
+      [this](const naoqi_bridge_msgs::msg::Bumper::SharedPtr m) {bumperCallback(m);}, options);
+    proximity_timer_ = node->create_wall_timer(
+      std::chrono::milliseconds(100), [this]() {proximityTick();}, callback_group_);
+    RCLCPP_INFO(
+      logger_,
+      "proximity backstop ON: stop %.2f m, slow %.2f m, arc +-%.0f deg, min_hits %d",
+      zones_.stop_range, zones_.slow_range, zones_.half_angle * 180.0 / M_PI,
+      zones_.min_hits);
+  }
+
   RCLCPP_INFO(
     logger_, "cmd_vel_timeout: %.2f s%s", timeout_s,
     cmd_vel_watchdog_->enabled() ? "" : " (disabled)");
@@ -102,9 +157,23 @@ void TeleopSubscriber::cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr
   const auto limited = validation::limitVelocity(
     twist_msg->linear.x, twist_msg->linear.y, twist_msg->angular.z,
     max_linear_speed_, max_angular_speed_);
-  const float vel_x = limited.x;
-  const float vel_y = limited.y;
+  float vel_x = limited.x;
+  float vel_y = limited.y;
   const float vel_th = limited.theta;
+
+  if (proximity_enabled_) {
+    const safety::Clamp clamp = currentClamp();
+    const float was_x = vel_x;
+    safety::applyClamp(clamp, vel_x, vel_y, zones_.slow_scale);
+    if (vel_x != was_x) {
+      // Not a 'return': ALMotion.move() latches its last velocity, so dropping
+      // the command would leave the robot driving on the previous one. The
+      // clamped value has to be sent.
+      RCLCPP_WARN_THROTTLE(
+        logger_, *rclcpp::Clock::make_shared(), 2000,
+        "proximity backstop: vx %.2f -> %.2f", was_x, vel_x);
+    }
+  }
 
   RCLCPP_DEBUG(logger_, "going to move x: %f y: %f th: %f", vel_x, vel_y, vel_th);
   if (cmd_vel_watchdog_) {
@@ -112,8 +181,159 @@ void TeleopSubscriber::cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr
       vel_x == 0.f && vel_y == 0.f && vel_th == 0.f,
       CmdVelWatchdog::Clock::now());
   }
+  {
+    std::lock_guard<std::mutex> lock(proximity_mutex_);
+    moving_ = !(vel_x == 0.f && vel_y == 0.f && vel_th == 0.f);
+  }
   helpers::warnOnAsyncError(
     p_motion_.async<void>("move", vel_x, vel_y, vel_th), logger_, "ALMotion.move");
+}
+
+// ---------------------------------------------------------------------------
+// Coarse laser/sonar/bumper backstop. See proximity_guard.hpp for the rationale.
+// ---------------------------------------------------------------------------
+
+void TeleopSubscriber::laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
+{
+  // The driver already transformed every board into base_footprint before
+  // taking the norm, so these ranges are distances from the robot origin.
+  const safety::Level l = safety::scanLevel(
+    msg->ranges, msg->angle_min, msg->angle_increment,
+    msg->range_min, msg->range_max, zones_);
+  std::lock_guard<std::mutex> lock(proximity_mutex_);
+  laser_level_ = l;
+  laser_stamp_ = helpers::Time::now().seconds();
+}
+
+void TeleopSubscriber::sonarCallback(const sensor_msgs::msg::Range::SharedPtr msg)
+{
+  std::lock_guard<std::mutex> lock(proximity_mutex_);
+  // An unusable reading is not evidence of clear floor: Pepper's sonar emits
+  // values past its declared maximum when it has nothing to report, and its
+  // near field is blind. Leave the level alone and let it age out instead.
+  if (!safety::sonarUsable(msg->range, msg->min_range, msg->max_range)) {
+    return;
+  }
+  sonar_filter_.observe(safety::sonarLevel(msg->range, msg->min_range, msg->max_range, zones_));
+  sonar_level_ = sonar_filter_.level();
+  sonar_stamp_ = helpers::Time::now().seconds();
+}
+
+void TeleopSubscriber::bumperCallback(const naoqi_bridge_msgs::msg::Bumper::SharedPtr msg)
+{
+  const bool pressed = msg->state == naoqi_bridge_msgs::msg::Bumper::STATE_PRESSED;
+  std::lock_guard<std::mutex> lock(proximity_mutex_);
+  bumper_latch_->set(msg->bumper, pressed, helpers::Time::now().seconds());
+  if (pressed) {
+    RCLCPP_WARN(logger_, "bumper %u pressed; blocking that direction", msg->bumper);
+  }
+}
+
+safety::Clamp TeleopSubscriber::currentClamp()
+{
+  const double now_s = helpers::Time::now().seconds();
+  std::lock_guard<std::mutex> lock(proximity_mutex_);
+  // A stale source yields no opinion rather than a stop: this is a backstop,
+  // and the primary chain already fails safe on sensor loss.
+  safety::Level worst = safety::Level::kClear;
+  if (laser_stamp_ > 0.0 && now_s - laser_stamp_ <= source_timeout_) {
+    worst = std::max(worst, laser_level_);
+  }
+  if (sonar_stamp_ > 0.0 && now_s - sonar_stamp_ <= source_timeout_) {
+    worst = std::max(worst, sonar_level_);
+  }
+  return safety::combine(worst, bumper_latch_->clamp(now_s));
+}
+
+void TeleopSubscriber::proximityTick()
+{
+  const safety::Clamp clamp = currentClamp();
+  bool should_stop;
+  bool moving;
+  {
+    std::lock_guard<std::mutex> lock(proximity_mutex_);
+    moving = moving_;
+    should_stop = clamp.block_forward;
+    if (!should_stop) {
+      stop_sent_ = false;
+    }
+  }
+  // ALMotion.move() holds its last velocity, so an obstacle appearing after
+  // the last command -- or while /cmd_vel has gone quiet -- needs a zero
+  // pushed. Once per detection, like the cmd_vel watchdog.
+  if (should_stop && moving) {
+    bool send = false;
+    {
+      std::lock_guard<std::mutex> lock(proximity_mutex_);
+      send = !stop_sent_;
+      stop_sent_ = true;
+      if (send) {
+        moving_ = false;
+      }
+    }
+    if (send) {
+      RCLCPP_WARN(logger_, "proximity backstop: obstacle ahead, stopping the base");
+      helpers::warnOnAsyncError(
+        p_motion_.async<void>("move", 0.0f, 0.0f, 0.0f), logger_,
+        "ALMotion.move (proximity stop)");
+    }
+  }
+
+  safety::Level level = safety::Level::kClear;
+  if (clamp.block_forward) {
+    level = safety::Level::kStop;
+  } else if (clamp.scale < 1.0) {
+    level = safety::Level::kSlow;
+  }
+  publishProximityDiagnostics(level, clamp);
+}
+
+void TeleopSubscriber::publishProximityDiagnostics(
+  safety::Level level, const safety::Clamp & clamp)
+{
+  if (!diag_pub_) {
+    return;
+  }
+  const double now_s = helpers::Time::now().seconds();
+  bool laser_fresh;
+  bool sonar_fresh;
+  {
+    std::lock_guard<std::mutex> lock(proximity_mutex_);
+    laser_fresh = laser_stamp_ > 0.0 && now_s - laser_stamp_ <= source_timeout_;
+    sonar_fresh = sonar_stamp_ > 0.0 && now_s - sonar_stamp_ <= source_timeout_;
+  }
+  diagnostic_msgs::msg::DiagnosticStatus st;
+  st.name = "naoqi_driver: proximity backstop";
+  st.hardware_id = "pepper_laser_sonar_bumper";
+  if (level == safety::Level::kStop) {
+    st.level = diagnostic_msgs::msg::DiagnosticStatus::WARN;
+    st.message = "obstacle ahead; forward motion blocked";
+  } else if (level == safety::Level::kSlow) {
+    st.level = diagnostic_msgs::msg::DiagnosticStatus::OK;
+    st.message = "obstacle in the slow band; forward motion scaled";
+  } else if (!laser_fresh && !sonar_fresh) {
+    // Reported, not acted on: a backstop that immobilises the robot when its
+    // own sensors are quiet would be worse than no backstop.
+    st.level = diagnostic_msgs::msg::DiagnosticStatus::WARN;
+    st.message = "no fresh laser or sonar; backstop has no opinion";
+  } else {
+    st.level = diagnostic_msgs::msg::DiagnosticStatus::OK;
+    st.message = "clear";
+  }
+  const auto kv = [&st](const char * k, const std::string & v) {
+      diagnostic_msgs::msg::KeyValue e;
+      e.key = k;
+      e.value = v;
+      st.values.push_back(e);
+    };
+  kv("laser_fresh", laser_fresh ? "true" : "false");
+  kv("sonar_fresh", sonar_fresh ? "true" : "false");
+  kv("block_forward", clamp.block_forward ? "true" : "false");
+  kv("block_reverse", clamp.block_reverse ? "true" : "false");
+  diagnostic_msgs::msg::DiagnosticArray arr;
+  arr.header.stamp = helpers::Time::now();
+  arr.status.push_back(st);
+  diag_pub_->publish(arr);
 }
 
 void TeleopSubscriber::jointAnglesCallback(
