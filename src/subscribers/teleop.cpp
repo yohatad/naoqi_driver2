@@ -75,7 +75,11 @@ void TeleopSubscriber::reset(rclcpp::Node * node)
   }
   // Coarse laser/sonar/bumper backstop. Off by default: it changes what
   // reaches the wheels, so it is opt-in until measured on the robot.
-  proximity_enabled_ = node->declare_parameter<bool>("proximity_guard", false);
+  // reset() can run again on the same node; declaring twice throws.
+  if (!node->has_parameter("proximity_guard")) {
+    node->declare_parameter<bool>("proximity_guard", false);
+  }
+  proximity_enabled_ = node->get_parameter("proximity_guard").as_bool();
   zones_.stop_range = helpers::declareNumberParameter(
     node, "proximity_stop_range", zones_.stop_range,
     "Metres from base_footprint; a forward obstacle inside this blocks forward motion");
