@@ -32,15 +32,17 @@ collision_monitor:
       max_points: 3
       visualize: true
       polygon_pub_topic: "collision_monitor/footprint"
-    observation_sources: ["laser", "sonar_front", "sonar_back"]
+    # sonar_back is NOT a source: it is physically obstructed on this robot and
+    # reads a constant 0.360-0.370 m (std 0.001, MEASURED). Its field of view
+    # over obstacles_angle yields more than max_points, so on its own it pinned
+    # a 0.2 m/s forward command to 0.04 m/s on 100% of ticks -- it crippled
+    # driving forward while sensing nothing. Reverse is therefore unsensed here,
+    # which the obstruction already made true; the source only hid it.
+    observation_sources: ["laser", "sonar_front"]
     laser:
       type: "scan"
       topic: "laser"
     sonar_front:
       type: "range"
       topic: "sonar/front"
-      obstacles_angle: 0.15
-    sonar_back:
-      type: "range"
-      topic: "sonar/back"
       obstacles_angle: 0.15
