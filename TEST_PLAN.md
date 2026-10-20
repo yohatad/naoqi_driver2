@@ -109,7 +109,6 @@ A WARN on laser or sonar is expected while the robot is at rest.
 | ~~M15~~ | ~~Sensor parameters~~ ✅ 2026-10-12 | write `/tmp/no_front.yaml` with `/**: {ros__parameters: {converters: {front_camera: {enabled: false}}}}`, relaunch with `params_file:=/tmp/no_front.yaml`; then `ros2 param set /naoqi_driver converters.front_camera.enabled true` | no `camera/front` topics; the `param set` is refused |
 | ~~M16~~ | ~~Clean exit~~ ✅ 2026-10-13 | Ctrl+C the driver: connected with the robot resting, connected with the robot awake (`qicli call ALMotion.wakeUp`), and with a wrong `nao_ip` (while it retries) | the launch prints `process has finished cleanly`, never `exit code -6` or `-11`, and no `failed on shutdown` warning |
 | ~~M17~~ | ~~Reconnect~~ ✅ 2026-10-13 | with the robot resting, `ssh nao@<ip> nao restart` (the robot goes limp until NAOqi is back) | the driver logs the lost connection, exits, is respawned, retries (1, 2, 4 ... s) and reconnects |
-| M18 | Joystick safety (needs a pad, laser and sonar enabled) | `ros2 launch naoqi_driver safe_teleop.launch.py`; hold LB and push the stick; release; drive slowly towards a box; back away | moves only while LB is held, at most 0.2 m/s; stops at once on release; slows and stops about 10 cm before the box; backing away works |
 
 ### Robot watchdog
 
@@ -147,6 +146,12 @@ The checks map to these commits (oldest first, `git log --oneline master..`):
 | 15 | Add a joystick launch with a dead-man switch and a collision monitor, fix CI | M18 |
 | 16 | Remove stale docs and leftovers, extend the robot checks | a, e |
 | 17 | Fix the crash on exit with joint states and stopping speech on NAOqi 2.5 | M2, M16 |
+| 18 | Move the package data out of share/, add config/pepper.yaml, remove the joystick launch | M18 removed |
+
+<!-- M18 was the joystick safety check for launch/safe_teleop.launch.py. Both
+     the launch file and the check were removed in commit 18, so the M numbers
+     stop at M11; commit 15's reference to M18 is kept because it is what that
+     commit did at the time. -->
 
 Commits 6 to 8 and 16 are meant to change no behaviour. If a check passes on
 commit 5 but fails on commit 8, the cause is in 6 to 8.

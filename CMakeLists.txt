@@ -190,7 +190,7 @@ install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 # install the rviz2 configurations
 install(DIRECTORY rviz2 DESTINATION share/${PROJECT_NAME})
 
-# boot_config.json (converter defaults), pepper.yaml and safe_teleop
+# boot_config.json (converter defaults) and pepper.yaml
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
 
 # scripts that run on the robot, to copy there (see README)
@@ -266,9 +266,6 @@ if(BUILD_TESTING)
     ENV
     FAKE_NAOQI_SERVER=$<TARGET_FILE:fake_naoqi_server>
     DRIVER_NODE=$<TARGET_FILE:naoqi_driver_node>)
-
-  # launch/safe_teleop.launch.py; skipped without its optional packages.
-  ament_add_pytest_test(test_safe_teleop test/test_safe_teleop.py TIMEOUT 120)
 endif()
 
 ament_export_libraries(naoqi_driver)
