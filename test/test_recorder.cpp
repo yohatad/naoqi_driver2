@@ -105,10 +105,19 @@ TEST_F(RecorderTest, ConcurrentBufferizeResizeAndDumpAreSafe)
 
   std::atomic<bool> stop{false};
   std::vector<std::thread> producers;
+  // 3000, not 20000. The dumper and resizer below spin unbounded until the
+  // producers finish, and writeDump() is O(buffer), so the work is set by how
+  // long the producers run -- which means spare cores make this test SLOWER,
+  // not faster. At 20000 it took 87 s on 28 idle cores against a 120 s timeout
+  // for the whole binary, and overran it on CI, where ctest killing the binary
+  // reports as "the test did not generate a result file" rather than as a
+  // timeout. Races are found by conflicting access pairs, not by volume:
+  // 6 threads x 3000 still wraps the buffer hundreds of times under the
+  // resizer, and it keeps the suite at ~27 s instead of ~95 s.
   for (int t = 0; t < 6; ++t) {
     producers.emplace_back(
       [&rec, t] {
-        for (int i = 0; i < 20000; ++i) {
+        for (int i = 0; i < 3000; ++i) {
           rec.bufferize(imuWithX(t * 100000 + i));
         }
       });
