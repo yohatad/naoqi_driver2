@@ -1,0 +1,56 @@
+# Single configuration for naoqi_driver on Pepper.
+#
+# This replaces editing config/boot_config.json. Every converters.* setting
+# below is a ROS parameter whose default comes from that JSON, so whatever is
+# set here wins and the share copy can be left alone.
+#
+#   ros2 launch naoqi_driver naoqi_driver.launch.py \
+#       nao_ip:=<robot ip> params_file:=<this file>
+#
+# The converters.* keys are read_only: they take effect at start-up, because
+# the converters are created once. Changing one needs a driver restart.
+/**:
+  ros__parameters:
+
+    # --- connection ---------------------------------------------------------
+    # nao_ip is left to the launch argument so the file is not robot-specific.
+    nao_port: 9559
+
+    # --- safety: the coarse laser/sonar/bumper backstop ---------------------
+    # Off by default in code. Ranges sit INSIDE Nav2's 0.40/0.90 m wedges so
+    # this never fires first: it is a backstop, not a second opinion.
+    # It gates forward motion only -- rotation is never blocked.
+    proximity_guard: true
+    proximity_stop_range: 0.35       # m from base_footprint, blocks forward
+    proximity_slow_range: 0.60       # m, scales forward by 0.3
+    proximity_half_angle: 1.0472     # rad, 60 deg half-arc
+    proximity_min_hits: 2            # 1 lets one specular glitch stop it
+    proximity_source_timeout: 1.0    # s before a reading stops counting
+    proximity_bumper_clear_delay: 1.0
+
+    # --- velocity limits and the command watchdog ---------------------------
+    cmd_vel_timeout: 0.5
+    max_linear_speed: 0.35
+    max_angular_speed: 0.3
+
+    # --- sensors the backstop needs (were only in boot_config.json) ---------
+    # The laser is three shovel boards merged into one /laser scan whose
+    # ranges are distances from base_footprint.
+    converters.laser.enabled: true
+    converters.laser.frequency: 10
+    converters.laser.range_min: 0.1
+    converters.laser.range_max: 3.0
+    # Publishes /sonar/front and /sonar/back. The guard reads only the front:
+    # the back sonar is physically obstructed on this robot (pinned
+    # 0.360-0.370 m, std 0.001 -- MEASURED), so never trust it.
+    converters.sonar.enabled: true
+    converters.sonar.frequency: 10
+    # Event-driven, no header. RIGHT=0, LEFT=1, BACK=2.
+    converters.bumper.enabled: true
+
+    # --- odometry and joints ------------------------------------------------
+    converters.odom.enabled: true
+    converters.odom.frequency: 15
+    converters.joint_states.enabled: true
+    converters.joint_states.frequency: 15
+    publish_wheel_odom_tf: false
