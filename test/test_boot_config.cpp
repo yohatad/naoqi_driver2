@@ -96,7 +96,7 @@ TEST(BootConfig, MissingKeysFallBackFieldByField)
 
 TEST(BootConfig, ShippedConfigFilesParse)
 {
-  for (const std::string file : {"/share/boot_config.json", "/test/robot/boot_config_full.json"}) {
+  for (const std::string file : {"/config/boot_config.json", "/test/robot/boot_config_full.json"}) {
     boost::property_tree::ptree tree;
     ASSERT_NO_THROW(boost::property_tree::read_json(NAOQI_DRIVER_SOURCE_DIR + file, tree)) << file;
     EXPECT_NO_THROW(naoqi::parseBootConfig(tree)) << file;

@@ -25,7 +25,7 @@ namespace naoqi
 {
 
 /**
- * @brief Typed view of share/boot_config.json ("converters" section), where every
+ * @brief Typed view of config/boot_config.json ("converters" section), where every
  * setting can be overridden by a parameter (see declareBootConfigParameters()).
  * Every field keeps the default below when its key is missing. Camera resolutions
  * use the NAOqi codes from the file's legend: QQVGA = 0, QVGA = 1, VGA = 2.

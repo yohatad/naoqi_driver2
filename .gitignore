@@ -7,3 +7,4 @@ doc/*
 .colcon/
 .vscode/
 __pycache__/
+cyclonedds.log

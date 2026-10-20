@@ -155,13 +155,13 @@ Commits 1 to 3 do not contain the check script or the test configs, so copy
 them out first. Commits before 14 do not take `params_file`: there, put the
 full config in place of the installed `boot_config.json` after each build.
 `--remove-destination` replaces the installed file; with `--symlink-install` a
-plain `cp` would write through the link into your own `share/boot_config.json`.
+plain `cp` would write through the link into your own `config/boot_config.json`.
 
 ```bash
 cd ~/ros2_ws
 cp src/naoqi_driver2/test/robot/robot_checks.py src/naoqi_driver2/test/robot/boot_config_full.json \
   src/naoqi_driver2/test/robot/full_sensors.yaml /tmp/
-CFG=install/naoqi_driver/share/naoqi_driver/share/boot_config.json
+CFG=install/naoqi_driver/share/naoqi_driver/config/boot_config.json
 
 git -C src/naoqi_driver2 checkout <commit>
 colcon build --packages-select naoqi_driver

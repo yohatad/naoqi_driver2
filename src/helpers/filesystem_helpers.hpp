@@ -103,7 +103,7 @@ inline std::string & getBootConfigFile()
 {
 #ifdef AMENT_BUILD
   static std::string path = ament_index_cpp::get_package_share_directory("naoqi_driver") +
-    "/share/" + boot_config_file_name;
+    "/config/" + boot_config_file_name;
   RCLCPP_DEBUG_STREAM(naoqi::helpers::Node::get_logger(), "found an ament prefix " << path);
   return path;
 #else
@@ -118,7 +118,7 @@ inline std::string & getURDF(std::string filename)
 {
 #ifdef AMENT_BUILD
   static std::string path = ament_index_cpp::get_package_share_directory("naoqi_driver") +
-    "/share/urdf/" + filename;
+    "/urdf/" + filename;
   RCLCPP_DEBUG_STREAM(naoqi::helpers::Node::get_logger(), "found a ament URDF " << path);
   return path;
 #else

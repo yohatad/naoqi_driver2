@@ -190,7 +190,7 @@ up to 30 s, then waits for NAOqi to finish starting before it starts its sensors
 
 ### Choose the sensors
 
-`share/boot_config.json` sets which sensors the driver reads, and how often.
+`config/boot_config.json` sets which sensors the driver reads, and how often.
 Each of its settings is also a parameter named after its path, such as
 `converters.front_camera.enabled`, and a parameter overrides the file. Put the
 overrides in a YAML file:

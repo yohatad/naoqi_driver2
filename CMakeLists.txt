@@ -182,7 +182,7 @@ target_link_libraries(naoqi_driver_node
 install(TARGETS naoqi_driver_node DESTINATION lib/${PROJECT_NAME})
 
 # install the urdf for runtime loading
-install(DIRECTORY share DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY urdf DESTINATION share/${PROJECT_NAME})
 
 # install the launch files
 install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
@@ -190,7 +190,7 @@ install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 # install the rviz2 configurations
 install(DIRECTORY rviz2 DESTINATION share/${PROJECT_NAME})
 
-# configurations used by the launch files (safe_teleop)
+# boot_config.json (converter defaults), pepper.yaml and safe_teleop
 install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
 
 # scripts that run on the robot, to copy there (see README)
