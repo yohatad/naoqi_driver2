@@ -18,8 +18,9 @@
     nao_port: 9559
 
     # --- safety: the coarse laser/sonar/bumper backstop ---------------------
-    # Off by default in code. Ranges sit INSIDE Nav2's 0.40/0.90 m wedges so
-    # this never fires first: it is a backstop, not a second opinion.
+    # ON by default in code now, so this line only documents it. Ranges sit
+    # INSIDE Nav2's 0.40/0.90 m wedges so this never fires first: it is a
+    # backstop, not a second opinion.
     # It gates forward motion only -- rotation is never blocked.
     proximity_guard: true
     proximity_stop_range: 0.35       # m from base_footprint, blocks forward

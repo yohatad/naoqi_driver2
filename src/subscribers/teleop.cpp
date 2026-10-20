@@ -73,11 +73,15 @@ void TeleopSubscriber::reset(rclcpp::Node * node)
         }
       }, callback_group_);
   }
-  // Coarse laser/sonar/bumper backstop. Off by default: it changes what
-  // reaches the wheels, so it is opt-in until measured on the robot.
+  // Coarse laser/sonar/bumper backstop. ON by default: a safety layer that has
+  // to be asked for is one that is missing when it matters, and opting in was
+  // measured to fail exactly that way -- launched without a params file, the
+  // guard never started, so /bumper had no subscriber at all and pressing a
+  // bumper on a robot driving forward did nothing. It fails quiet when a source
+  // is stale, so enabling it with no laser or sonar costs nothing.
   // reset() can run again on the same node; declaring twice throws.
   if (!node->has_parameter("proximity_guard")) {
-    node->declare_parameter<bool>("proximity_guard", false);
+    node->declare_parameter<bool>("proximity_guard", true);
   }
   proximity_enabled_ = node->get_parameter("proximity_guard").as_bool();
   zones_.stop_range = helpers::declareNumberParameter(
