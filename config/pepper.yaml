@@ -29,28 +29,22 @@
     proximity_bumper_clear_delay: 1.0
 
     # --- velocity limits and the command watchdog ---------------------------
+    # cmd_vel_timeout 0.5 is the shipped default, repeated for visibility.
     cmd_vel_timeout: 0.5
+    # NOT the default: both ship as 0.0, and limitVelocity() treats 0 as
+    # uncapped. These impose Nav2's vx_max 0.35 / wz_max 0.3 at the driver, so
+    # a command from anywhere cannot exceed the speed the 0.40 m stop polygon
+    # was sized for -- B13's stopping arithmetic assumes 0.35 m/s. Set both to
+    # 0.0 to restore the uncapped behaviour.
     max_linear_speed: 0.35
     max_angular_speed: 0.3
 
-    # --- sensors the backstop needs (were only in boot_config.json) ---------
-    # The laser is three shovel boards merged into one /laser scan whose
-    # ranges are distances from base_footprint.
-    converters.laser.enabled: true
-    converters.laser.frequency: 10
-    converters.laser.range_min: 0.1
-    converters.laser.range_max: 3.0
-    # Publishes /sonar/front and /sonar/back. The guard reads only the front:
-    # the back sonar is physically obstructed on this robot (pinned
-    # 0.360-0.370 m, std 0.001 -- MEASURED), so never trust it.
-    converters.sonar.enabled: true
-    converters.sonar.frequency: 10
-    # Event-driven, no header. RIGHT=0, LEFT=1, BACK=2.
-    converters.bumper.enabled: true
-
-    # --- odometry and joints ------------------------------------------------
-    converters.odom.enabled: true
-    converters.odom.frequency: 15
-    converters.joint_states.enabled: true
-    converters.joint_states.frequency: 15
+    # --- sensors ------------------------------------------------------------
+    # NOT set here on purpose. Which converters run, and at what rate, is
+    # config/boot_config.json's job, and it already enables the laser, both
+    # sonars and the bumper while disabling the cameras, audio, logs, diag,
+    # imu_torso and the touch sensors. Repeating those keys here would mean two
+    # places to drift: the compiled defaults in boot_config.hpp are all-on, so
+    # the JSON is what turns the rest off. Override one only if you mean to,
+    # e.g.  converters.laser.frequency: 20
     publish_wheel_odom_tf: false
