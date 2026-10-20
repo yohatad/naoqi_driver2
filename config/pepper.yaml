@@ -1,14 +1,15 @@
-# Single configuration for naoqi_driver on Pepper.
-#
-# This replaces editing config/boot_config.json. Every converters.* setting
-# below is a ROS parameter whose default comes from that JSON, so whatever is
-# set here wins and the share copy can be left alone.
+# How the driver BEHAVES on Pepper: the safety backstop, the speed caps and
+# the command watchdog.
 #
 #   ros2 launch naoqi_driver naoqi_driver.launch.py \
 #       nao_ip:=<robot ip> params_file:=<this file>
 #
-# The converters.* keys are read_only: they take effect at start-up, because
-# the converters are created once. Changing one needs a driver restart.
+# WHICH sensors run lives in config/boot_config.json, not here -- see the
+# sensors note at the bottom. Any converters.* key may still be overridden
+# from this file if you need to, because declareBootConfigParameters() makes
+# every one of them a ROS parameter whose default is the JSON's value.
+#
+# Everything here is read at start-up, so a change needs a driver restart.
 /**:
   ros__parameters:
 
