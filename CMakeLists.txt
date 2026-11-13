@@ -127,8 +127,6 @@ add_definitions( -DAMENT_BUILD )
 include_directories(
   "include"
   "src"
-  ${naoqi_libqi_INCLUDE_DIRS}
-  ${OpenCV_INCLUDE_DIRS}
 )
 
 add_library(
@@ -142,6 +140,16 @@ add_library(
   ${ACTIONS_SRC}
   ${RECORDER_SRC}
   ${TOOLS_SRC}
+)
+
+# On the target, not include_directories(): a directory-wide path also reaches
+# the gtest library that ament_add_gtest builds here from gtest_vendor. With
+# libqi from apt its include dir is /opt/ros/<distro>/include, where rtabmap
+# installs a different gtest, and gtest-all.cc then fails to compile against
+# those headers. PUBLIC still hands the paths to everything linking naoqi_driver.
+target_include_directories(naoqi_driver SYSTEM PUBLIC
+  ${naoqi_libqi_INCLUDE_DIRS}
+  ${OpenCV_INCLUDE_DIRS}
 )
 
 ament_target_dependencies(naoqi_driver
