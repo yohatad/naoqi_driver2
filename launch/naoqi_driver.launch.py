@@ -43,6 +43,9 @@ def launch_driver(context):
             namespace=launch.substitutions.LaunchConfiguration('namespace'),
             parameters=parameters,
             output="screen",
+            # Keep rcutils' colours (red ERROR, yellow WARN) on the launch
+            # terminal; without a tty it prints plain text.
+            emulate_tty=True,
             respawn=launch.substitutions.LaunchConfiguration('respawn'),
             respawn_delay=2.0),
     ]

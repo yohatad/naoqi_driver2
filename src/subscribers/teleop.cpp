@@ -136,9 +136,10 @@ void TeleopSubscriber::reset(rclcpp::Node * node)
       std::chrono::milliseconds(100), [this]() {proximityTick();}, callback_group_);
     RCLCPP_INFO(
       logger_,
-      "proximity backstop ON: stop %.2f m, slow %.2f m, arc +-%.0f deg, min_hits %d",
+      "proximity backstop ON: stop %.2f m, slow %.2f m, arc +-%.0f deg, min_hits %d; "
+      "a bumper press stops all motion until %s",
       zones_.stop_range, zones_.slow_range, zones_.half_angle * 180.0 / M_PI,
-      zones_.min_hits);
+      zones_.min_hits, srv_clear_bumper_->get_service_name());
   }
 
   RCLCPP_INFO(
@@ -243,16 +244,42 @@ void TeleopSubscriber::sonarCallback(const sensor_msgs::msg::Range::SharedPtr ms
   sonar_stamp_ = helpers::Time::now().seconds();
 }
 
+namespace
+{
+const char * bumperName(int id)
+{
+  switch (id) {
+    case safety::kRight: return "RIGHT";
+    case safety::kLeft: return "LEFT";
+    case safety::kBack: return "BACK";
+    default: return "UNKNOWN";
+  }
+}
+}  // namespace
+
 void TeleopSubscriber::bumperCallback(const naoqi_bridge_msgs::msg::Bumper::SharedPtr msg)
 {
   const bool pressed = msg->state == naoqi_bridge_msgs::msg::Bumper::STATE_PRESSED;
+  const char * name = bumperName(msg->bumper);
   std::lock_guard<std::mutex> lock(proximity_mutex_);
+  const bool was_stopped = bumper_latch_->any();
+  const bool was_pressed = bumper_latch_->latched(msg->bumper) && bumper_latch_->anyPressed();
   bumper_latch_->set(msg->bumper, pressed);
-  if (pressed) {
-    RCLCPP_WARN(
-      logger_, "bumper %u pressed; all motion stopped until ~/clear_bumper is called",
-      msg->bumper);
+  const std::string clear_cmd = std::string("ros2 service call ") +
+    srv_clear_bumper_->get_service_name() + " std_srvs/srv/Trigger";
+  // ERROR, so the lock shows in red in the launch terminal.
+  if (pressed && !was_stopped) {
+    RCLCPP_ERROR(
+      logger_, "BUMPER LOCK: %s bumper pressed -- all motion stopped. Unlock with: %s",
+      name, clear_cmd.c_str());
+  } else if (pressed && !was_pressed) {
+    RCLCPP_ERROR(logger_, "BUMPER LOCK: %s bumper pressed (already locked)", name);
+  } else if (!pressed && !bumper_latch_->anyPressed()) {
+    RCLCPP_ERROR(
+      logger_, "BUMPER LOCK: %s bumper released -- still locked until: %s",
+      name, clear_cmd.c_str());
   }
+  last_stop_reminder_s_ = helpers::Time::now().seconds();
 }
 
 void TeleopSubscriber::clearBumperCallback(std_srvs::srv::Trigger::Response::SharedPtr res)
@@ -264,7 +291,11 @@ void TeleopSubscriber::clearBumperCallback(std_srvs::srv::Trigger::Response::Sha
   res->message = res->success ?
     "bumper stop cleared" :
     "refused: a bumper is still pressed";
-  RCLCPP_INFO(logger_, "clear_bumper: %s", res->message.c_str());
+  if (res->success) {
+    RCLCPP_INFO(logger_, "BUMPER LOCK CLEARED -- motion allowed again");
+  } else {
+    RCLCPP_ERROR(logger_, "BUMPER LOCK: unlock refused, a bumper is still pressed");
+  }
 }
 
 safety::Clamp TeleopSubscriber::currentClamp()
@@ -286,6 +317,15 @@ safety::Clamp TeleopSubscriber::currentClamp()
 void TeleopSubscriber::proximityTick()
 {
   const safety::Clamp clamp = currentClamp();
+  if (clamp.stop_all) {
+    const double now_s = helpers::Time::now().seconds();
+    if (now_s - last_stop_reminder_s_ >= 10.0) {
+      last_stop_reminder_s_ = now_s;
+      RCLCPP_ERROR(
+        logger_, "BUMPER LOCK: robot locked by a bumper contact; unlock with: "
+        "ros2 service call %s std_srvs/srv/Trigger", srv_clear_bumper_->get_service_name());
+    }
+  }
   bool should_stop;
   bool moving;
   {
