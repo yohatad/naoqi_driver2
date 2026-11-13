@@ -235,8 +235,8 @@ ros2 service call /naoqi_driver/clear_bumper std_srvs/srv/Trigger
 ```
 
 The call is refused while a bumper is still pressed. With pepper4dec's Nav2
-stack running, call `/bumper_guard/clear` instead: it resets its own stop and
-this one.
+stack on its default `fastloc` profile, call `/bumper_guard/clear` instead: it
+resets its own stop and this one.
 
 ## Check that the node is running correctly
 
