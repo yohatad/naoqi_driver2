@@ -99,15 +99,16 @@ void TeleopSubscriber::reset(rclcpp::Node * node)
   source_timeout_ = helpers::declareNumberParameter(
     node, "proximity_source_timeout", source_timeout_,
     "Seconds before a laser or sonar reading stops counting");
-  const double clear_delay = helpers::declareNumberParameter(
-    node, "proximity_bumper_clear_delay", 1.0,
-    "Seconds a bumper latch outlives the switch release");
-  bumper_latch_ = std::make_shared<safety::BumperLatch>(clear_delay);
+  // Kept across reset(): a reconnect must not silently lift a bumper stop.
+  if (!bumper_latch_) {
+    bumper_latch_ = std::make_shared<safety::BumperLatch>();
+  }
   sonar_filter_ = safety::SonarFilter(std::max(2, zones_.min_hits));
 
   sub_laser_.reset();
   sub_sonar_.reset();
   sub_bumper_.reset();
+  srv_clear_bumper_.reset();
   proximity_timer_.reset();
   if (proximity_enabled_) {
     diag_pub_ = node->create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
@@ -125,6 +126,12 @@ void TeleopSubscriber::reset(rclcpp::Node * node)
     sub_bumper_ = node->create_subscription<naoqi_bridge_msgs::msg::Bumper>(
       "/bumper", 50,
       [this](const naoqi_bridge_msgs::msg::Bumper::SharedPtr m) {bumperCallback(m);}, options);
+    srv_clear_bumper_ = node->create_service<std_srvs::srv::Trigger>(
+      "~/clear_bumper",
+      [this](
+        const std_srvs::srv::Trigger::Request::SharedPtr,
+        std_srvs::srv::Trigger::Response::SharedPtr res) {clearBumperCallback(res);},
+      rmw_qos_profile_services_default, callback_group_);
     proximity_timer_ = node->create_wall_timer(
       std::chrono::milliseconds(100), [this]() {proximityTick();}, callback_group_);
     RCLCPP_INFO(
@@ -167,19 +174,28 @@ void TeleopSubscriber::cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr
     max_linear_speed_, max_angular_speed_);
   float vel_x = limited.x;
   float vel_y = limited.y;
-  const float vel_th = limited.theta;
+  float vel_th = limited.theta;
 
   if (proximity_enabled_) {
     const safety::Clamp clamp = currentClamp();
     const float was_x = vel_x;
-    safety::applyClamp(clamp, vel_x, vel_y, zones_.slow_scale);
-    if (vel_x != was_x) {
+    const float was_y = vel_y;
+    const float was_th = vel_th;
+    safety::applyClamp(clamp, vel_x, vel_y, vel_th, zones_.slow_scale);
+    if (vel_x != was_x || vel_y != was_y || vel_th != was_th) {
       // Not a 'return': ALMotion.move() latches its last velocity, so dropping
       // the command would leave the robot driving on the previous one. The
       // clamped value has to be sent.
-      RCLCPP_WARN_THROTTLE(
-        logger_, *rclcpp::Clock::make_shared(), 2000,
-        "proximity backstop: vx %.2f -> %.2f", was_x, vel_x);
+      if (clamp.stop_all) {
+        RCLCPP_WARN_THROTTLE(
+          logger_, *rclcpp::Clock::make_shared(), 2000,
+          "bumper stop: command (%.2f, %.2f, %.2f) -> 0; call ~/clear_bumper to resume",
+          was_x, was_y, was_th);
+      } else {
+        RCLCPP_WARN_THROTTLE(
+          logger_, *rclcpp::Clock::make_shared(), 2000,
+          "proximity backstop: vx %.2f -> %.2f", was_x, vel_x);
+      }
     }
   }
 
@@ -231,10 +247,24 @@ void TeleopSubscriber::bumperCallback(const naoqi_bridge_msgs::msg::Bumper::Shar
 {
   const bool pressed = msg->state == naoqi_bridge_msgs::msg::Bumper::STATE_PRESSED;
   std::lock_guard<std::mutex> lock(proximity_mutex_);
-  bumper_latch_->set(msg->bumper, pressed, helpers::Time::now().seconds());
+  bumper_latch_->set(msg->bumper, pressed);
   if (pressed) {
-    RCLCPP_WARN(logger_, "bumper %u pressed; blocking that direction", msg->bumper);
+    RCLCPP_WARN(
+      logger_, "bumper %u pressed; all motion stopped until ~/clear_bumper is called",
+      msg->bumper);
   }
+}
+
+void TeleopSubscriber::clearBumperCallback(std_srvs::srv::Trigger::Response::SharedPtr res)
+{
+  {
+    std::lock_guard<std::mutex> lock(proximity_mutex_);
+    res->success = bumper_latch_->clear();
+  }
+  res->message = res->success ?
+    "bumper stop cleared" :
+    "refused: a bumper is still pressed";
+  RCLCPP_INFO(logger_, "clear_bumper: %s", res->message.c_str());
 }
 
 safety::Clamp TeleopSubscriber::currentClamp()
@@ -250,7 +280,7 @@ safety::Clamp TeleopSubscriber::currentClamp()
   if (sonar_stamp_ > 0.0 && now_s - sonar_stamp_ <= source_timeout_) {
     worst = std::max(worst, sonar_level_);
   }
-  return safety::combine(worst, bumper_latch_->clamp(now_s));
+  return safety::combine(worst, bumper_latch_->clamp());
 }
 
 void TeleopSubscriber::proximityTick()
@@ -261,7 +291,7 @@ void TeleopSubscriber::proximityTick()
   {
     std::lock_guard<std::mutex> lock(proximity_mutex_);
     moving = moving_;
-    should_stop = clamp.block_forward;
+    should_stop = clamp.block_forward || clamp.stop_all;
     if (!should_stop) {
       stop_sent_ = false;
     }
@@ -280,7 +310,10 @@ void TeleopSubscriber::proximityTick()
       }
     }
     if (send) {
-      RCLCPP_WARN(logger_, "proximity backstop: obstacle ahead, stopping the base");
+      RCLCPP_WARN(
+        logger_, clamp.stop_all ?
+        "bumper stop: stopping the base" :
+        "proximity backstop: obstacle ahead, stopping the base");
       helpers::warnOnAsyncError(
         p_motion_.async<void>("move", 0.0f, 0.0f, 0.0f), logger_,
         "ALMotion.move (proximity stop)");
@@ -313,7 +346,10 @@ void TeleopSubscriber::publishProximityDiagnostics(
   diagnostic_msgs::msg::DiagnosticStatus st;
   st.name = "naoqi_driver: proximity backstop";
   st.hardware_id = "pepper_laser_sonar_bumper";
-  if (level == safety::Level::kStop) {
+  if (clamp.stop_all) {
+    st.level = diagnostic_msgs::msg::DiagnosticStatus::WARN;
+    st.message = "bumper contact; all motion stopped until ~/clear_bumper";
+  } else if (level == safety::Level::kStop) {
     st.level = diagnostic_msgs::msg::DiagnosticStatus::WARN;
     st.message = "obstacle ahead; forward motion blocked";
   } else if (level == safety::Level::kSlow) {
@@ -338,6 +374,7 @@ void TeleopSubscriber::publishProximityDiagnostics(
   kv("sonar_fresh", sonar_fresh ? "true" : "false");
   kv("block_forward", clamp.block_forward ? "true" : "false");
   kv("block_reverse", clamp.block_reverse ? "true" : "false");
+  kv("bumper_stop", clamp.stop_all ? "true" : "false");
   diagnostic_msgs::msg::DiagnosticArray arr;
   arr.header.stamp = helpers::Time::now();
   arr.status.push_back(st);

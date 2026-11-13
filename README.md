@@ -226,6 +226,18 @@ The bumpers and the hand and head touch sensors are read from ALMemory every
 50 ms, and `/bumper`, `/hand_touch` and `/head_touch` report each press and
 release.
 
+A bumper press also stops the base completely (forward, reverse, sideways and
+turning), and it stays stopped after the bumper is released, so the robot never
+drives back into what it hit and a press works as an emergency stop. Resume with:
+
+```sh
+ros2 service call /naoqi_driver/clear_bumper std_srvs/srv/Trigger
+```
+
+The call is refused while a bumper is still pressed. With pepper4dec's Nav2
+stack running, call `/bumper_guard/clear` instead: it resets its own stop and
+this one.
+
 ## Check that the node is running correctly
 
 Check that the driver is connected:

@@ -21,14 +21,15 @@
     # ON by default in code now, so this line only documents it. Ranges sit
     # INSIDE Nav2's 0.40/0.90 m wedges so this never fires first: it is a
     # backstop, not a second opinion.
-    # It gates forward motion only -- rotation is never blocked.
+    # The laser and sonar gate forward motion only -- rotation is never
+    # blocked. A bumper press stops ALL motion (turning too) until
+    # `ros2 service call /naoqi_driver/clear_bumper std_srvs/srv/Trigger`.
     proximity_guard: true
     proximity_stop_range: 0.35       # m from base_footprint, blocks forward
     proximity_slow_range: 0.60       # m, scales forward by 0.3
     proximity_half_angle: 1.0472     # rad, 60 deg half-arc
     proximity_min_hits: 2            # 1 lets one specular glitch stop it
     proximity_source_timeout: 1.0    # s before a reading stops counting
-    proximity_bumper_clear_delay: 1.0
 
     # --- velocity limits and the command watchdog ---------------------------
     # cmd_vel_timeout 0.5 is the shipped default, repeated for visibility.

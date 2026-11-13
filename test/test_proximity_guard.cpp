@@ -194,45 +194,67 @@ TEST(SonarFilterTest, ClearResetsTheRun)
   EXPECT_EQ(f.level(), Level::kClear);
 }
 
-TEST(BumperLatchTest, FrontBlocksForwardOnlyAndReverseEscapes)
+TEST(BumperLatchTest, AnyBumperStopsAllMotion)
 {
-  BumperLatch l(1.0);
-  l.set(kLeft, true, 0.0);
-  const Clamp c = l.clamp(0.0);
-  EXPECT_TRUE(c.block_forward);
-  EXPECT_FALSE(c.block_reverse);            // BackUp must be able to free it
+  for (int id : {kRight, kLeft, kBack}) {
+    BumperLatch l;
+    l.set(id, true);
+    EXPECT_TRUE(l.clamp().stop_all) << "bumper " << id;
+  }
 }
 
-TEST(BumperLatchTest, BackBlocksReverseOnly)
+TEST(BumperLatchTest, ReleaseDoesNotLiftTheStop)
 {
-  BumperLatch l(1.0);
-  l.set(kBack, true, 0.0);
-  EXPECT_FALSE(l.clamp(0.0).block_forward);
-  EXPECT_TRUE(l.clamp(0.0).block_reverse);
+  BumperLatch l;
+  l.set(kRight, true);
+  l.set(kRight, false);                     // released, or a rebound
+  EXPECT_TRUE(l.clamp().stop_all);          // only a reset lifts it
 }
 
-TEST(BumperLatchTest, LatchOutlivesTheRelease)
+TEST(BumperLatchTest, BounceKeepsTheStop)
 {
-  BumperLatch l(1.0);
-  l.set(kRight, true, 0.0);
-  l.set(kRight, false, 0.1);                // a rebound releases at once
-  EXPECT_TRUE(l.clamp(0.5).block_forward);
-  EXPECT_FALSE(l.clamp(1.2).block_forward);
+  BumperLatch l;
+  l.set(kBack, true);
+  l.set(kBack, false);
+  l.set(kBack, true);                       // ~50 ms bounce, seen on the robot
+  l.set(kBack, false);
+  EXPECT_TRUE(l.clamp().stop_all);
 }
 
-TEST(BumperLatchTest, HeldSwitchNeverAgesOut)
+TEST(BumperLatchTest, ClearRefusedWhilePressed)
 {
-  BumperLatch l(1.0);
-  l.set(kRight, true, 0.0);
-  EXPECT_TRUE(l.clamp(600.0).block_forward);
+  BumperLatch l;
+  l.set(kLeft, true);
+  EXPECT_FALSE(l.clear());
+  EXPECT_TRUE(l.clamp().stop_all);
+}
+
+TEST(BumperLatchTest, ClearAfterReleaseLiftsTheStop)
+{
+  BumperLatch l;
+  l.set(kLeft, true);
+  l.set(kLeft, false);
+  EXPECT_TRUE(l.clear());
+  EXPECT_FALSE(l.clamp().stop_all);
+  EXPECT_FALSE(l.any());
+}
+
+TEST(BumperLatchTest, ClearRefusedWhileAnotherBumperIsPressed)
+{
+  BumperLatch l;
+  l.set(kRight, true);
+  l.set(kRight, false);
+  l.set(kBack, true);
+  EXPECT_FALSE(l.clear());
+  EXPECT_TRUE(l.clamp().stop_all);
 }
 
 TEST(BumperLatchTest, OutOfRangeIdIgnored)
 {
-  BumperLatch l(1.0);
-  l.set(7, true, 0.0);
-  l.set(-1, true, 0.0);
-  EXPECT_FALSE(l.any(0.0));
+  BumperLatch l;
+  l.set(7, true);
+  l.set(-1, true);
+  EXPECT_FALSE(l.any());
 }
 
 TEST(Combine, StopBlocksForwardAndSlowScales)
@@ -250,13 +272,15 @@ TEST(ApplyClamp, BlocksForwardKeepsReverseAndRotation)
   c.block_forward = true;
   float vx = 0.35f;
   float vy = 0.10f;
-  applyClamp(c, vx, vy, 0.3);
+  float vth = 0.4f;
+  applyClamp(c, vx, vy, vth, 0.3);
   EXPECT_FLOAT_EQ(vx, 0.0f);
   EXPECT_FLOAT_EQ(vy, 0.0f);               // holonomic hardware; no sidestep in
   vx = -0.15f;
   vy = 0.0f;
-  applyClamp(c, vx, vy, 0.3);
+  applyClamp(c, vx, vy, vth, 0.3);
   EXPECT_FLOAT_EQ(vx, -0.15f);             // the escape survives
+  EXPECT_FLOAT_EQ(vth, 0.4f);              // the laser never gates rotation
 }
 
 TEST(ApplyClamp, SlowScalesForwardOnly)
@@ -264,10 +288,11 @@ TEST(ApplyClamp, SlowScalesForwardOnly)
   Clamp c = combine(Level::kSlow, Clamp());
   float vx = 0.30f;
   float vy = 0.0f;
-  applyClamp(c, vx, vy, 0.3);
+  float vth = 0.0f;
+  applyClamp(c, vx, vy, vth, 0.3);
   EXPECT_NEAR(vx, 0.09f, 1e-6);
   vx = -0.20f;
-  applyClamp(c, vx, vy, 0.3);
+  applyClamp(c, vx, vy, vth, 0.3);
   EXPECT_FLOAT_EQ(vx, -0.20f);             // reverse is not scaled
 }
 
@@ -277,11 +302,28 @@ TEST(ApplyClamp, BackBumperBlocksReverseOnly)
   c.block_reverse = true;
   float vx = -0.20f;
   float vy = 0.0f;
-  applyClamp(c, vx, vy, 0.3);
+  float vth = 0.0f;
+  applyClamp(c, vx, vy, vth, 0.3);
   EXPECT_FLOAT_EQ(vx, 0.0f);
   vx = 0.20f;
-  applyClamp(c, vx, vy, 0.3);
+  applyClamp(c, vx, vy, vth, 0.3);
   EXPECT_FLOAT_EQ(vx, 0.20f);
+}
+
+TEST(ApplyClamp, BumperStopZeroesEveryAxis)
+{
+  BumperLatch l;
+  l.set(kRight, true);
+  const Clamp c = combine(Level::kClear, l.clamp());
+  for (float sign : {1.f, -1.f}) {
+    float vx = 0.3f * sign;
+    float vy = 0.1f * sign;
+    float vth = 0.5f * sign;
+    applyClamp(c, vx, vy, vth, 0.3);
+    EXPECT_FLOAT_EQ(vx, 0.0f);
+    EXPECT_FLOAT_EQ(vy, 0.0f);
+    EXPECT_FLOAT_EQ(vth, 0.0f);             // no turning either
+  }
 }
 
 TEST(Defaults, BackstopSitsInsideNav2Zones)

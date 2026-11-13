@@ -37,6 +37,7 @@
 #include <naoqi_bridge_msgs/msg/bumper.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <sensor_msgs/msg/range.hpp>
+#include <std_srvs/srv/trigger.hpp>
 #include <naoqi_bridge_msgs/msg/joint_angles_with_speed.hpp>
 #include <naoqi_bridge_msgs/msg/joint_angles_trajectory.hpp>
 
@@ -67,6 +68,8 @@ public:
   void laserCallback(const sensor_msgs::msg::LaserScan::SharedPtr msg);
   void sonarCallback(const sensor_msgs::msg::Range::SharedPtr msg);
   void bumperCallback(const naoqi_bridge_msgs::msg::Bumper::SharedPtr msg);
+  /// ~/clear_bumper: lift a bumper full stop once no bumper is pressed.
+  void clearBumperCallback(std_srvs::srv::Trigger::Response::SharedPtr res);
 
 private:
   /// Worst level across the fresh sources, plus the bumper clamp.
@@ -118,6 +121,7 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr sub_laser_;
   rclcpp::Subscription<sensor_msgs::msg::Range>::SharedPtr sub_sonar_;
   rclcpp::Subscription<naoqi_bridge_msgs::msg::Bumper>::SharedPtr sub_bumper_;
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr srv_clear_bumper_;
   rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr diag_pub_;
   rclcpp::TimerBase::SharedPtr proximity_timer_;
   rclcpp::Subscription<naoqi_bridge_msgs::msg::JointAnglesWithSpeed>::SharedPtr sub_joint_angles_;

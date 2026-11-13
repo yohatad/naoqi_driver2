@@ -61,13 +61,16 @@ enum class Level
   kStop = 2
 };
 
-/// Which translation directions are forbidden. Rotation is never gated: the
-/// footprint is a ~0.25 m circle, so turning in place sweeps nothing new, and
-/// it is how an operator gets the nose off an obstacle.
+/// What the backstop forbids. The laser and sonar only block translation:
+/// rotation stays free, since the footprint is a ~0.25 m circle and turning in
+/// place sweeps nothing new. A bumper contact is different -- the robot has
+/// already touched something (or someone pressed it as an emergency stop) --
+/// so it sets stop_all, which holds every axis at zero until a manual reset.
 struct Clamp
 {
   bool block_forward = false;
   bool block_reverse = false;
+  bool stop_all = false;     // bumper contact: no motion at all until cleared
   double scale = 1.0;        // applied to forward speed when not blocked
 };
 
@@ -182,70 +185,77 @@ enum BumperId
 };
 
 /**
- * @brief Latches a bumper contact and blocks only the direction it came from.
+ * @brief Latches a bumper contact into a full stop that only a reset lifts.
  *
- * /bumper is an event topic: naoqi publishes on edges, so gating on the raw
- * state chatters at contact, where a millimetre of rebound reopens the gate.
- * Blocking only one direction matters because the controller runs vx_min 0 and
- * can never reverse, so a contact that zeroes everything leaves Pepper leaning
- * on the obstacle with no command that frees it.
+ * A press means Pepper has already hit something, or an operator pressed the
+ * bumper as an emergency stop. Either way nothing may move -- not forward, not
+ * back, not turning -- until someone clears it (TeleopSubscriber's
+ * ~/clear_bumper service). clear() refuses while a switch is still down, so a
+ * reset cannot hand authority back while Pepper leans on the obstacle.
+ *
+ * /bumper is an event topic: naoqi publishes on edges only. Latching also
+ * absorbs the switch's contact bounce (a second press ~50 ms after release,
+ * seen on the robot 2026-11-13).
  */
 class BumperLatch
 {
 public:
-  explicit BumperLatch(double clear_delay)
-  : clear_delay_(clear_delay) {}
-
-  void set(int id, bool pressed, double now_s)
+  void set(int id, bool pressed)
   {
     if (id < 0 || id >= kBumperCount) {return;}
     State & s = st_[id];
     if (pressed) {
       s.pressed = true;
       s.armed = true;
-      s.released_at = 0.0;
-      s.has_release = false;
-    } else if (s.pressed) {
+    } else {
       s.pressed = false;
-      s.released_at = now_s;
-      s.has_release = true;
     }
   }
 
-  bool latched(int id, double now_s) const
+  /// Drop every latch. Refused (returns false) while any switch is pressed.
+  bool clear()
+  {
+    if (anyPressed()) {return false;}
+    for (auto & s : st_) {s.armed = false;}
+    return true;
+  }
+
+  bool latched(int id) const
   {
     if (id < 0 || id >= kBumperCount) {return false;}
-    const State & s = st_[id];
-    if (s.pressed) {return true;}
-    if (!s.armed) {return false;}
-    if (!s.has_release) {return true;}
-    return (now_s - s.released_at) < clear_delay_;
+    return st_[id].pressed || st_[id].armed;
   }
 
-  Clamp clamp(double now_s) const
+  bool anyPressed() const
+  {
+    for (const auto & s : st_) {
+      if (s.pressed) {return true;}
+    }
+    return false;
+  }
+
+  bool any() const
+  {
+    for (int i = 0; i < kBumperCount; ++i) {
+      if (latched(i)) {return true;}
+    }
+    return false;
+  }
+
+  Clamp clamp() const
   {
     Clamp c;
-    c.block_forward = latched(kRight, now_s) || latched(kLeft, now_s);
-    c.block_reverse = latched(kBack, now_s);
+    c.stop_all = any();
     return c;
-  }
-
-  bool any(double now_s) const
-  {
-    const Clamp c = clamp(now_s);
-    return c.block_forward || c.block_reverse;
   }
 
 private:
   struct State
   {
     bool pressed = false;
-    bool armed = false;
-    bool has_release = false;
-    double released_at = 0.0;
+    bool armed = false;      // pressed at some point since the last clear
   };
   State st_[kBumperCount];
-  double clear_delay_;
 };
 
 /// Combine a level and a bumper clamp into the clamp actually applied.
@@ -260,9 +270,16 @@ inline Clamp combine(Level level, const Clamp & bumper)
   return c;
 }
 
-/// Apply a clamp to a velocity triple. Rotation is untouched by design.
-inline void applyClamp(const Clamp & c, float & vx, float & vy, double slow_scale)
+/// Apply a clamp to a velocity triple. Only stop_all (a bumper contact)
+/// touches rotation; the laser and sonar never do.
+inline void applyClamp(const Clamp & c, float & vx, float & vy, float & vth, double slow_scale)
 {
+  if (c.stop_all) {
+    vx = 0.f;
+    vy = 0.f;
+    vth = 0.f;
+    return;
+  }
   if (c.block_forward && vx > 0.f) {vx = 0.f;}
   if (c.block_reverse && vx < 0.f) {vx = 0.f;}
   if (!c.block_forward && c.scale < 1.0 && vx > 0.f) {
