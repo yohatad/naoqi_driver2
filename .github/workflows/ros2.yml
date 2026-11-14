@@ -69,8 +69,14 @@ jobs:
         with:
           path: src/naoqi_driver2
       - name: Fetch the dependencies
+        # libqi and libqicore from source here, not apt: the optimised apt build
+        # inlines boost's reference counting inside libqi, out of ThreadSanitizer's
+        # sight, and every test that opens a qi::Session then reports false races
+        # that test/tsan.supp cannot match. Every other job uses apt.
         run: |
           vcs import src < src/naoqi_driver2/dependencies.repos
+          git clone --depth 1 -b ros2 https://github.com/ros-naoqi/libqi.git src/naoqi_libqi
+          git clone --depth 1 -b ros2 https://github.com/ros-naoqi/libqicore.git src/naoqi_libqicore
           rm -rf src/nao_meshes src/pepper_meshes
           rosdep update
           rosdep install --from-paths src --ignore-src --rosdistro ${{ inputs.ROS_DISTRO }} -y
