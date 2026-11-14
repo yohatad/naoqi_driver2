@@ -1,13 +1,6 @@
 repositories:
-  # NAOqi-specific deps
-  naoqi_libqi:
-    type: git
-    url: https://github.com/ros-naoqi/libqi.git
-    version: ros2
-  naoqi_libqicore:
-    type: git
-    url: https://github.com/ros-naoqi/libqicore.git
-    version: ros2
+  # naoqi_libqi and naoqi_libqicore are not listed: rosdep installs them from apt
+  # (ros-<distro>-naoqi-libqi, ros-<distro>-naoqi-libqicore), as the README says.
   # This fork's interfaces (RunLed, PlayAudio, the audio services, ...).
   naoqi_bridge_msgs:
     type: git
