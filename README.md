@@ -148,6 +148,21 @@ The `pepper_bringup.launch.py` launch file starts the driver together with the
 and publishes it into the driver's TF tree (frame `CameraTop_optical_frame`,
 topics `/pepper/front/image_raw` and `/pepper/front/camera_info`).
 
+The stream comes from `scripts/robot/start_camera.sh`, which runs on the
+robot. Copy both camera scripts there once (again after a robot reset):
+
+```sh
+scp $(ros2 pkg prefix naoqi_driver)/share/naoqi_driver/scripts/robot/{start,stop}_camera.sh nao@<robot_host>:
+```
+
+`start_camera.sh` sends the stream to the machine you SSH in from (or to the
+host given as its first argument). It has NAOqi configure the camera with its
+own flip settings before releasing it, so the image is upright whether the
+robot is awake or resting, and stays upright if NAOqi touches the camera
+mid-stream. While the stream holds the camera, NAOqi's own camera check fails
+and the shoulders show a warning ("Warning 711 ... forhead camera"); that is
+expected.
+
 Start the camera stream on the robot first, then launch:
 
 ```sh

@@ -203,6 +203,8 @@ install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
 
 # scripts that run on the robot, to copy there (see README)
 install(PROGRAMS scripts/robot_watchdog.py DESTINATION share/${PROJECT_NAME}/scripts)
+install(PROGRAMS scripts/robot/start_camera.sh scripts/robot/stop_camera.sh
+  DESTINATION share/${PROJECT_NAME}/scripts/robot)
 
 if(BUILD_TESTING)
   # Code style: 'ament_uncrustify --reformat src include test' fixes any failure.
