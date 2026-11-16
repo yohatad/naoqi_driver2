@@ -60,6 +60,12 @@ jobs:
         # GCC 11's ThreadSanitizer fails with the 32-bit address randomization of
         # recent runner kernels ("unexpected memory mapping").
         run: sudo sysctl vm.mmap_rnd_bits=28
+      - name: Keep apt upgrade away from Firefox
+        # setup-ros runs `apt-get upgrade`, which now replaces the runner's Firefox
+        # deb with Ubuntu's snap transition package; its pre-install script fails
+        # on the runner and the whole upgrade aborts (2026-11-16). Nothing here
+        # needs a browser.
+        run: sudo apt-mark hold firefox
       - name: Install ROS
         uses: ros-tooling/setup-ros@v0.7
         with:
