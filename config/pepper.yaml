@@ -30,7 +30,6 @@
     proximity_half_angle: 1.0472     # rad, 60 deg half-arc
     proximity_min_hits: 2            # 1 lets one specular glitch stop it
     proximity_source_timeout: 1.0    # s before a reading stops counting
-    proximity_bumper_stuck_timeout: 10.0  # s of continuous press reported as ERROR
 
     # --- velocity limits and the command watchdog ---------------------------
     # cmd_vel_timeout 0.5 is the shipped default, repeated for visibility.

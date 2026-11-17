@@ -200,30 +200,16 @@ enum BumperId
 class BumperLatch
 {
 public:
-  /// now_s: when the event arrived, for stuck(); a press that is already
-  /// held keeps its original start time.
-  void set(int id, bool pressed, double now_s = 0.0)
+  void set(int id, bool pressed)
   {
     if (id < 0 || id >= kBumperCount) {return;}
     State & s = st_[id];
     if (pressed) {
-      if (!s.pressed) {s.pressed_since = now_s;}
       s.pressed = true;
       s.armed = true;
     } else {
       s.pressed = false;
     }
-  }
-
-  /// A switch held down far longer than a bump lasts: debris, a fault, or
-  /// Pepper leaning on something. Reported, so an operator knows why a reset
-  /// is being refused.
-  bool stuck(double now_s, double timeout) const
-  {
-    for (const auto & s : st_) {
-      if (s.pressed && now_s - s.pressed_since > timeout) {return true;}
-    }
-    return false;
   }
 
   /// Drop every latch. Refused (returns false) while any switch is pressed.
@@ -238,6 +224,15 @@ public:
   {
     if (id < 0 || id >= kBumperCount) {return false;}
     return st_[id].pressed || st_[id].armed;
+  }
+
+  /// The switch is down right now (not just latched). Reported by name, so an
+  /// operator knows which bumper is blocking a reset: a stuck switch, debris,
+  /// or Pepper still leaning on something.
+  bool pressed(int id) const
+  {
+    if (id < 0 || id >= kBumperCount) {return false;}
+    return st_[id].pressed;
   }
 
   bool anyPressed() const
@@ -268,7 +263,6 @@ private:
   {
     bool pressed = false;
     bool armed = false;      // pressed at some point since the last clear
-    double pressed_since = 0.0;
   };
   State st_[kBumperCount];
 };
