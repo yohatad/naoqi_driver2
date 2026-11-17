@@ -118,6 +118,7 @@ private:
   bool moving_ = false;                 // last command was non-zero
   bool stop_sent_ = false;              // zero already pushed for this detection
   double last_stop_reminder_s_ = 0.0;   // last "still stopped" log, s
+  double bumper_stuck_timeout_ = 10.0;  // s of continuous press reported as stuck
   std::mutex proximity_mutex_;
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr sub_laser_;
   rclcpp::Subscription<sensor_msgs::msg::Range>::SharedPtr sub_sonar_;

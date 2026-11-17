@@ -99,6 +99,9 @@ void TeleopSubscriber::reset(rclcpp::Node * node)
   source_timeout_ = helpers::declareNumberParameter(
     node, "proximity_source_timeout", source_timeout_,
     "Seconds before a laser or sonar reading stops counting");
+  bumper_stuck_timeout_ = helpers::declareNumberParameter(
+    node, "proximity_bumper_stuck_timeout", bumper_stuck_timeout_,
+    "Seconds of continuous bumper press reported as a stuck switch (ERROR)");
   // Kept across reset(): a reconnect must not silently lift a bumper stop.
   if (!bumper_latch_) {
     bumper_latch_ = std::make_shared<safety::BumperLatch>();
@@ -264,7 +267,7 @@ void TeleopSubscriber::bumperCallback(const naoqi_bridge_msgs::msg::Bumper::Shar
   std::lock_guard<std::mutex> lock(proximity_mutex_);
   const bool was_stopped = bumper_latch_->any();
   const bool was_pressed = bumper_latch_->latched(msg->bumper) && bumper_latch_->anyPressed();
-  bumper_latch_->set(msg->bumper, pressed);
+  bumper_latch_->set(msg->bumper, pressed, helpers::Time::now().seconds());
   const std::string clear_cmd = std::string("ros2 service call ") +
     srv_clear_bumper_->get_service_name() + " std_srvs/srv/Trigger";
   // ERROR, so the lock shows in red in the launch terminal.
@@ -378,15 +381,20 @@ void TeleopSubscriber::publishProximityDiagnostics(
   const double now_s = helpers::Time::now().seconds();
   bool laser_fresh;
   bool sonar_fresh;
+  bool stuck;
   {
     std::lock_guard<std::mutex> lock(proximity_mutex_);
     laser_fresh = laser_stamp_ > 0.0 && now_s - laser_stamp_ <= source_timeout_;
     sonar_fresh = sonar_stamp_ > 0.0 && now_s - sonar_stamp_ <= source_timeout_;
+    stuck = bumper_latch_->stuck(now_s, bumper_stuck_timeout_);
   }
   diagnostic_msgs::msg::DiagnosticStatus st;
   st.name = "naoqi_driver: proximity backstop";
   st.hardware_id = "pepper_laser_sonar_bumper";
-  if (clamp.stop_all) {
+  if (stuck) {
+    st.level = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
+    st.message = "bumper held down -- stuck switch or debris; all motion stopped";
+  } else if (clamp.stop_all) {
     st.level = diagnostic_msgs::msg::DiagnosticStatus::WARN;
     st.message = "bumper contact; all motion stopped until ~/clear_bumper";
   } else if (level == safety::Level::kStop) {
@@ -415,6 +423,7 @@ void TeleopSubscriber::publishProximityDiagnostics(
   kv("block_forward", clamp.block_forward ? "true" : "false");
   kv("block_reverse", clamp.block_reverse ? "true" : "false");
   kv("bumper_stop", clamp.stop_all ? "true" : "false");
+  kv("bumper_stuck", stuck ? "true" : "false");
   diagnostic_msgs::msg::DiagnosticArray arr;
   arr.header.stamp = helpers::Time::now();
   arr.status.push_back(st);

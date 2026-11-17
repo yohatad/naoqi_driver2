@@ -249,6 +249,33 @@ TEST(BumperLatchTest, ClearRefusedWhileAnotherBumperIsPressed)
   EXPECT_TRUE(l.clamp().stop_all);
 }
 
+TEST(BumperLatchTest, HeldPressIsReportedStuck)
+{
+  BumperLatch l;
+  l.set(kRight, true, 100.0);
+  EXPECT_FALSE(l.stuck(105.0, 10.0));       // a bump, or a short lean
+  EXPECT_TRUE(l.stuck(110.5, 10.0));        // held past the timeout
+}
+
+TEST(BumperLatchTest, RepeatedPressEventKeepsTheStartTime)
+{
+  // naoqi can repeat a press event while the switch stays down; that must not
+  // restart the clock and hide a stuck switch.
+  BumperLatch l;
+  l.set(kBack, true, 100.0);
+  l.set(kBack, true, 108.0);
+  EXPECT_TRUE(l.stuck(110.5, 10.0));
+}
+
+TEST(BumperLatchTest, ReleasedSwitchIsNotStuck)
+{
+  BumperLatch l;
+  l.set(kLeft, true, 100.0);
+  l.set(kLeft, false, 101.0);
+  EXPECT_FALSE(l.stuck(200.0, 10.0));
+  EXPECT_TRUE(l.clamp().stop_all);          // still latched, just not stuck
+}
+
 TEST(BumperLatchTest, OutOfRangeIdIgnored)
 {
   BumperLatch l;

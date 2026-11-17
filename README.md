@@ -249,9 +249,12 @@ drives back into what it hit and a press works as an emergency stop. Resume with
 ros2 service call /naoqi_driver/clear_bumper std_srvs/srv/Trigger
 ```
 
-The call is refused while a bumper is still pressed. With pepper4dec's Nav2
-stack on its default `fastloc` profile, call `/bumper_guard/clear` instead: it
-resets its own stop and this one.
+The call is refused while a bumper is still pressed. This is the only bumper
+stop: pepper4dec's Nav2 profiles have none of their own, so the same call
+resumes the robot under Nav2. A switch held down for more than
+`proximity_bumper_stuck_timeout` (10 s) is reported as ERROR on `/diagnostics`
+(`naoqi_driver: proximity backstop`): a stuck switch, debris, or Pepper leaning
+on something.
 
 ## Check that the node is running correctly
 

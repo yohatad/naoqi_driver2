@@ -49,7 +49,7 @@ namespace safety
  *
  * It fails QUIET, not safe: a stale or absent sensor yields no opinion rather
  * than a stop. That is the opposite of the primary chain, and deliberate --
- * Nav2's monitor plus bumper_guard's required_topics already stop the robot on
+ * Nav2's monitor plus pepper_navigation's sensor_guard already stop the robot on
  * sensor loss, and a second layer doing the same would double the chance of
  * immobilising the robot for no gain in safety.
  */
@@ -200,16 +200,30 @@ enum BumperId
 class BumperLatch
 {
 public:
-  void set(int id, bool pressed)
+  /// now_s: when the event arrived, for stuck(); a press that is already
+  /// held keeps its original start time.
+  void set(int id, bool pressed, double now_s = 0.0)
   {
     if (id < 0 || id >= kBumperCount) {return;}
     State & s = st_[id];
     if (pressed) {
+      if (!s.pressed) {s.pressed_since = now_s;}
       s.pressed = true;
       s.armed = true;
     } else {
       s.pressed = false;
     }
+  }
+
+  /// A switch held down far longer than a bump lasts: debris, a fault, or
+  /// Pepper leaning on something. Reported, so an operator knows why a reset
+  /// is being refused.
+  bool stuck(double now_s, double timeout) const
+  {
+    for (const auto & s : st_) {
+      if (s.pressed && now_s - s.pressed_since > timeout) {return true;}
+    }
+    return false;
   }
 
   /// Drop every latch. Refused (returns false) while any switch is pressed.
@@ -254,6 +268,7 @@ private:
   {
     bool pressed = false;
     bool armed = false;      // pressed at some point since the last clear
+    double pressed_since = 0.0;
   };
   State st_[kBumperCount];
 };
